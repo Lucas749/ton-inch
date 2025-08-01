@@ -85,6 +85,50 @@ export default function CreateStrategy() {
     return names[operator] || '?';
   };
 
+  const fillDemoData = () => {
+    // Fill demo data matching comprehensive_demo.js Apple stock example
+    setStrategyData({
+      name: "Apple Stock Bull Run Alert",
+      description: "Execute trade when Apple stock price exceeds $170.00",
+      tokenIn: "0x036CbD53842c5426634e7929541eC2318f3dCF7e", // USDC
+      tokenOut: "0x4200000000000000000000000000000000000006", // WETH
+      triggerType: "alphavantage",
+      triggerParams: {
+        dataType: "stock",
+        symbol: "AAPL",
+        indicator: "price",
+        threshold: "170.00",
+        condition: "greater_than",
+        keywords: "",
+        amount: "",
+        webhookUrl: "",
+        direction: "up",
+      },
+      orderAmount: "1000", // 1000 USDC
+      targetPrice: "0.4", // 0.4 ETH
+      slippage: "1",
+      expiry: "2", // 2 hours
+      swapConfig: {
+        mode: "classic",
+        preset: "fast",
+        walletAddress: "",
+        apiKey: "",
+        rpcUrl: "https://sepolia.base.org",
+      },
+      orderCondition: {
+        indexId: "0", // APPLE_STOCK index (assuming first index)
+        operator: OPERATORS.GT, // Greater than
+        threshold: "17000", // $170.00 * 100
+        description: "Apple stock > $170.00",
+      },
+    });
+
+    // Auto-advance to the review step to test the full flow
+    setCurrentStep(3);
+    
+    alert("🚀 Demo data loaded! Ready to test wallet connection and blockchain posting.");
+  };
+
   const handleCreateStrategy = async () => {
     try {
       if (!isConnected) {
@@ -172,23 +216,34 @@ export default function CreateStrategy() {
       <Navbar />
 
       <main className="container mx-auto px-4 py-8">
-        <div className="flex items-center space-x-4 mb-8">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => window.history.back()}
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              Create New Strategy
-            </h1>
-            <p className="text-gray-600">
-              Set up limit orders triggered by real-world events
-            </p>
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center space-x-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.history.back()}
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">
+                Create New Strategy
+              </h1>
+              <p className="text-gray-600">
+                Set up limit orders triggered by real-world events
+              </p>
+            </div>
           </div>
+          
+          {/* Demo Button */}
+          <Button
+            variant="secondary"
+            onClick={fillDemoData}
+            className="bg-blue-100 hover:bg-blue-200 text-blue-800 border-blue-300"
+          >
+            🚀 Fill Demo Data
+          </Button>
         </div>
 
         <StepNavigation currentStep={currentStep} />
