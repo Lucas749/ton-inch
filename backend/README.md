@@ -13,11 +13,14 @@ backend/
 │   └── interfaces/
 │       └── I1inch.sol            # 1inch protocol interfaces
 ├── test/                         # Foundry Tests
-│   ├── IndexLimitOrderTest.t.sol # Comprehensive test suite
-│   └── Counter.t.sol             # Default test
+│   └── IndexLimitOrderTest.t.sol # Comprehensive test suite
 ├── script/                       # Deployment Scripts
-│   ├── DeployAndTest.s.sol       # Deploy and test all contracts
-│   └── Counter.s.sol             # Default script
+│   └── DeployAndTest.s.sol       # Deploy and test all contracts
+├── web3_workflow.js              # 🆕 Complete Web3.js workflow
+├── WEB3_INTEGRATION_GUIDE.md     # 🆕 Web3.js integration guide
+├── GENERALIZATION_GUIDE.md       # 🆕 Custom indices guide
+├── SETUP_INSTRUCTIONS.md         # 🆕 Quick setup guide
+├── package.json                  # 🆕 Node.js dependencies
 ├── lib/                          # Dependencies
 │   └── openzeppelin-contracts/   # OpenZeppelin library
 ├── out/                          # Compiled artifacts
@@ -27,6 +30,7 @@ backend/
 
 ## ⚡ Quick Start
 
+### Option 1: Foundry Testing
 ```bash
 # Compile contracts
 forge build
@@ -37,6 +41,25 @@ forge test --fork-url https://sepolia.base.org -vvv
 # Deploy contracts (with real private key)
 forge script script/DeployAndTest.s.sol --rpc-url https://sepolia.base.org --broadcast
 ```
+
+### Option 2: Web3.js Integration
+```bash
+# Install dependencies
+npm install
+
+# Deploy contracts
+npm run deploy
+
+# Set PRIVATE_KEY in .env file and update contract addresses
+
+# Run complete workflow
+npm run workflow
+```
+
+📚 **Detailed Integration Guides:**
+- 🌐 [`WEB3_INTEGRATION_GUIDE.md`](./WEB3_INTEGRATION_GUIDE.md) - Complete Web3.js examples & workflow
+- 🔧 [`GENERALIZATION_GUIDE.md`](./GENERALIZATION_GUIDE.md) - Custom index creation guide  
+- ⚡ [`SETUP_INSTRUCTIONS.md`](./SETUP_INSTRUCTIONS.md) - Quick setup steps
 
 ## 🎯 How It Works
 
@@ -65,13 +88,39 @@ oracle.getIndexValue(BTC_PRICE) > 45000
 // ❌ Fail: Order stays in book
 ```
 
-### 3. **Supported Conditions**
-- 📈 **BTC_PRICE** - Bitcoin price movements
-- 👥 **ELON_FOLLOWERS** - Social media milestones  
-- 📊 **VIX_INDEX** - Market volatility (fear/greed)
-- 💰 **INFLATION_RATE** - Economic indicators
-- 📉 **UNEMPLOYMENT_RATE** - Job market data
-- 🚗 **TESLA_STOCK** - Individual stock prices
+### 3. **Index System (Fully Generalized!)**
+
+**🆕 Users can now register custom indices!**
+
+**Built-in indices:**
+- 📈 **BTC_PRICE** (ID: 2) - Bitcoin price movements  
+- 👥 **ELON_FOLLOWERS** (ID: 1) - Social media milestones
+- 📊 **VIX_INDEX** (ID: 3) - Market volatility (fear/greed)
+- 💰 **INFLATION_RATE** (ID: 0) - Economic indicators
+- 📉 **UNEMPLOYMENT_RATE** (ID: 4) - Job market data
+- 🚗 **TESLA_STOCK** (ID: 5) - Individual stock prices
+
+**Custom indices (unlimited):**
+```solidity
+// Register any custom index
+uint256 myIndexId = preInteraction.registerIndex(
+    "APPLE_STOCK",           // Name
+    "Apple Inc. stock price", // Description  
+    myOracleAddress          // Your oracle
+);
+
+// Use in orders
+factory.createIndexOrder(..., myIndexId, GREATER_THAN, 150, ...);
+```
+
+**Revolutionary possibilities:**
+- 🗳️ Election results - Trade when candidate wins
+- 🌊 Natural disasters - Hedge on earthquake magnitude  
+- 🛰️ Satellite data - Carbon credits on CO2 levels
+- 🎵 Music charts - NFT trades when song hits #1
+- 🏆 Gaming tournaments - Bet on esports scores
+- 📱 App metrics - Trade on app downloads
+- 🚀 Space missions - Execute on rocket launch success
 
 ## 🧪 Test Results
 

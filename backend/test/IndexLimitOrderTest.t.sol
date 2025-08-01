@@ -129,7 +129,7 @@ contract IndexLimitOrderTest is Test {
         console.log("=== Testing Oracle Basics ===");
         
         // Test getting index values
-        (uint256 btcPrice, uint256 timestamp) = oracle.getIndexValue(MockIndexOracle.IndexType.BTC_PRICE);
+        (uint256 btcPrice, uint256 timestamp) = oracle.getIndexValue(2); // BTC_PRICE
         assertEq(btcPrice, 43000 * 100);
         assertGt(timestamp, 0);
         
@@ -138,7 +138,7 @@ contract IndexLimitOrderTest is Test {
         
         // Test updating values
         oracle.updateIndex(MockIndexOracle.IndexType.BTC_PRICE, 45000 * 100);
-        (btcPrice,) = oracle.getIndexValue(MockIndexOracle.IndexType.BTC_PRICE);
+        (btcPrice,) = oracle.getIndexValue(2); // BTC_PRICE
         assertEq(btcPrice, 45000 * 100);
         
         console.log("Updated BTC Price:", btcPrice);
@@ -162,7 +162,7 @@ contract IndexLimitOrderTest is Test {
             WETH,
             MAKING_AMOUNT,
             TAKING_AMOUNT,
-            IndexPreInteraction.IndexType.BTC_PRICE,
+            preInteraction.BTC_PRICE(),
             IndexPreInteraction.ComparisonOperator.GREATER_THAN,
             45000 * 100, // $45k threshold
             uint40(block.timestamp + 3600) // 1 hour expiry
@@ -212,7 +212,7 @@ contract IndexLimitOrderTest is Test {
             WETH,
             MAKING_AMOUNT,
             TAKING_AMOUNT,
-            IndexPreInteraction.IndexType.BTC_PRICE,
+            preInteraction.BTC_PRICE(),
             IndexPreInteraction.ComparisonOperator.GREATER_THAN,
             45000 * 100,
             uint40(block.timestamp + 3600)
@@ -255,7 +255,7 @@ contract IndexLimitOrderTest is Test {
             11111,
             maker, maker, USDC, WETH,
             MAKING_AMOUNT, TAKING_AMOUNT,
-            IndexPreInteraction.IndexType.ELON_FOLLOWERS,
+            preInteraction.ELON_FOLLOWERS(),
             IndexPreInteraction.ComparisonOperator.GREATER_THAN,
             160000000,
             uint40(block.timestamp + 3600)
@@ -278,7 +278,7 @@ contract IndexLimitOrderTest is Test {
             22222,
             maker, maker, USDC, WETH,
             MAKING_AMOUNT, TAKING_AMOUNT,
-            IndexPreInteraction.IndexType.VIX_INDEX,
+            preInteraction.VIX_INDEX(),
             IndexPreInteraction.ComparisonOperator.LESS_THAN,
             2000, // 20.00
             uint40(block.timestamp + 3600)
@@ -295,7 +295,7 @@ contract IndexLimitOrderTest is Test {
             33333,
             maker, maker, USDC, WETH,
             MAKING_AMOUNT, TAKING_AMOUNT,
-            IndexPreInteraction.IndexType.INFLATION_RATE,
+            preInteraction.INFLATION_RATE(),
             IndexPreInteraction.ComparisonOperator.EQUAL,
             320, // 3.20%
             uint40(block.timestamp + 3600)
@@ -324,7 +324,7 @@ contract IndexLimitOrderTest is Test {
             99999,
             maker, maker, USDC, WETH,
             MAKING_AMOUNT, TAKING_AMOUNT,
-            IndexPreInteraction.IndexType.BTC_PRICE,
+            preInteraction.BTC_PRICE(),
             IndexPreInteraction.ComparisonOperator.GREATER_THAN,
             44000 * 100,
             uint40(block.timestamp + 3600)
@@ -351,12 +351,12 @@ contract IndexLimitOrderTest is Test {
         
         // Verify the condition details
         (
-            IndexPreInteraction.IndexType indexType,
+            uint256 indexId,
             IndexPreInteraction.ComparisonOperator operator,
             uint256 threshold
         ) = preInteraction.getOrderCondition(orderHash);
         
-        assertEq(uint8(indexType), uint8(IndexPreInteraction.IndexType.BTC_PRICE));
+        assertEq(indexId, preInteraction.BTC_PRICE());
         assertEq(uint8(operator), uint8(IndexPreInteraction.ComparisonOperator.GREATER_THAN));
         assertEq(threshold, 44000 * 100);
         
@@ -377,7 +377,7 @@ contract IndexLimitOrderTest is Test {
             77777,
             maker, maker, USDC, WETH,
             MAKING_AMOUNT, TAKING_AMOUNT,
-            IndexPreInteraction.IndexType.BTC_PRICE,
+            preInteraction.BTC_PRICE(),
             IndexPreInteraction.ComparisonOperator.GREATER_THAN,
             40000 * 100,
             uint40(block.timestamp - 1) // Already expired
@@ -390,7 +390,7 @@ contract IndexLimitOrderTest is Test {
             88888,
             maker, maker, USDC, WETH,
             MAKING_AMOUNT, TAKING_AMOUNT,
-            IndexPreInteraction.IndexType.TESLA_STOCK,
+            preInteraction.TESLA_STOCK(),
             IndexPreInteraction.ComparisonOperator.EQUAL,
             25000, // Exactly $250.00
             uint40(block.timestamp + 3600)
@@ -425,7 +425,7 @@ contract IndexLimitOrderTest is Test {
             666666,
             maker, maker, USDC, WETH,
             MAKING_AMOUNT, TAKING_AMOUNT,
-            IndexPreInteraction.IndexType.BTC_PRICE,
+            preInteraction.BTC_PRICE(),
             IndexPreInteraction.ComparisonOperator.GREATER_THAN,
             45000 * 100,
             uint40(block.timestamp + 3600)
@@ -480,7 +480,7 @@ contract IndexLimitOrderTest is Test {
             111111,
             maker, maker, WETH, USDC, // Sell ETH for USDC (exit risk)
             1 ether, 3000 * 10**6, // 1 ETH for 3000 USDC
-            IndexPreInteraction.IndexType.VIX_INDEX,
+            preInteraction.VIX_INDEX(),
             IndexPreInteraction.ComparisonOperator.GREATER_THAN,
             2500, // 25%
             uint40(block.timestamp + 86400) // 1 day
@@ -511,7 +511,7 @@ contract IndexLimitOrderTest is Test {
             222222,
             maker, maker, USDC, WETH, // Buy ETH as inflation hedge
             2000 * 10**6, 1 ether,
-            IndexPreInteraction.IndexType.INFLATION_RATE,
+            preInteraction.INFLATION_RATE(),
             IndexPreInteraction.ComparisonOperator.GREATER_THAN,
             400, // 4%
             uint40(block.timestamp + 86400)
@@ -540,7 +540,7 @@ contract IndexLimitOrderTest is Test {
             333333,
             maker, maker, USDC, WETH,
             1000 * 10**6, 0.4 ether,
-            IndexPreInteraction.IndexType.ELON_FOLLOWERS,
+            preInteraction.ELON_FOLLOWERS(),
             IndexPreInteraction.ComparisonOperator.GREATER_THAN,
             155000000, // 155M
             uint40(block.timestamp + 86400)

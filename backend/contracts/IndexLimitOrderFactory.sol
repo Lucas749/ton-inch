@@ -18,7 +18,7 @@ contract IndexLimitOrderFactory {
     event IndexOrderCreated(
         bytes32 indexed orderHash,
         address indexed maker,
-        IndexPreInteraction.IndexType indexType,
+        uint256 indexed indexId,
         IndexPreInteraction.ComparisonOperator operator,
         uint256 thresholdValue
     );
@@ -43,7 +43,7 @@ contract IndexLimitOrderFactory {
      * @param takerAsset Token maker wants
      * @param makingAmount Amount of maker asset
      * @param takingAmount Amount of taker asset
-     * @param indexType Type of index to monitor
+     * @param indexId ID of index to monitor
      * @param operator Comparison operator
      * @param thresholdValue Threshold value for condition
      * @param expiry Expiration timestamp (0 = no expiry)
@@ -58,7 +58,7 @@ contract IndexLimitOrderFactory {
         address takerAsset,
         uint256 makingAmount,
         uint256 takingAmount,
-        IndexPreInteraction.IndexType indexType,
+        uint256 indexId,
         IndexPreInteraction.ComparisonOperator operator,
         uint256 thresholdValue,
         uint40 expiry
@@ -95,7 +95,7 @@ contract IndexLimitOrderFactory {
         // Create extension data with preInteraction target and data
         bytes memory preInteractionData = abi.encodePacked(
             address(preInteractionContract),  // 20 bytes: target contract
-            uint8(indexType),                // 1 byte: index type
+            indexId,                         // 32 bytes: index ID
             uint8(operator),                 // 1 byte: operator  
             thresholdValue                   // 32 bytes: threshold
         );
@@ -113,7 +113,7 @@ contract IndexLimitOrderFactory {
         // Pre-register the condition for efficiency
         preInteractionContract.registerOrderCondition(
             _getOrderHash(order),
-            indexType,
+            indexId,
             operator,
             thresholdValue
         );
@@ -121,7 +121,7 @@ contract IndexLimitOrderFactory {
         emit IndexOrderCreated(
             _getOrderHash(order),
             maker,
-            indexType,
+            indexId,
             operator,
             thresholdValue
         );
@@ -129,19 +129,19 @@ contract IndexLimitOrderFactory {
     
     /**
      * @notice Helper to encode just the preInteraction data for existing orders
-     * @param indexType Type of index to monitor
+     * @param indexId ID of index to monitor
      * @param operator Comparison operator
      * @param thresholdValue Threshold value for condition
      * @return preInteractionData Encoded data for preInteraction
      */
     function encodePreInteractionData(
-        IndexPreInteraction.IndexType indexType,
+        uint256 indexId,
         IndexPreInteraction.ComparisonOperator operator,
         uint256 thresholdValue
     ) external view returns (bytes memory preInteractionData) {
         return abi.encodePacked(
             address(preInteractionContract),  // 20 bytes: target contract
-            uint8(indexType),                // 1 byte: index type
+            indexId,                         // 32 bytes: index ID
             uint8(operator),                 // 1 byte: operator
             thresholdValue                   // 32 bytes: threshold
         );

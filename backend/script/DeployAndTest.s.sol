@@ -104,7 +104,7 @@ contract DeployAndTest is Script {
             WETH,
             1000 * 10**6,
             0.5 ether,
-            IndexPreInteraction.IndexType.BTC_PRICE,
+            2, // BTC_PRICE
             IndexPreInteraction.ComparisonOperator.GREATER_THAN,
             45000 * 100,
             uint40(block.timestamp + 3600)

@@ -85,6 +85,23 @@ contract MockIndexOracle {
         require(data.isActive, "Index not active");
         return (data.value, data.timestamp);
     }
+
+    // Overloaded function that accepts uint256 indexId for generalized system
+    function getIndexValue(uint256 indexId) external view returns (uint256 value, uint256 timestamp) {
+        // Map new indexId system to legacy enum for backward compatibility
+        IndexType indexType;
+        if (indexId == 0) indexType = IndexType.INFLATION_RATE;
+        else if (indexId == 1) indexType = IndexType.ELON_FOLLOWERS;
+        else if (indexId == 2) indexType = IndexType.BTC_PRICE;
+        else if (indexId == 3) indexType = IndexType.VIX_INDEX;
+        else if (indexId == 4) indexType = IndexType.UNEMPLOYMENT_RATE;
+        else if (indexId == 5) indexType = IndexType.TESLA_STOCK;
+        else revert("Index not supported");
+        
+        IndexData memory data = indexData[indexType];
+        require(data.isActive, "Index not active");
+        return (data.value, data.timestamp);
+    }
     
     /**
      * @notice Check if index is valid/active
@@ -92,6 +109,21 @@ contract MockIndexOracle {
      * @return isValid Whether index is active
      */
     function isValidIndex(IndexType indexType) external view returns (bool isValid) {
+        return indexData[indexType].isActive;
+    }
+
+    // Overloaded function that accepts uint256 indexId for generalized system  
+    function isValidIndex(uint256 indexId) external view returns (bool) {
+        if (indexId > 5) return false; // Only support predefined indices for now
+        
+        IndexType indexType;
+        if (indexId == 0) indexType = IndexType.INFLATION_RATE;
+        else if (indexId == 1) indexType = IndexType.ELON_FOLLOWERS;
+        else if (indexId == 2) indexType = IndexType.BTC_PRICE;
+        else if (indexId == 3) indexType = IndexType.VIX_INDEX;
+        else if (indexId == 4) indexType = IndexType.UNEMPLOYMENT_RATE;
+        else if (indexId == 5) indexType = IndexType.TESLA_STOCK;
+        
         return indexData[indexType].isActive;
     }
     
