@@ -42,7 +42,7 @@ export default function Dashboard() {
     }
   };
   
-  const { isConnected, indices: blockchainIndices } = useBlockchain();
+  const { isConnected, indices: blockchainIndices, refreshIndices } = useBlockchain();
   const { orders } = useOrders();
   const router = useRouter();
 
@@ -370,7 +370,7 @@ export default function Dashboard() {
                   <h2 className="text-xl font-semibold">My Indices</h2>
                   <div className="space-x-2">
                     <Button 
-                      onClick={loadData}
+                      onClick={refreshIndices}
                       variant="outline"
                       disabled={isLoading}
                     >
@@ -474,7 +474,7 @@ export default function Dashboard() {
                 <div className="flex justify-between items-center">
                   <h2 className="text-xl font-semibold">My Orders</h2>
                   <Button 
-                    onClick={loadData}
+                    onClick={loadOrdersOnDemand}
                     variant="outline"
                     disabled={isLoading}
                   >

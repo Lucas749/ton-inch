@@ -1455,27 +1455,31 @@ export class BlockchainService {
         params.fromToken
       );
 
-      console.log("🔄 Approving factory to spend tokens...");
-      await fromTokenContract.methods
-        .approve(CONTRACTS.IndexLimitOrderFactory, makingAmount)
-        .send({
-          from: this.account,
-          gas: 100000,
-        });
+      console.log("🔄 Approving factory to spend tokens with retry logic...");
+      await this.retryWithBackoff(async () => {
+        return await fromTokenContract.methods
+          .approve(CONTRACTS.IndexLimitOrderFactory, makingAmount)
+          .send({
+            from: this.account,
+            gas: 100000,
+          });
+      }, 3, 2000); // 3 retries, 2s base delay
 
       console.log("✅ Token approval successful");
 
-      // Now create the order
-      console.log("🔄 Creating index order...");
-      const tx = await this.factory.methods
-        .createIndexOrder(
-          salt, maker, receiver, makerAsset, takerAsset,
-          makingAmount, takingAmount, indexId, operator, threshold, expiry
-        )
-        .send({
-          from: this.account,
-          gas: 500000,
-        });
+      // Now create the order with retry logic
+      console.log("🔄 Creating index order with retry logic...");
+      const tx = await this.retryWithBackoff(async () => {
+        return await this.factory.methods
+          .createIndexOrder(
+            salt, maker, receiver, makerAsset, takerAsset,
+            makingAmount, takingAmount, indexId, operator, threshold, expiry
+          )
+          .send({
+            from: this.account,
+            gas: 500000,
+          });
+      }, 3, 3000); // 3 retries, 3s base delay for transaction
 
       console.log("✅ Order created!", tx.transactionHash);
 
@@ -1505,9 +1509,34 @@ export class BlockchainService {
         transactionHash: tx.transactionHash,
       };
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("❌ Error creating order:", error);
-      throw error;
+      
+      // Provide user-friendly error messages for common issues
+      if (error.message?.includes('circuit breaker')) {
+        throw new Error(
+          "🔄 Network is temporarily overloaded. Please wait 30 seconds and try again. " +
+          "The RPC service is protecting itself from too many requests."
+        );
+      } else if (error.message?.includes('rate limit')) {
+        throw new Error(
+          "⏰ Too many requests. Please wait a moment and try again."
+        );
+      } else if (error.message?.includes('insufficient funds')) {
+        throw new Error(
+          "💰 Insufficient funds for gas or token amount. Please check your balance."
+        );
+      } else if (error.message?.includes('user rejected')) {
+        throw new Error(
+          "❌ Transaction was cancelled by user."
+        );
+      }
+      
+      // For other errors, provide a generic helpful message
+      throw new Error(
+        `Transaction failed: ${error.message || 'Unknown error'}. ` +
+        "Please try again or check your wallet connection."
+      );
     }
   }
 
