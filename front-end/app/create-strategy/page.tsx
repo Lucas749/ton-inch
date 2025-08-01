@@ -25,6 +25,7 @@ export default function CreateStrategy() {
   const { isConnected, indices } = useBlockchain();
   const { createOrder, isLoading: isCreatingOrder } = useOrders();
   const [isMintingTokens, setIsMintingTokens] = useState(false);
+  const [isCreatingIndex, setIsCreatingIndex] = useState(false);
   
   const [strategyData, setStrategyData] = useState({
     name: "",
@@ -134,7 +135,25 @@ export default function CreateStrategy() {
     // Auto-advance to the review step to test the full flow
     setCurrentStep(3);
     
-    alert("🚀 Demo data loaded with TestUSDC! You'll need test tokens first - use the 'Get Test Tokens' button.");
+    alert("🚀 Demo data loaded! Steps to test:\n1. Create Test Index (📊)\n2. Get Test Tokens (🪙)\n3. Create Strategy");
+  };
+
+  const handleCreateTestIndex = async () => {
+    try {
+      setIsCreatingIndex(true);
+      // Create a test Apple Stock index with initial value of $175.00 (17500 in cents)
+      const indexId = await blockchainService.createIndex(
+        "APPLE_STOCK", 
+        "Apple Inc. stock price in USD cents", 
+        17500
+      );
+      alert(`✅ Successfully created Apple Stock index with ID: ${indexId}!`);
+    } catch (error) {
+      console.error("Failed to create test index:", error);
+      alert(`❌ Failed to create test index: ${error instanceof Error ? error.message : "Unknown error"}`);
+    } finally {
+      setIsCreatingIndex(false);
+    }
   };
 
   const handleMintTestTokens = async () => {
@@ -298,6 +317,14 @@ export default function CreateStrategy() {
           
           {/* Action Buttons */}
           <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              onClick={handleCreateTestIndex}
+              disabled={!isConnected || isCreatingIndex}
+              className="bg-purple-100 hover:bg-purple-200 text-purple-800 border-purple-300"
+            >
+              {isCreatingIndex ? "Creating..." : "📊 Create Test Index"}
+            </Button>
             <Button
               variant="secondary"
               onClick={handleMintTestTokens}
