@@ -546,10 +546,11 @@ export class BlockchainService {
   }
 
   /**
-   * Get all custom indices from the oracle
+   * Get all custom indices from the oracle with rate limiting
    */
   async getAllIndices(): Promise<CustomIndex[]> {
     try {
+      console.log('📊 Fetching all indices with rate limiting...');
       const indices: CustomIndex[] = [];
 
       // Get the actual list of created custom indices from the oracle
@@ -557,17 +558,22 @@ export class BlockchainService {
         const customIndicesArray = await this.oracle.methods.getAllCustomIndices().call();
         console.log("📊 Found custom indices:", customIndicesArray);
         
-        for (const indexId of customIndicesArray) {
+        for (let i = 0; i < customIndicesArray.length; i++) {
+          const indexId = customIndicesArray[i];
           try {
             const id = Number(indexId);
-            const result = await this.oracle.methods.getIndexValue(id).call();
+            
+            // Use retry logic for getIndexValue
+            const result = await this.retryWithBackoff(async () => {
+              return await this.oracle.methods.getIndexValue(id).call();
+            });
             
             // Try to get additional info from PreInteraction contract
             let indexInfo = null;
             try {
-              indexInfo = await this.preInteraction.methods
-                .getIndexInfo(id)
-                .call();
+              indexInfo = await this.retryWithBackoff(async () => {
+                return await this.preInteraction.methods.getIndexInfo(id).call();
+              });
             } catch (e) {
               // Index not registered in PreInteraction, use default values
             }
@@ -585,53 +591,63 @@ export class BlockchainService {
                 ? Number(indexInfo.createdAt)
                 : undefined,
             });
+            
+            // Add delay between requests to avoid overwhelming RPC
+            if (i < customIndicesArray.length - 1) {
+              await this.delay(200);
+            }
           } catch (e) {
-            console.warn(`Failed to load index ${indexId}:`, e);
+            console.warn(`⚠️ Failed to load index ${indexId}:`, e);
             continue;
           }
         }
       } catch (error) {
         console.warn("Could not get custom indices list, falling back to range scan:", error);
         
-        // Fallback: scan a smaller range and validate more carefully
-        for (let i = 0; i <= 5; i++) {
+        // Fallback: scan a wider range and validate more carefully
+        for (let i = 0; i <= 50; i++) { // Extended range to find more indices
           try {
-            const result = await this.oracle.methods.getIndexValue(i).call();
+            const result = await this.retryWithBackoff(async () => {
+              return await this.oracle.methods.getIndexValue(i).call();
+            });
             
             // More robust existence check: ensure we have valid data and timestamp
             if (result && result[0] && Number(result[0]) > 0 && Number(result[1]) > 0) {
               let indexInfo = null;
               try {
-                indexInfo = await this.preInteraction.methods
-                  .getIndexInfo(i)
-                  .call();
+                indexInfo = await this.retryWithBackoff(async () => {
+                  return await this.preInteraction.methods.getIndexInfo(i).call();
+                });
               } catch (e) {
                 // Index not registered in PreInteraction
-            }
+              }
 
-            indices.push({
-              id: i,
-              name: indexInfo?.name || `Custom Index ${i}`,
-              description:
-                indexInfo?.description || `Custom index with ID ${i}`,
-              value: Number(result[0]),
-              timestamp: Number(result[1]),
-              active: indexInfo?.isActive ?? true,
-              creator: indexInfo?.creator,
-              createdAt: indexInfo?.createdAt
-                ? Number(indexInfo.createdAt)
-                : undefined,
-            });
-          }
-        } catch (e) {
+              indices.push({
+                id: i,
+                name: indexInfo?.name || `Custom Index ${i}`,
+                description:
+                  indexInfo?.description || `Custom index with ID ${i}`,
+                value: Number(result[0]),
+                timestamp: Number(result[1]),
+                active: indexInfo?.isActive ?? true,
+                creator: indexInfo?.creator,
+                createdAt: indexInfo?.createdAt
+                  ? Number(indexInfo.createdAt)
+                  : undefined,
+              });
+            }
+            
+            // Add delay between fallback requests
+            await this.delay(100);
+          } catch (e) {
             // Index doesn't exist, continue
-          continue;
+            continue;
           }
         }
       }
 
-      console.log("✅ Loaded indices:", indices);
-      return indices;
+      console.log(`✅ Loaded ${indices.length} total indices`);
+      return indices.sort((a, b) => a.id - b.id);
     } catch (error) {
       console.error("❌ Error fetching indices:", error);
       return []; // Return empty array instead of throwing
@@ -1594,93 +1610,7 @@ export class BlockchainService {
     }
   }
 
-  /**
-   * Get all indices (predefined + custom) with rate limiting to avoid circuit breaker
-   */
-  async getAllIndices(): Promise<CustomIndex[]> {
-    try {
-      console.log('📊 Fetching all indices with rate limiting...');
-      const allIndices: CustomIndex[] = [];
 
-      // Predefined indices (0-5) with delays
-      const predefinedIndices = [
-        { id: 0, type: 'INFLATION_RATE' },
-        { id: 1, type: 'ELON_FOLLOWERS' },
-        { id: 2, type: 'BTC_PRICE' },
-        { id: 3, type: 'VIX_INDEX' },
-        { id: 4, type: 'UNEMPLOYMENT_RATE' },
-        { id: 5, type: 'TESLA_STOCK' }
-      ];
-
-      console.log('📊 Fetching predefined indices with delays...');
-      for (let i = 0; i < predefinedIndices.length; i++) {
-        const predefined = predefinedIndices[i];
-        try {
-          const details = await this.getIndexDetailsWithRetry(predefined.id);
-          if (details) {
-            allIndices.push(details);
-          }
-        } catch (error) {
-          console.warn(`⚠️ Failed to fetch predefined index ${predefined.id}:`, error);
-        }
-        
-        // Add delay between requests to avoid overwhelming RPC
-        if (i < predefinedIndices.length - 1) {
-          await this.delay(200); // 200ms delay
-        }
-      }
-
-      // Custom indices from oracle
-      console.log('🔧 Fetching custom indices...');
-      try {
-        if (!this.oracle) {
-          console.error('Oracle contract not initialized');
-          return allIndices;
-        }
-
-        // Get all custom indices in batch from oracle
-        const result = await this.oracle.methods.getAllCustomIndices().call();
-        const { 0: indexIds, 1: values, 2: timestamps, 3: activeStates } = result;
-        
-        console.log(`Found ${indexIds.length} custom indices`);
-        
-        // Get detailed info for each custom index with delays
-        for (let i = 0; i < indexIds.length; i++) {
-          const indexId = Number(indexIds[i]);
-          try {
-            const details = await this.getIndexDetailsWithRetry(indexId);
-            
-            if (details) {
-              // Add oracle data (sometimes more current than preInteraction)
-              details.value = Number(values[i]);
-              details.timestamp = Number(timestamps[i]);
-              details.active = activeStates[i];
-              allIndices.push(details);
-            }
-          } catch (error) {
-            console.warn(`⚠️ Failed to fetch custom index ${indexId}:`, error);
-          }
-          
-          // Add delay between requests
-          if (i < indexIds.length - 1) {
-            await this.delay(200);
-          }
-        }
-      } catch (error) {
-        console.error('❌ Error fetching custom indices:', error);
-      }
-
-      // Sort by ID
-      allIndices.sort((a, b) => a.id - b.id);
-      
-      console.log(`✅ Loaded ${allIndices.length} total indices`);
-      return allIndices;
-      
-    } catch (error) {
-      console.error('❌ Error fetching all indices:', error);
-      return [];
-    }
-  }
 
   /**
    * Delay helper function
@@ -1733,22 +1663,33 @@ export class BlockchainService {
   }
 
   /**
-   * Get all orders for a specific index (TEMPORARILY DISABLED)
-   * TODO: Re-enable once RPC circuit breaker issues are resolved
+   * Get all orders for a specific index with retry logic and rate limiting
    */
   async getOrdersByIndex(indexId: number): Promise<any[]> {
-    console.log(`⚠️ Order loading temporarily disabled for index ${indexId} to avoid RPC circuit breaker`);
-    return []; // Return empty array for now
-    
-    /* COMMENTED OUT - UNCOMMENT WHEN RPC IS MORE STABLE
     try {
-      const events = await this.factory.getPastEvents("IndexOrderCreated", {
-        filter: { indexId },
-        fromBlock: "earliest",
-        toBlock: "latest",
+      // Check cache first
+      const cached = this.orderCache.get(indexId);
+      if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
+        console.log(`📋 Using cached orders for index ${indexId}`);
+        return cached.orders;
+      }
+
+      if (!this.factory) {
+        throw new Error("Factory contract not initialized");
+      }
+
+      console.log(`🔍 Loading orders for index ${indexId} with retry logic...`);
+
+      // Use retry with backoff for robustness
+      const events = await this.retryWithBackoff(async () => {
+        return await this.factory.getPastEvents("IndexOrderCreated", {
+          filter: { indexId },
+          fromBlock: "earliest",
+          toBlock: "latest",
+        });
       });
 
-      return events.map((event: any) => ({
+      const orders = events.map((event: any) => ({
         hash: event.returnValues.orderHash,
         indexId: event.returnValues.indexId,
         operator: parseInt(event.returnValues.operator),
@@ -1761,11 +1702,24 @@ export class BlockchainService {
         blockNumber: event.blockNumber,
         transactionHash: event.transactionHash,
       }));
+
+      // Cache the results
+      this.orderCache.set(indexId, { orders, timestamp: Date.now() });
+      console.log(`✅ Loaded ${orders.length} orders for index ${indexId}`);
+
+      return orders;
     } catch (error) {
-      console.error("Error fetching orders by index:", error);
+      console.error(`❌ Error fetching orders for index ${indexId}:`, error);
+
+      // Return cached data if available, even if stale
+      const cached = this.orderCache.get(indexId);
+      if (cached) {
+        console.log(`⚠️ Using stale cached orders for index ${indexId} due to error`);
+        return cached.orders;
+      }
+
       return [];
     }
-    */
   }
 }
 
