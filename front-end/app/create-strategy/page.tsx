@@ -31,6 +31,10 @@ import {
   BarChart3,
 } from "lucide-react";
 import { TOKENS, TRIGGER_TYPES } from "@/lib/constants";
+import { useBlockchain } from "@/hooks/useBlockchain";
+import { useOrders, OPERATORS } from "@/hooks/useOrders";
+import { TokenSelector } from "@/components/TokenSelector";
+import { WalletConnect } from "@/components/WalletConnect";
 
 const steps = [
   { id: "basics", title: "Strategy Basics", icon: Target },
@@ -41,6 +45,8 @@ const steps = [
 
 export default function CreateStrategy() {
   const [currentStep, setCurrentStep] = useState(0);
+  const { isConnected, indices, connectWallet, refreshIndices } = useBlockchain();
+  const { createOrder, isLoading: isCreatingOrder, error: orderError } = useOrders();
   const [strategyData, setStrategyData] = useState({
     name: "",
     description: "",
@@ -71,6 +77,13 @@ export default function CreateStrategy() {
       walletAddress: "",
       apiKey: "",
       rpcUrl: "https://sepolia.base.org",
+    },
+    // Order condition parameters
+    orderCondition: {
+      indexId: "",
+      operator: OPERATORS.GT, // Default to greater than
+      threshold: "",
+      description: "",
     },
   });
 
@@ -105,6 +118,64 @@ export default function CreateStrategy() {
       ...prev,
       swapConfig: { ...prev.swapConfig, [param]: value },
     }));
+  };
+
+  const updateOrderCondition = (param: string, value: any) => {
+    setStrategyData((prev) => ({
+      ...prev,
+      orderCondition: { ...prev.orderCondition, [param]: value },
+    }));
+  };
+
+  const getOperatorName = (operator: number): string => {
+    const names = ['>', '<', '>=', '<=', '=='];
+    return names[operator] || '?';
+  };
+
+  const handleCreateStrategy = async () => {
+    try {
+      if (!isConnected) {
+        alert("Please connect your wallet first");
+        return;
+      }
+
+      if (!strategyData.orderCondition.indexId || !strategyData.orderCondition.threshold) {
+        alert("Please configure the index condition");
+        return;
+      }
+
+      if (!strategyData.orderAmount) {
+        alert("Please enter an order amount");
+        return;
+      }
+
+      // Create the order with blockchain integration
+      const orderParams = {
+        indexId: parseInt(strategyData.orderCondition.indexId),
+        operator: strategyData.orderCondition.operator,
+        threshold: parseInt(strategyData.orderCondition.threshold),
+        description: strategyData.orderCondition.description || 
+                    `${strategyData.name} - ${getOperatorName(strategyData.orderCondition.operator)} ${strategyData.orderCondition.threshold}`,
+        fromToken: strategyData.tokenIn || "0x036CbD53842c5426634e7929541eC2318f3dCF7e", // Default to USDC
+        toToken: strategyData.tokenOut || "0x4200000000000000000000000000000000000006", // Default to WETH
+        fromAmount: strategyData.orderAmount,
+        toAmount: strategyData.targetPrice || "0.1", // Default target
+        expiry: Math.floor(Date.now() / 1000) + (parseInt(strategyData.expiry) * 3600), // Convert hours to seconds
+      };
+
+      console.log("Creating order with params:", orderParams);
+      
+      const order = await createOrder(orderParams);
+      
+      if (order) {
+        alert(`Strategy created successfully! Order Hash: ${order.hash}`);
+        // Could redirect to strategy view page here
+        console.log("Order created:", order);
+      }
+    } catch (error) {
+      console.error("Error creating strategy:", error);
+      alert(`Failed to create strategy: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   };
 
   const renderTriggerIcon = (type: string) => {
@@ -779,6 +850,125 @@ export default function CreateStrategy() {
                       </CardContent>
                     </Card>
 
+                    {/* Index Condition Configuration */}
+                    <Card className="bg-green-50 border-green-200">
+                      <CardHeader>
+                        <CardTitle className="text-lg">
+                          Index Condition Setup
+                        </CardTitle>
+                        <p className="text-sm text-gray-600">
+                          Configure when this order should be executed based on blockchain indices
+                        </p>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {!isConnected ? (
+                          <div className="text-center py-4">
+                            <WalletConnect compact={false} />
+                            <p className="text-sm text-gray-600 mt-2">
+                              Connect your wallet to access blockchain indices
+                            </p>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="space-y-2">
+                              <Label htmlFor="index-select">Select Index</Label>
+                              <Select
+                                value={strategyData.orderCondition.indexId}
+                                onValueChange={(value) =>
+                                  updateOrderCondition("indexId", value)
+                                }
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Choose an index" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {indices.map((index) => (
+                                    <SelectItem key={index.id} value={index.id.toString()}>
+                                      {index.name || `Index ${index.id}`} (Current: {index.value})
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              {indices.length === 0 && (
+                                <p className="text-sm text-yellow-600">
+                                  No indices found. Create indices in the Dashboard first.
+                                </p>
+                              )}
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label htmlFor="operator-select">Condition</Label>
+                                <Select
+                                  value={strategyData.orderCondition.operator.toString()}
+                                  onValueChange={(value) =>
+                                    updateOrderCondition("operator", parseInt(value))
+                                  }
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value={OPERATORS.GT.toString()}>
+                                      Greater Than (>)
+                                    </SelectItem>
+                                    <SelectItem value={OPERATORS.LT.toString()}>
+                                      Less Than (<)
+                                    </SelectItem>
+                                    <SelectItem value={OPERATORS.GTE.toString()}>
+                                      Greater Than or Equal (>=)
+                                    </SelectItem>
+                                    <SelectItem value={OPERATORS.LTE.toString()}>
+                                      Less Than or Equal (<=)
+                                    </SelectItem>
+                                    <SelectItem value={OPERATORS.EQ.toString()}>
+                                      Equal To (==)
+                                    </SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              <div className="space-y-2">
+                                <Label htmlFor="threshold">Threshold Value</Label>
+                                <Input
+                                  id="threshold"
+                                  placeholder="e.g., 17500 (for $175.00)"
+                                  value={strategyData.orderCondition.threshold}
+                                  onChange={(e) =>
+                                    updateOrderCondition("threshold", e.target.value)
+                                  }
+                                />
+                              </div>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label htmlFor="condition-description">Condition Description</Label>
+                              <Input
+                                id="condition-description"
+                                placeholder="e.g., AAPL stock price > $175"
+                                value={strategyData.orderCondition.description}
+                                onChange={(e) =>
+                                  updateOrderCondition("description", e.target.value)
+                                }
+                              />
+                            </div>
+
+                            {strategyData.orderCondition.indexId && 
+                             strategyData.orderCondition.threshold && (
+                              <div className="bg-green-100 p-3 rounded-lg">
+                                <p className="text-sm text-green-700">
+                                  <strong>Condition Preview:</strong> Execute order when{" "}
+                                  {indices.find(i => i.id.toString() === strategyData.orderCondition.indexId)?.name || 'Index'}{" "}
+                                  {getOperatorName(strategyData.orderCondition.operator)}{" "}
+                                  {strategyData.orderCondition.threshold}
+                                </p>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </CardContent>
+                    </Card>
+
                     <Card className="bg-blue-50 border-blue-200">
                       <CardContent className="p-4">
                         <div className="flex items-start space-x-3">
@@ -957,6 +1147,45 @@ export default function CreateStrategy() {
                           </div>
                         </CardContent>
                       </Card>
+
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg">
+                            Order Condition
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Index:</span>
+                            <span className="font-medium">
+                              {indices.find(i => i.id.toString() === strategyData.orderCondition.indexId)?.name || 
+                               strategyData.orderCondition.indexId || "Not selected"}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Condition:</span>
+                            <Badge variant="outline">
+                              {getOperatorName(strategyData.orderCondition.operator)} {strategyData.orderCondition.threshold}
+                            </Badge>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Description:</span>
+                            <span className="font-medium text-sm">
+                              {strategyData.orderCondition.description || "Auto-generated"}
+                            </span>
+                          </div>
+                          {strategyData.orderCondition.indexId && (
+                            <div className="bg-green-50 p-3 rounded-lg">
+                              <p className="text-sm text-green-700">
+                                <strong>Execution Trigger:</strong> Order will execute when{" "}
+                                {indices.find(i => i.id.toString() === strategyData.orderCondition.indexId)?.name || 'the index'}{" "}
+                                {getOperatorName(strategyData.orderCondition.operator)}{" "}
+                                {strategyData.orderCondition.threshold}
+                              </p>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
                     </div>
 
                     <Card className="bg-yellow-50 border-yellow-200">
@@ -1005,12 +1234,10 @@ export default function CreateStrategy() {
                   ) : (
                     <Button
                       className="gradient-primary text-white"
-                      onClick={() => {
-                        // Handle strategy creation
-                        console.log("Creating strategy:", strategyData);
-                      }}
+                      onClick={handleCreateStrategy}
+                      disabled={isCreatingOrder || !isConnected}
                     >
-                      Create Strategy
+                      {isCreatingOrder ? "Creating Order..." : "Create Strategy"}
                     </Button>
                   )}
                 </div>
