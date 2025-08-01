@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useBlockchain } from "@/hooks/useBlockchain";
 import { useOrders, OPERATORS } from "@/hooks/useOrders";
+import { blockchainService, CONTRACTS } from "@/lib/blockchain-service";
 
 import { StepNavigation, steps } from "@/components/create-strategy/StepNavigation";
 import { StrategyBasicsStep } from "@/components/create-strategy/StrategyBasicsStep";
@@ -17,6 +18,7 @@ export default function CreateStrategy() {
   const [currentStep, setCurrentStep] = useState(0);
   const { isConnected, indices } = useBlockchain();
   const { createOrder, isLoading: isCreatingOrder } = useOrders();
+  const [isMintingTokens, setIsMintingTokens] = useState(false);
   
   const [strategyData, setStrategyData] = useState({
     name: "",
@@ -86,12 +88,12 @@ export default function CreateStrategy() {
   };
 
   const fillDemoData = () => {
-    // Fill demo data matching comprehensive_demo.js Apple stock example
+    // Fill demo data with TestUSDC and small amounts for testing
     setStrategyData({
       name: "Apple Stock Bull Run Alert",
       description: "Execute trade when Apple stock price exceeds $170.00",
-      tokenIn: "0x036CbD53842c5426634e7929541eC2318f3dCF7e", // USDC
-      tokenOut: "0x4200000000000000000000000000000000000006", // WETH
+      tokenIn: CONTRACTS.TestUSDC, // Use TestUSDC for testing
+      tokenOut: CONTRACTS.WETH,     // Keep WETH as target
       triggerType: "alphavantage",
       triggerParams: {
         dataType: "stock",
@@ -104,8 +106,8 @@ export default function CreateStrategy() {
         webhookUrl: "",
         direction: "up",
       },
-      orderAmount: "1000", // 1000 USDC
-      targetPrice: "0.4", // 0.4 ETH
+      orderAmount: "10",    // Small amount: 10 TestUSDC
+      targetPrice: "0.003", // Small amount: 0.003 ETH
       slippage: "1",
       expiry: "2", // 2 hours
       swapConfig: {
@@ -126,7 +128,20 @@ export default function CreateStrategy() {
     // Auto-advance to the review step to test the full flow
     setCurrentStep(3);
     
-    alert("🚀 Demo data loaded! Ready to test wallet connection and blockchain posting.");
+    alert("🚀 Demo data loaded with TestUSDC! You'll need test tokens first - use the 'Get Test Tokens' button.");
+  };
+
+  const handleMintTestTokens = async () => {
+    try {
+      setIsMintingTokens(true);
+      await blockchainService.mintTestTokens(100); // Mint 100 TestUSDC
+      alert("✅ Successfully minted 100 Test USDC tokens!");
+    } catch (error) {
+      console.error("Failed to mint test tokens:", error);
+      alert(`❌ Failed to mint test tokens: ${error instanceof Error ? error.message : "Unknown error"}`);
+    } finally {
+      setIsMintingTokens(false);
+    }
   };
 
   const handleCreateStrategy = async () => {
@@ -151,8 +166,8 @@ export default function CreateStrategy() {
         operator: strategyData.orderCondition.operator,
         threshold: parseInt(strategyData.orderCondition.threshold),
         description: strategyData.orderCondition.description || `${strategyData.name} - ${getOperatorName(strategyData.orderCondition.operator)} ${strategyData.orderCondition.threshold}`,
-        fromToken: strategyData.tokenIn || "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-        toToken: strategyData.tokenOut || "0x4200000000000000000000000000000000000006",
+        fromToken: strategyData.tokenIn || CONTRACTS.TestUSDC, // Default to TestUSDC
+        toToken: strategyData.tokenOut || CONTRACTS.WETH,      // Default to WETH
         fromAmount: strategyData.orderAmount,
         toAmount: strategyData.targetPrice || "0.1",
         expiry: Math.floor(Date.now() / 1000) + (parseInt(strategyData.expiry) * 3600),
@@ -236,14 +251,24 @@ export default function CreateStrategy() {
             </div>
           </div>
           
-          {/* Demo Button */}
-          <Button
-            variant="secondary"
-            onClick={fillDemoData}
-            className="bg-blue-100 hover:bg-blue-200 text-blue-800 border-blue-300"
-          >
-            🚀 Fill Demo Data
-          </Button>
+          {/* Action Buttons */}
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              onClick={handleMintTestTokens}
+              disabled={!isConnected || isMintingTokens}
+              className="bg-green-100 hover:bg-green-200 text-green-800 border-green-300"
+            >
+              {isMintingTokens ? "Minting..." : "🪙 Get Test Tokens"}
+            </Button>
+            <Button
+              variant="secondary"  
+              onClick={fillDemoData}
+              className="bg-blue-100 hover:bg-blue-200 text-blue-800 border-blue-300"
+            >
+              🚀 Fill Demo Data
+            </Button>
+          </div>
         </div>
 
         <StepNavigation currentStep={currentStep} />
