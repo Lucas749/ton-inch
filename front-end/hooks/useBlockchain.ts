@@ -258,11 +258,37 @@ export function useBlockchain(): UseBlockchainReturn {
     });
 
     // Listen for network changes
-    blockchainService.onNetworkChanged((chainId) => {
-      blockchainService.getNetworkInfo().then((networkInfo) => {
-        setChainId(networkInfo.chainId);
-        setNetworkName(networkInfo.networkName);
-      });
+    blockchainService.onNetworkChanged(async (chainId) => {
+      try {
+        // Re-check wallet connection status after network change
+        if (blockchainService.isWalletConnected()) {
+          const address = blockchainService.getWalletAddress();
+          setWalletAddress(address);
+          setIsConnected(true);
+          
+          // Update network info
+          const networkInfo = await blockchainService.getNetworkInfo();
+          setChainId(networkInfo.chainId);
+          setNetworkName(networkInfo.networkName);
+          
+          // Refresh balance and indices for new network
+          try {
+            const balance = await blockchainService.getETHBalance();
+            setEthBalance(balance);
+            await refreshIndices();
+          } catch (err) {
+            console.warn("Warning: Failed to refresh data after network switch:", err);
+          }
+        } else {
+          // Wallet disconnected
+          setIsConnected(false);
+          setWalletAddress(null);
+          setEthBalance(null);
+          setIndices([]);
+        }
+      } catch (err) {
+        console.error("Error handling network change:", err);
+      }
     });
   }, [refreshIndices]);
 
