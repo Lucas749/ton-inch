@@ -1705,16 +1705,16 @@ export class BlockchainService {
    */
   private async getIndexDetails(indexId: number): Promise<CustomIndex | null> {
     try {
-      if (!this.preInteraction) {
-        console.error('PreInteraction contract not initialized');
+      if (!this.preInteraction || !this.oracle) {
+        console.error('Contracts not initialized');
         return null;
       }
 
       // Get metadata from PreInteraction contract
       const info = await this.preInteraction.methods.getIndexInfo(indexId).call();
       
-      // Get current value from oracle  
-      const valueData = await this.preInteraction.methods.getIndexValue(indexId).call();
+      // Get current value from oracle (correct contract)
+      const valueData = await this.oracle.methods.getIndexValue(indexId).call();
       
       return {
         id: indexId,
@@ -1723,8 +1723,8 @@ export class BlockchainService {
         creator: info.creator,
         active: info.isActive,
         createdAt: Number(info.createdAt),
-        value: Number(valueData.value),
-        timestamp: Number(valueData.timestamp)
+        value: Number(valueData[0]), // getIndexValue returns [value, timestamp]
+        timestamp: Number(valueData[1])
       };
     } catch (error) {
       console.error(`❌ Error fetching details for index ${indexId}:`, error);
