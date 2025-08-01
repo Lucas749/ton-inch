@@ -21,7 +21,8 @@ import {
   Clock,
   DollarSign,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  BarChart3
 } from 'lucide-react';
 import { TOKENS, TRIGGER_TYPES } from '@/lib/constants';
 
@@ -40,7 +41,19 @@ export default function CreateStrategy() {
     tokenIn: '',
     tokenOut: '',
     triggerType: '',
-    triggerParams: {},
+    triggerParams: {
+      // Alpha Vantage specific
+      dataType: '',
+      symbol: '',
+      indicator: '',
+      threshold: '',
+      condition: '',
+      // Other trigger types
+      keywords: '',
+      amount: '',
+      webhookUrl: '',
+      direction: ''
+    },
     orderAmount: '',
     targetPrice: '',
     slippage: '1',
@@ -66,8 +79,16 @@ export default function CreateStrategy() {
     setStrategyData(prev => ({ ...prev, [field]: value }));
   };
 
+  const updateTriggerParam = (param: string, value: any) => {
+    setStrategyData(prev => ({
+      ...prev,
+      triggerParams: { ...prev.triggerParams, [param]: value }
+    }));
+  };
+
   const renderTriggerIcon = (type: string) => {
     switch (type) {
+      case 'alphavantage': return <BarChart3 className="w-4 h-4" />;
       case 'twitter': return <Twitter className="w-4 h-4" />;
       case 'transfer': return <Send className="w-4 h-4" />;
       case 'price': return <TrendingUp className="w-4 h-4" />;
@@ -352,6 +373,100 @@ export default function CreateStrategy() {
                               </p>
                             </div>
                           )}
+
+                          {strategyData.triggerType === 'alphavantage' && (
+                            <div className="space-y-4">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                  <Label htmlFor="av-data-type">Data Type</Label>
+                                  <Select 
+                                    value={strategyData.triggerParams.dataType} 
+                                    onValueChange={(value) => updateTriggerParam('dataType', value)}
+                                  >
+                                    <SelectTrigger className="mt-1">
+                                      <SelectValue placeholder="Select data type" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="stocks">Stock Price</SelectItem>
+                                      <SelectItem value="technical">Technical Indicator</SelectItem>
+                                      <SelectItem value="fundamental">Company Fundamentals</SelectItem>
+                                      <SelectItem value="forex">Forex Exchange</SelectItem>
+                                      <SelectItem value="crypto">Cryptocurrency</SelectItem>
+                                      <SelectItem value="news">News Sentiment</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div>
+                                  <Label htmlFor="av-symbol">Symbol</Label>
+                                  <Input
+                                    id="av-symbol"
+                                    placeholder="e.g., AAPL, TSLA, BTC"
+                                    className="mt-1"
+                                    value={strategyData.triggerParams.symbol}
+                                    onChange={(e) => updateTriggerParam('symbol', e.target.value.toUpperCase())}
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                  <Label htmlFor="av-indicator">Indicator/Metric</Label>
+                                  <Select 
+                                    value={strategyData.triggerParams.indicator} 
+                                    onValueChange={(value) => updateTriggerParam('indicator', value)}
+                                  >
+                                    <SelectTrigger className="mt-1">
+                                      <SelectValue placeholder="Select indicator" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="price">Current Price</SelectItem>
+                                      <SelectItem value="sma">Simple Moving Average</SelectItem>
+                                      <SelectItem value="ema">Exponential Moving Average</SelectItem>
+                                      <SelectItem value="rsi">RSI</SelectItem>
+                                      <SelectItem value="macd">MACD</SelectItem>
+                                      <SelectItem value="volume">Trading Volume</SelectItem>
+                                      <SelectItem value="sentiment">News Sentiment Score</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div>
+                                  <Label htmlFor="av-threshold">Threshold Value</Label>
+                                  <Input
+                                    id="av-threshold"
+                                    placeholder="e.g., 150, 0.7, 70"
+                                    className="mt-1"
+                                    value={strategyData.triggerParams.threshold}
+                                    onChange={(e) => updateTriggerParam('threshold', e.target.value)}
+                                  />
+                                </div>
+                              </div>
+
+                              <div>
+                                <Label htmlFor="av-condition">Trigger Condition</Label>
+                                <Select 
+                                  value={strategyData.triggerParams.condition} 
+                                  onValueChange={(value) => updateTriggerParam('condition', value)}
+                                >
+                                  <SelectTrigger className="mt-1">
+                                    <SelectValue placeholder="Select condition" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="above">Above threshold</SelectItem>
+                                    <SelectItem value="below">Below threshold</SelectItem>
+                                    <SelectItem value="crosses-above">Crosses above threshold</SelectItem>
+                                    <SelectItem value="crosses-below">Crosses below threshold</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              <div className="bg-blue-50 p-3 rounded-lg">
+                                <p className="text-sm text-blue-700">
+                                  <strong>Example:</strong> Trigger when AAPL stock price crosses above $150, 
+                                  or when RSI for TSLA goes below 30 (oversold condition).
+                                </p>
+                              </div>
+                            </div>
+                          )}
                         </CardContent>
                       </Card>
                     )}
@@ -460,6 +575,28 @@ export default function CreateStrategy() {
                               {TRIGGER_TYPES[strategyData.triggerType as keyof typeof TRIGGER_TYPES]?.name || 'None'}
                             </Badge>
                           </div>
+                          {strategyData.triggerType === 'alphavantage' && (
+                            <>
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">Data Type:</span>
+                                <span className="font-medium">{strategyData.triggerParams.dataType || 'N/A'}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">Symbol:</span>
+                                <span className="font-medium">{strategyData.triggerParams.symbol || 'N/A'}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">Indicator:</span>
+                                <span className="font-medium">{strategyData.triggerParams.indicator || 'N/A'}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">Condition:</span>
+                                <span className="font-medium">
+                                  {strategyData.triggerParams.condition || 'N/A'} {strategyData.triggerParams.threshold || ''}
+                                </span>
+                              </div>
+                            </>
+                          )}
                           <div className="flex justify-between">
                             <span className="text-gray-600">Amount:</span>
                             <span className="font-medium">{strategyData.orderAmount || '0'}</span>

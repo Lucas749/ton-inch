@@ -40,6 +40,12 @@ export const TOKENS = [
 
 // Trigger type configurations
 export const TRIGGER_TYPES = {
+  alphavantage: {
+    name: 'Alpha Vantage Data',
+    description: 'Trigger based on financial market data and indicators',
+    icon: 'BarChart3',
+    fields: ['dataType', 'symbol', 'indicator', 'threshold', 'condition']
+  },
   twitter: {
     name: 'Twitter Keywords',
     description: 'Monitor Twitter for specific keywords or hashtags',
