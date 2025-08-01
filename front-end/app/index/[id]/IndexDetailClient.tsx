@@ -41,15 +41,24 @@ interface IndexDetailClientProps {
 // Map index IDs to Alpha Vantage symbols
 const getAlphaVantageSymbol = (indexId: string): string => {
   const symbolMap: Record<string, string> = {
+    'aapl_stock': 'AAPL',  // Make sure case matches
     'AAPL_STOCK': 'AAPL',
+    'btc_price': 'BTCUSD',
     'BTC_PRICE': 'BTCUSD',
+    'eth_price': 'ETHUSD',
     'ETH_PRICE': 'ETHUSD', 
+    'gold_price': 'GLD',
     'GOLD_PRICE': 'GLD', // Using GLD ETF as proxy for gold
+    'eur_usd': 'EURUSD',
     'EUR_USD': 'EURUSD',
+    'tsla_stock': 'TSLA',
     'TSLA_STOCK': 'TSLA',
+    'spy_etf': 'SPY',
     'SPY_ETF': 'SPY',
+    'vix_index': 'VIX',
     'VIX_INDEX': 'VIX'
   };
+  console.log(`🔍 Looking up symbol for indexId: "${indexId}", found: "${symbolMap[indexId] || 'IBM (default)'}"`);
   return symbolMap[indexId] || 'IBM'; // Default to IBM if not found
 };
 
@@ -90,11 +99,15 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
       const alphaVantageService = new AlphaVantageService({ apiKey });
       const symbol = getAlphaVantageSymbol(index.id);
       
-      console.log(`Loading chart data for ${symbol} (${index.name})`);
+      console.log(`🔍 Loading chart data for ${symbol} (${index.name})`);
+      console.log(`📡 Using API key: ${apiKey.substring(0, 8)}...`);
       
       // Get daily time series data
       const response = await alphaVantageService.getDailyTimeSeries(symbol, false, "compact");
+      console.log(`📊 Raw API response:`, response);
+      
       const parsedData = AlphaVantageService.parseTimeSeriesData(response);
+      console.log(`📈 Parsed data (${parsedData.length} items):`, parsedData.slice(0, 3));
       
       // Format data for Recharts (last 30 days)
       const chartDataFormatted = parsedData
@@ -108,10 +121,18 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
           volume: item.volume
         }));
       
+      console.log(`📋 Formatted chart data (${chartDataFormatted.length} items):`, chartDataFormatted.slice(0, 3));
       setChartData(chartDataFormatted);
     } catch (error) {
-      console.error("Error loading chart data:", error);
-      setChartError("Failed to load chart data. Using demo visualization.");
+      console.error("❌ Error loading chart data:", error);
+      console.error("❌ Error details:", {
+        message: (error as Error).message,
+        stack: (error as Error).stack,
+        symbol,
+        indexId: index.id,
+        apiKey: apiKey.substring(0, 8) + '...'
+      });
+      setChartError(`Failed to load chart data for ${symbol}. Using demo visualization.`);
       
       // Generate fallback demo data
       const demoData = Array.from({ length: 30 }, (_, i) => {
