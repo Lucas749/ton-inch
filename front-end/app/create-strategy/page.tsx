@@ -154,8 +154,7 @@ export default function CreateStrategy() {
         indexId: parseInt(strategyData.orderCondition.indexId),
         operator: strategyData.orderCondition.operator,
         threshold: parseInt(strategyData.orderCondition.threshold),
-        description: strategyData.orderCondition.description || 
-                    `${strategyData.name} - ${getOperatorName(strategyData.orderCondition.operator)} ${strategyData.orderCondition.threshold}`,
+        description: strategyData.orderCondition.description || `${strategyData.name} - ${getOperatorName(strategyData.orderCondition.operator)} ${strategyData.orderCondition.threshold}`,
         fromToken: strategyData.tokenIn || "0x036CbD53842c5426634e7929541eC2318f3dCF7e", // Default to USDC
         toToken: strategyData.tokenOut || "0x4200000000000000000000000000000000000006", // Default to WETH
         fromAmount: strategyData.orderAmount,
@@ -178,7 +177,7 @@ export default function CreateStrategy() {
     }
   };
 
-  const renderTriggerIcon = (type: string) => {
+  const renderTriggerIcon = (type: string): JSX.Element => {
     switch (type) {
       case "alphavantage":
         return <BarChart3 className="w-4 h-4" />;
