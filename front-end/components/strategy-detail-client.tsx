@@ -1,6 +1,6 @@
 'use client';
 
-import { Navbar } from '@/components/navbar';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -9,14 +9,22 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 
 interface StrategyDetailClientProps {
   strategyId: string;
-  priceData: Array<{
-    time: string;
-    price: number;
-    sentiment: number;
-  }>;
 }
 
-export default function StrategyDetailClient({ strategyId, priceData }: StrategyDetailClientProps) {
+// Mock data for the chart
+const priceData = [
+  { time: "00:00", price: 2850, sentiment: 45 },
+  { time: "04:00", price: 2867, sentiment: 52 },
+  { time: "08:00", price: 2834, sentiment: 41 },
+  { time: "12:00", price: 2891, sentiment: 67 },
+  { time: "16:00", price: 2876, sentiment: 59 },
+  { time: "20:00", price: 2903, sentiment: 72 },
+  { time: "24:00", price: 2919, sentiment: 78 },
+];
+
+export function StrategyDetailClient({ strategyId }: StrategyDetailClientProps) {
+  const router = useRouter();
+  
   // Mock strategy data
   const strategy = {
     id: strategyId,
@@ -37,13 +45,14 @@ export default function StrategyDetailClient({ strategyId, priceData }: Strategy
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-      <Navbar />
-      
-      <main className="container mx-auto px-4 py-8">
+    <main className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center space-x-4 mb-8">
-          <Button variant="outline" size="sm">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => router.push("/dashboard")}
+          >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Dashboard
           </Button>
@@ -204,6 +213,5 @@ export default function StrategyDetailClient({ strategyId, priceData }: Strategy
           </div>
         </div>
       </main>
-    </div>
   );
 }
