@@ -24,9 +24,12 @@ contract MockIndexOracle {
     }
     
     mapping(IndexType => IndexData) public indexData;
+    mapping(uint256 => IndexData) public customIndexData;
     address public owner;
+    uint256 public nextCustomIndexId = 6; // Start after predefined indices
     
     event IndexUpdated(IndexType indexed indexType, uint256 value, uint256 timestamp);
+    event CustomIndexCreated(uint256 indexed indexId, uint256 value, uint256 timestamp);
     
     modifier onlyOwner() {
         require(msg.sender == owner, "Not owner");
@@ -88,19 +91,25 @@ contract MockIndexOracle {
 
     // Overloaded function that accepts uint256 indexId for generalized system
     function getIndexValue(uint256 indexId) external view returns (uint256 value, uint256 timestamp) {
-        // Map new indexId system to legacy enum for backward compatibility
-        IndexType indexType;
-        if (indexId == 0) indexType = IndexType.INFLATION_RATE;
-        else if (indexId == 1) indexType = IndexType.ELON_FOLLOWERS;
-        else if (indexId == 2) indexType = IndexType.BTC_PRICE;
-        else if (indexId == 3) indexType = IndexType.VIX_INDEX;
-        else if (indexId == 4) indexType = IndexType.UNEMPLOYMENT_RATE;
-        else if (indexId == 5) indexType = IndexType.TESLA_STOCK;
-        else revert("Index not supported");
-        
-        IndexData memory data = indexData[indexType];
-        require(data.isActive, "Index not active");
-        return (data.value, data.timestamp);
+        if (indexId <= 5) {
+            // Handle predefined indices
+            IndexType indexType;
+            if (indexId == 0) indexType = IndexType.INFLATION_RATE;
+            else if (indexId == 1) indexType = IndexType.ELON_FOLLOWERS;
+            else if (indexId == 2) indexType = IndexType.BTC_PRICE;
+            else if (indexId == 3) indexType = IndexType.VIX_INDEX;
+            else if (indexId == 4) indexType = IndexType.UNEMPLOYMENT_RATE;
+            else if (indexId == 5) indexType = IndexType.TESLA_STOCK;
+            
+            IndexData memory data = indexData[indexType];
+            require(data.isActive, "Index not active");
+            return (data.value, data.timestamp);
+        } else {
+            // Handle custom indices
+            IndexData memory data = customIndexData[indexId];
+            require(data.isActive, "Index not active");
+            return (data.value, data.timestamp);
+        }
     }
     
     /**
@@ -114,17 +123,21 @@ contract MockIndexOracle {
 
     // Overloaded function that accepts uint256 indexId for generalized system  
     function isValidIndex(uint256 indexId) external view returns (bool) {
-        if (indexId > 5) return false; // Only support predefined indices for now
-        
-        IndexType indexType;
-        if (indexId == 0) indexType = IndexType.INFLATION_RATE;
-        else if (indexId == 1) indexType = IndexType.ELON_FOLLOWERS;
-        else if (indexId == 2) indexType = IndexType.BTC_PRICE;
-        else if (indexId == 3) indexType = IndexType.VIX_INDEX;
-        else if (indexId == 4) indexType = IndexType.UNEMPLOYMENT_RATE;
-        else if (indexId == 5) indexType = IndexType.TESLA_STOCK;
-        
-        return indexData[indexType].isActive;
+        if (indexId <= 5) {
+            // Handle predefined indices
+            IndexType indexType;
+            if (indexId == 0) indexType = IndexType.INFLATION_RATE;
+            else if (indexId == 1) indexType = IndexType.ELON_FOLLOWERS;
+            else if (indexId == 2) indexType = IndexType.BTC_PRICE;
+            else if (indexId == 3) indexType = IndexType.VIX_INDEX;
+            else if (indexId == 4) indexType = IndexType.UNEMPLOYMENT_RATE;
+            else if (indexId == 5) indexType = IndexType.TESLA_STOCK;
+            
+            return indexData[indexType].isActive;
+        } else {
+            // Handle custom indices
+            return customIndexData[indexId].isActive;
+        }
     }
     
     /**
@@ -187,6 +200,114 @@ contract MockIndexOracle {
         
         data.timestamp = block.timestamp;
         emit IndexUpdated(indexType, data.value, block.timestamp);
+    }
+    
+    /**
+     * @notice Get what the next custom index ID will be
+     * @return nextId The ID that will be assigned to the next custom index
+     */
+    function getNextCustomIndexId() external view returns (uint256 nextId) {
+        return nextCustomIndexId;
+    }
+    
+    /**
+     * @notice Get all custom indices with their details
+     * @return indexIds Array of all custom index IDs
+     * @return values Array of current values for each index
+     * @return timestamps Array of last update timestamps for each index
+     * @return activeStates Array of active states for each index
+     */
+    function getAllCustomIndices() external view returns (
+        uint256[] memory indexIds,
+        uint256[] memory values,
+        uint256[] memory timestamps,
+        bool[] memory activeStates
+    ) {
+        uint256 totalIndices = nextCustomIndexId - 6; // Number of custom indices created
+        
+        indexIds = new uint256[](totalIndices);
+        values = new uint256[](totalIndices);
+        timestamps = new uint256[](totalIndices);
+        activeStates = new bool[](totalIndices);
+        
+        for (uint256 i = 0; i < totalIndices; i++) {
+            uint256 indexId = 6 + i; // Custom indices start at ID 6
+            IndexData memory data = customIndexData[indexId];
+            
+            indexIds[i] = indexId;
+            values[i] = data.value;
+            timestamps[i] = data.timestamp;
+            activeStates[i] = data.isActive;
+        }
+    }
+    
+    /**
+     * @notice Create a new custom index
+     * @param initialValue Initial value for the index
+     * @return indexId The ID of the created index
+     */
+    function createCustomIndex(uint256 initialValue) external returns (uint256 indexId) {
+        indexId = nextCustomIndexId++;
+        
+        customIndexData[indexId] = IndexData({
+            value: initialValue,
+            timestamp: block.timestamp,
+            isActive: true
+        });
+        
+        emit CustomIndexCreated(indexId, initialValue, block.timestamp);
+    }
+    
+    /**
+     * @notice Update custom index value
+     * @param indexId ID of the custom index
+     * @param newValue New value for the index
+     */
+    function updateCustomIndex(uint256 indexId, uint256 newValue) external onlyOwner {
+        if (indexId <= 5) {
+            // Handle predefined indices
+            IndexType indexType;
+            if (indexId == 0) indexType = IndexType.INFLATION_RATE;
+            else if (indexId == 1) indexType = IndexType.ELON_FOLLOWERS;
+            else if (indexId == 2) indexType = IndexType.BTC_PRICE;
+            else if (indexId == 3) indexType = IndexType.VIX_INDEX;
+            else if (indexId == 4) indexType = IndexType.UNEMPLOYMENT_RATE;
+            else if (indexId == 5) indexType = IndexType.TESLA_STOCK;
+            
+            indexData[indexType].value = newValue;
+            indexData[indexType].timestamp = block.timestamp;
+            emit IndexUpdated(indexType, newValue, block.timestamp);
+        } else {
+            // Handle custom indices
+            require(customIndexData[indexId].isActive, "Index not active");
+            customIndexData[indexId].value = newValue;
+            customIndexData[indexId].timestamp = block.timestamp;
+            
+            emit IndexUpdated(IndexType(0), newValue, block.timestamp); // Use dummy enum for event
+        }
+    }
+    
+    /**
+     * @notice Set custom index active/inactive
+     * @param indexId ID of the custom index
+     * @param isActive Whether the index should be active
+     */
+    function setCustomIndexActive(uint256 indexId, bool isActive) external onlyOwner {
+        if (indexId <= 5) {
+            // Handle predefined indices
+            IndexType indexType;
+            if (indexId == 0) indexType = IndexType.INFLATION_RATE;
+            else if (indexId == 1) indexType = IndexType.ELON_FOLLOWERS;
+            else if (indexId == 2) indexType = IndexType.BTC_PRICE;
+            else if (indexId == 3) indexType = IndexType.VIX_INDEX;
+            else if (indexId == 4) indexType = IndexType.UNEMPLOYMENT_RATE;
+            else if (indexId == 5) indexType = IndexType.TESLA_STOCK;
+            
+            indexData[indexType].isActive = isActive;
+        } else {
+            // Handle custom indices
+            customIndexData[indexId].isActive = isActive;
+        }
     }
     
     /**
