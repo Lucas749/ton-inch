@@ -3,3 +3,5 @@ cache/
 .local/
 out/
 lib/
+.env/
+node_modules/
