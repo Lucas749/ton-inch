@@ -50,21 +50,9 @@ export default function Dashboard() {
 
       const allIndices = await blockchainService.getAllIndices();
       
-      // COMMENTED OUT: Load orders sequentially with delays to avoid overwhelming the RPC
-      // This was causing performance issues and slowdowns
+      // Load orders sequentially with delays to avoid overwhelming the RPC
       const indicesWithOrders: IndexWithOrders[] = [];
       
-      // Simply add indices without trying to fetch orders (orders were causing circuit breaker)
-      for (let i = 0; i < allIndices.length; i++) {
-        const index = allIndices[i];
-        indicesWithOrders.push({
-          ...index,
-          orders: [], // No orders for performance (this was the circuit breaker issue)
-          orderCount: 0 // No orders for performance
-        });
-      }
-      
-      /* COMMENTED OUT: Order fetching code
       for (let i = 0; i < allIndices.length; i++) {
         const index = allIndices[i];
         
@@ -90,13 +78,12 @@ export default function Dashboard() {
           await new Promise(resolve => setTimeout(resolve, 500));
         }
       }
-      */
 
       setIndices(indicesWithOrders);
       
-      // COMMENTED OUT: Collect all orders for performance
-      // const allOrdersFlat = indicesWithOrders.flatMap(index => index.orders);
-      setAllOrders([]); // Empty orders array for performance
+      // Collect all orders
+      const allOrdersFlat = indicesWithOrders.flatMap(index => index.orders);
+      setAllOrders(allOrdersFlat);
       
     } catch (error) {
       console.error("Error loading data:", error);
@@ -131,8 +118,8 @@ export default function Dashboard() {
   const stats = {
     totalIndices: indices.length,
     activeIndices: indices.filter(i => i.active).length,
-    totalOrders: 0, // Commented out for performance: allOrders.length,
-    activeOrders: 0 // Commented out for performance: allOrders.filter(o => o.status === "active").length
+    totalOrders: allOrders.length,
+    activeOrders: allOrders.filter(o => o.status === "active").length
   };
 
   return (
@@ -154,7 +141,7 @@ export default function Dashboard() {
               <AlertCircle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Connect Your Wallet</h3>
               <p className="text-gray-600 mb-6">Connect your wallet to view and manage your indices and orders</p>
-              <WalletConnect compact={false} />
+            <WalletConnect compact={false} />
             </CardContent>
           </Card>
         )}
@@ -172,7 +159,7 @@ export default function Dashboard() {
                       Order history is temporarily disabled to prevent RPC circuit breaker errors. 
                       Indices are loading normally. Order functionality will be restored when RPC stability improves.
                     </p>
-                  </div>
+          </div>
                 </div>
               </CardContent>
             </Card>
@@ -230,7 +217,7 @@ export default function Dashboard() {
                   </p>
                 </CardContent>
               </Card>
-            </div>
+        </div>
 
             {/* Main Content Tabs */}
             <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
@@ -238,7 +225,7 @@ export default function Dashboard() {
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="indices">My Indices</TabsTrigger>
                 <TabsTrigger value="orders">My Orders</TabsTrigger>
-              </TabsList>
+          </TabsList>
 
               {/* Overview Tab */}
               <TabsContent value="overview" className="space-y-6">
@@ -372,7 +359,7 @@ export default function Dashboard() {
                     </CardContent>
                   </Card>
                 </div>
-              </TabsContent>
+          </TabsContent>
 
               {/* Indices Tab */}
               <TabsContent value="indices" className="space-y-6">
@@ -477,7 +464,7 @@ export default function Dashboard() {
                     ))}
                   </div>
                 )}
-              </TabsContent>
+          </TabsContent>
 
               {/* Orders Tab */}
               <TabsContent value="orders" className="space-y-6">
@@ -559,8 +546,8 @@ export default function Dashboard() {
                     ))}
                   </div>
                 )}
-              </TabsContent>
-            </Tabs>
+          </TabsContent>
+        </Tabs>
           </>
         )}
       </main>

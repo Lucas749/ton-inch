@@ -49,8 +49,8 @@ export default function CreateIndex() {
     toToken: CONTRACTS.WETH,
     fromAmount: "",
     toAmount: "",
-    operator: OPERATORS.GT,
-    threshold: "",
+      operator: OPERATORS.GT,
+      threshold: "",
     expiry: "24" // hours
   });
 
@@ -220,7 +220,7 @@ export default function CreateIndex() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       <Navbar />
-      
+
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Index Management</h1>
@@ -334,9 +334,9 @@ export default function CreateIndex() {
                         </div>
                       </div>
 
-                      <Button 
+            <Button
                         className="w-full mt-4" 
-                        variant="outline"
+              variant="outline"
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedIndex(index);
@@ -361,7 +361,7 @@ export default function CreateIndex() {
                   <Button onClick={() => setSelectedTab("create")}>
                     <Plus className="w-4 h-4 mr-2" />
                     Create Index
-                  </Button>
+            </Button>
                 </CardContent>
               </Card>
             )}
@@ -417,7 +417,7 @@ export default function CreateIndex() {
                     />
                   </div>
 
-                  <div>
+            <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Initial Value
                     </label>
@@ -430,13 +430,13 @@ export default function CreateIndex() {
                     />
                     <p className="text-xs text-gray-500 mt-1">
                       Set the starting value for your index (use appropriate scaling, e.g., cents for prices)
-                    </p>
-                  </div>
-                </div>
-
+              </p>
+            </div>
+          </div>
+          
                 <div className="space-y-3">
                   <div className="flex space-x-3">
-                    <Button 
+            <Button
                       onClick={handleCreateIndex}
                       disabled={!isConnected || isCreateLoading || !newIndexForm.name || !newIndexForm.description || !newIndexForm.initialValue}
                       className="flex-1"
@@ -449,15 +449,15 @@ export default function CreateIndex() {
                           Create Index
                         </>
                       )}
-                    </Button>
-                    <Button 
+            </Button>
+            <Button
                       onClick={fillDemoIndexData}
                       variant="outline"
                       disabled={!isConnected}
                     >
                       Fill Demo
-                    </Button>
-                  </div>
+            </Button>
+          </div>
                 </div>
               </CardContent>
             </Card>
@@ -643,7 +643,7 @@ export default function CreateIndex() {
                         >
                           <option value={CONTRACTS.WETH}>WETH ({CONTRACTS.WETH.slice(0,6)}...)</option>
                         </select>
-                      </div>
+        </div>
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -668,7 +668,7 @@ export default function CreateIndex() {
                           disabled={!isConnected}
                         />
                       </div>
-                    </div>
+        </div>
 
                     <div className="flex space-x-3">
                       <Button 
@@ -685,13 +685,13 @@ export default function CreateIndex() {
                           </>
                         )}
                       </Button>
-                      <Button 
+          <Button
                         onClick={fillDemoOrderData}
-                        variant="outline"
+            variant="outline"
                         disabled={!isConnected}
-                      >
+          >
                         Fill Demo
-                      </Button>
+          </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -705,7 +705,7 @@ export default function CreateIndex() {
                   <Button onClick={() => setSelectedTab("browse")}>
                     <Eye className="w-4 h-4 mr-2" />
                     Browse Indices
-                  </Button>
+            </Button>
                 </CardContent>
               </Card>
             )}
