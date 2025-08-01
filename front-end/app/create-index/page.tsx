@@ -54,13 +54,26 @@ export default function CreateIndex() {
     expiry: "24" // hours
   });
 
-  const { isConnected } = useBlockchain();
+  const { isConnected, indices: blockchainIndices, refreshIndices } = useBlockchain();
   const { createOrder, isLoading: isCreatingOrder } = useOrders();
 
-  // Load indices and their orders
+  // Convert blockchain indices to IndexWithOrders format
   useEffect(() => {
-    loadIndicesWithOrders();
-  }, []);
+    if (!isConnected) {
+      setIndices([]);
+      setIsLoading(false);
+      return;
+    }
+
+    const indicesWithOrders: IndexWithOrders[] = blockchainIndices.map(index => ({
+      ...index,
+      orders: [],
+      orderCount: 0 // Will be loaded on-demand if needed
+    }));
+
+    setIndices(indicesWithOrders);
+    setIsLoading(false);
+  }, [isConnected, blockchainIndices]);
   
   // Handle selected index from URL
   useEffect(() => {
@@ -75,25 +88,7 @@ export default function CreateIndex() {
     }
   }, [indices]);
 
-  const loadIndicesWithOrders = async () => {
-    try {
-      setIsLoading(true);
-      const allIndices = await blockchainService.getAllIndices();
-      
-      // Convert to IndexWithOrders without loading orders automatically
-      const indicesWithOrders: IndexWithOrders[] = allIndices.map(index => ({
-        ...index,
-        orders: [],
-        orderCount: 0 // Will be loaded on-demand if needed
-      }));
 
-      setIndices(indicesWithOrders);
-    } catch (error) {
-      console.error("Error loading indices:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleCreateIndex = async () => {
     try {
@@ -111,7 +106,7 @@ export default function CreateIndex() {
       setNewIndexForm({ name: "", description: "", initialValue: "" });
       
       // Reload indices
-      await loadIndicesWithOrders();
+      await refreshIndices();
       
       // Switch to browse tab
       setSelectedTab("browse");
@@ -153,7 +148,7 @@ export default function CreateIndex() {
       });
 
       // Reload indices to refresh order counts
-      await loadIndicesWithOrders();
+      await refreshIndices();
       
     } catch (error) {
       console.error("❌ Error creating order:", error);
@@ -219,7 +214,7 @@ export default function CreateIndex() {
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-semibold">Available Indices</h2>
               <Button 
-                onClick={loadIndicesWithOrders}
+                onClick={refreshIndices}
                 variant="outline"
                 disabled={isLoading}
               >

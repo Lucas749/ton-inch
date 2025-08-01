@@ -42,43 +42,30 @@ export default function Dashboard() {
     }
   };
   
-  const { isConnected } = useBlockchain();
+  const { isConnected, indices: blockchainIndices } = useBlockchain();
   const { orders } = useOrders();
   const router = useRouter();
 
-  // Load indices and their orders
-  const loadData = async () => {
-    try {
-      setIsLoading(true);
-      
-      if (!isConnected) {
-        setIndices([]);
-        setAllOrders([]);
-        return;
-      }
-
-      const allIndices = await blockchainService.getAllIndices();
-      
-      // Convert to IndexWithOrders without loading orders automatically
-      const indicesWithOrders: IndexWithOrders[] = allIndices.map(index => ({
-        ...index,
-        orders: [],
-        orderCount: 0 // Will be loaded on-demand when viewing Orders tab
-      }));
-
-      setIndices(indicesWithOrders);
-      setAllOrders([]); // Don't load orders automatically
-      
-    } catch (error) {
-      console.error("Error loading data:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+  // Convert blockchain indices to IndexWithOrders format
   useEffect(() => {
-    loadData();
-  }, [isConnected]);
+    if (!isConnected) {
+      setIndices([]);
+      setAllOrders([]);
+      setIsLoading(false);
+      return;
+    }
+
+    // Convert blockchain indices to IndexWithOrders format
+    const indicesWithOrders: IndexWithOrders[] = blockchainIndices.map(index => ({
+      ...index,
+      orders: [],
+      orderCount: 0 // Will be loaded on-demand when viewing Orders tab
+    }));
+
+    setIndices(indicesWithOrders);
+    setAllOrders([]); // Don't load orders automatically
+    setIsLoading(false);
+  }, [isConnected, blockchainIndices]);
 
   const handleCreateIndex = () => {
     router.push("/create-index");
