@@ -1,6 +1,21 @@
-# 🚀 Index-Based Limit Orders - Smart Contracts
+# 🚀 Index-Based Limit Orders - Backend Demos & Smart Contracts
 
 Revolutionary limit orders that execute based on **real-world conditions** using the **1inch Protocol v4**.
+
+## 🏗️ **Architecture Overview**
+
+This backend contains **demo scripts and smart contracts** for testing and development. The main application uses **frontend wallet integration** (MetaMask) instead of private keys.
+
+### **Frontend Integration** (Recommended for Production)
+- ✅ **Wallet Integration**: Uses MetaMask for signing transactions
+- ✅ **No Private Keys**: Secure wallet-based authentication  
+- ✅ **Real-time UI**: React hooks for blockchain interaction
+- ✅ **User-friendly**: Connect wallet button, transaction confirmations
+
+### **Backend Demos** (Development & Testing Only)
+- 🧪 **Demo Scripts**: Test smart contract functionality
+- 🔑 **Private Key Based**: For automated testing only
+- 📊 **Comprehensive Examples**: Full workflow demonstrations
 
 ## 📁 Project Structure
 
@@ -42,19 +57,39 @@ forge test --fork-url https://sepolia.base.org -vvv
 forge script script/DeployAndTest.s.sol --rpc-url https://sepolia.base.org --broadcast
 ```
 
-### Option 2: Web3.js Integration
+### Option 2: Demo Scripts (Backend Testing Only)
 ```bash
 # Install dependencies
 npm install
 
-# Deploy contracts
-npm run deploy
+# For demo scripts only - create .env file with:
+# PRIVATE_KEY=your_private_key_here_for_testing_only
+# (Frontend uses MetaMask wallet integration instead)
 
-# Set PRIVATE_KEY in .env file and update contract addresses
+# Run comprehensive demo
+npm run demo
 
-# Run complete workflow
+# Run workflow demo
 npm run workflow
 ```
+
+### 🔒 **Environment Variables (Demo Scripts Only)**
+
+The backend demo scripts require a `.env` file for testing:
+
+```bash
+# ⚠️ ONLY for backend demo scripts - NOT used by frontend
+PRIVATE_KEY=your_private_key_here_for_backend_demos_only
+
+# Contract addresses (already deployed on Base Sepolia)
+INDEX_PRE_INTERACTION_ADDRESS=0x8AF8db923E96A6709Ae339d1bFb9E986410D8461
+MOCK_INDEX_ORACLE_ADDRESS=0x3de6DF18226B2c57328709D9bc68CaA7AD76EdEB
+
+# Network
+RPC_URL=https://sepolia.base.org
+```
+
+**Note**: The frontend application does NOT use these environment variables. It uses MetaMask wallet integration for secure transaction signing.
 
 📚 **Detailed Integration Guides:**
 - 🌐 [`WEB3_INTEGRATION_GUIDE.md`](./WEB3_INTEGRATION_GUIDE.md) - Complete Web3.js examples & workflow
