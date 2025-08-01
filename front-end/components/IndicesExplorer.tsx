@@ -1,139 +1,164 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { 
   TrendingUp, 
   TrendingDown, 
-  BarChart3, 
-  Plus,
   Search,
-  Building2,
-  Zap,
-  Globe,
-  DollarSign,
-  Activity
+  Eye
 } from "lucide-react";
-import { useBlockchain } from "@/hooks/useBlockchain";
-import { blockchainService } from "@/lib/blockchain-service";
 import { useRouter } from "next/navigation";
+import { Sparkline } from "./Sparkline";
 
 // Available indices inspired by Alpha Vantage
 const availableIndices = [
   {
     id: "AAPL_STOCK",
-    name: "Apple Inc. Stock",
+    name: "Apple Inc.",
     symbol: "AAPL",
+    handle: "@apple",
     description: "Apple Inc. stock price in USD cents",
     category: "Stocks",
     provider: "Alpha Vantage",
     currentValue: 17550,
     valueLabel: "$175.50",
     change: "+2.34%",
+    changeValue: "+4.08",
     isPositive: true,
-    icon: <Building2 className="w-5 h-5" />,
-    color: "from-blue-500 to-blue-600"
+    avatar: "🍎",
+    mindshare: "0.52%",
+    sparklineData: [170, 172, 175, 174, 176, 175, 177, 175],
+    color: "bg-blue-500"
   },
   {
     id: "BTC_PRICE",
-    name: "Bitcoin Price",
+    name: "Bitcoin",
     symbol: "BTC",
+    handle: "@bitcoin",
     description: "Bitcoin price in USD",
-    category: "Crypto",
+    category: "Crypto", 
     provider: "Alpha Vantage",
     currentValue: 4350000,
     valueLabel: "$43,500",
     change: "+5.67%",
+    changeValue: "+2,340",
     isPositive: true,
-    icon: <DollarSign className="w-5 h-5" />,
-    color: "from-orange-500 to-orange-600"
+    avatar: "₿",
+    mindshare: "1.45%",
+    sparklineData: [41000, 42000, 43500, 43000, 44000, 43500, 45000, 43500],
+    color: "bg-orange-500"
   },
   {
     id: "ETH_PRICE",
-    name: "Ethereum Price",
+    name: "Ethereum",
     symbol: "ETH",
+    handle: "@ethereum",
     description: "Ethereum price in USD",
     category: "Crypto",
     provider: "Alpha Vantage",
     currentValue: 265000,
     valueLabel: "$2,650",
     change: "+3.21%",
+    changeValue: "+82.50",
     isPositive: true,
-    icon: <Zap className="w-5 h-5" />,
-    color: "from-purple-500 to-purple-600"
+    avatar: "Ξ",
+    mindshare: "0.89%",
+    sparklineData: [2500, 2600, 2650, 2580, 2700, 2650, 2680, 2650],
+    color: "bg-purple-500"
   },
   {
     id: "GOLD_PRICE",
-    name: "Gold Price",
+    name: "Gold",
     symbol: "XAU",
+    handle: "@gold_price",
     description: "Gold price per ounce in USD cents",
     category: "Commodities",
     provider: "Alpha Vantage",
     currentValue: 205000,
-    valueLabel: "$2,050/oz",
+    valueLabel: "$2,050",
     change: "+1.23%",
+    changeValue: "+25.00",
     isPositive: true,
-    icon: <Activity className="w-5 h-5" />,
-    color: "from-yellow-500 to-yellow-600"
+    avatar: "🥇",
+    mindshare: "0.33%",
+    sparklineData: [2020, 2030, 2050, 2040, 2055, 2050, 2060, 2050],
+    color: "bg-yellow-500"
   },
   {
     id: "EUR_USD",
-    name: "EUR/USD Exchange Rate",
+    name: "EUR/USD",
     symbol: "EURUSD",
+    handle: "@eurusd",
     description: "EUR/USD exchange rate * 10000",
     category: "Forex",
     provider: "Alpha Vantage",
     currentValue: 10850,
     valueLabel: "1.0850",
     change: "-0.45%",
+    changeValue: "-0.0049",
     isPositive: false,
-    icon: <Globe className="w-5 h-5" />,
-    color: "from-green-500 to-green-600"
+    avatar: "💱",
+    mindshare: "0.21%",
+    sparklineData: [1.090, 1.088, 1.085, 1.087, 1.083, 1.085, 1.082, 1.085],
+    color: "bg-green-500"
   },
   {
     id: "TSLA_STOCK",
-    name: "Tesla Inc. Stock",
+    name: "Tesla Inc.",
     symbol: "TSLA",
+    handle: "@tesla",
     description: "Tesla Inc. stock price in USD cents",
     category: "Stocks",
     provider: "Alpha Vantage",
     currentValue: 24550,
     valueLabel: "$245.50",
     change: "+7.89%",
+    changeValue: "+17.95",
     isPositive: true,
-    icon: <Building2 className="w-5 h-5" />,
-    color: "from-red-500 to-red-600"
+    avatar: "🚗",
+    mindshare: "0.67%",
+    sparklineData: [220, 230, 245, 240, 250, 245, 255, 245],
+    color: "bg-red-500"
   },
   {
     id: "SPY_ETF",
     name: "S&P 500 ETF",
     symbol: "SPY",
+    handle: "@spy_etf",
     description: "SPDR S&P 500 ETF Trust price in USD cents",
     category: "ETFs",
     provider: "Alpha Vantage",
     currentValue: 45200,
     valueLabel: "$452.00",
     change: "+1.56%",
+    changeValue: "+6.95",
     isPositive: true,
-    icon: <BarChart3 className="w-5 h-5" />,
-    color: "from-indigo-500 to-indigo-600"
+    avatar: "📈",
+    mindshare: "0.44%",
+    sparklineData: [440, 445, 452, 448, 455, 452, 458, 452],
+    color: "bg-indigo-500"
   },
   {
     id: "VIX_INDEX",
-    name: "VIX Volatility Index",
+    name: "VIX Volatility",
     symbol: "VIX",
+    handle: "@vix_index",
     description: "CBOE Volatility Index",
     category: "Indices",
     provider: "Alpha Vantage",
     currentValue: 1875,
     valueLabel: "18.75",
     change: "-3.21%",
+    changeValue: "-0.62",
     isPositive: false,
-    icon: <Activity className="w-5 h-5" />,
-    color: "from-gray-500 to-gray-600"
+    avatar: "⚡",
+    mindshare: "0.19%",
+    sparklineData: [20, 19.5, 18.75, 19.2, 18.1, 18.75, 17.9, 18.75],
+    color: "bg-gray-500"
   }
 ];
 
@@ -142,9 +167,7 @@ const categories = ["All", "Stocks", "Crypto", "Commodities", "Forex", "ETFs", "
 export function IndicesExplorer() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
-  const [isCreating, setIsCreating] = useState<string | null>(null);
   
-  const { isConnected } = useBlockchain();
   const router = useRouter();
 
   const filteredIndices = availableIndices.filter(index => {
@@ -157,42 +180,17 @@ export function IndicesExplorer() {
     return matchesSearch && matchesCategory;
   });
 
-  const handleAddIndex = async (index: typeof availableIndices[0]) => {
-    if (!isConnected) {
-      alert("Please connect your wallet first");
-      return;
-    }
-
-    try {
-      setIsCreating(index.id);
-      
-      const indexId = await blockchainService.createIndex(
-        index.id,
-        index.description,
-        index.currentValue
-      );
-
-      console.log("✅ Index created with ID:", indexId);
-      alert(`🎉 Successfully added ${index.name} to your portfolio!`);
-      
-      // Redirect to dashboard to see the new index
-      router.push("/dashboard");
-      
-    } catch (error) {
-      console.error("❌ Error creating index:", error);
-      alert("Failed to add index: " + (error as Error).message);
-    } finally {
-      setIsCreating(null);
-    }
+  const handleViewIndex = (index: typeof availableIndices[0]) => {
+    router.push(`/index/${index.id.toLowerCase()}`);
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Header */}
       <div className="text-center">
-        <h2 className="text-3xl font-bold text-gray-900 mb-4">Explore Market Indices</h2>
+        <h2 className="text-3xl font-bold text-gray-900 mb-4">Market Indices</h2>
         <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-          Discover and add market indices to your portfolio. Create conditional orders based on real-time data from Alpha Vantage.
+          Discover and track market indices. Click on any index to view detailed charts and add to your portfolio.
         </p>
       </div>
 
@@ -223,84 +221,73 @@ export function IndicesExplorer() {
         </div>
       </div>
 
-      {/* Results Count */}
-      <div className="flex justify-between items-center">
-        <p className="text-sm text-gray-600">
-          Showing {filteredIndices.length} of {availableIndices.length} indices
-        </p>
-        <div className="flex items-center space-x-2 text-sm text-gray-600">
-          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-          <span>Live data from Alpha Vantage</span>
-        </div>
-      </div>
-
-      {/* Indices Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      {/* Indices Grid - Cookie.fun style */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredIndices.map((index) => (
-          <Card key={index.id} className="hover:shadow-lg transition-all duration-200 border-0 shadow-md">
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <div className={`w-10 h-10 rounded-lg bg-gradient-to-r ${index.color} flex items-center justify-center text-white`}>
-                  {index.icon}
+          <Card 
+            key={index.id} 
+            className="hover:shadow-lg transition-all duration-200 cursor-pointer border border-gray-200 rounded-xl"
+            onClick={() => handleViewIndex(index)}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-3">
+                {/* Left side - Avatar and info */}
+                <div className="flex items-center space-x-3">
+                  <div className={`w-10 h-10 rounded-full ${index.color} flex items-center justify-center text-white text-lg font-bold`}>
+                    {index.avatar}
+                  </div>
+                  <div>
+                    <div className="font-semibold text-gray-900">{index.name}</div>
+                    <div className="text-sm text-gray-500">{index.handle}</div>
+                  </div>
                 </div>
-                <Badge variant="secondary" className="text-xs">
-                  {index.category}
-                </Badge>
+
+                {/* Right side - Price change and sparkline */}
+                <div className="flex items-center space-x-3">
+                  <div className="text-right">
+                    <div className={`text-sm font-medium ${
+                      index.isPositive ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {index.change}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {index.isPositive ? '▲' : '▼'} {index.changeValue}
+                    </div>
+                  </div>
+                  <div className="w-20">
+                    <Sparkline 
+                      data={index.sparklineData} 
+                      isPositive={index.isPositive}
+                      width={80}
+                      height={24}
+                    />
+                  </div>
+                </div>
               </div>
-              
-              <div>
-                <CardTitle className="text-lg font-semibold">{index.symbol}</CardTitle>
-                <CardDescription className="text-sm">
-                  {index.name}
-                </CardDescription>
-              </div>
-            </CardHeader>
-            
-            <CardContent className="space-y-4">
-              {/* Current Value */}
+
+              {/* Bottom row - Current value and mindshare */}
               <div className="flex items-center justify-between">
-                <span className="text-2xl font-bold text-gray-900">
-                  {index.valueLabel}
-                </span>
-                <div className={`flex items-center space-x-1 ${
-                  index.isPositive ? 'text-green-600' : 'text-red-600'
-                }`}>
-                  {index.isPositive ? (
-                    <TrendingUp className="w-4 h-4" />
-                  ) : (
-                    <TrendingDown className="w-4 h-4" />
-                  )}
-                  <span className="font-semibold text-sm">{index.change}</span>
+                <div>
+                  <div className="text-lg font-bold text-gray-900">{index.valueLabel}</div>
+                  <div className="text-xs text-gray-500">Current Price</div>
                 </div>
+                <div className="text-right">
+                  <div className="text-sm font-medium text-gray-700">{index.mindshare}</div>
+                  <div className="text-xs text-gray-500">Mindshare</div>
+                </div>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="ml-4"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleViewIndex(index);
+                  }}
+                >
+                  <Eye className="w-4 h-4 mr-1" />
+                  View
+                </Button>
               </div>
-              
-              {/* Description */}
-              <p className="text-xs text-gray-600 line-clamp-2">
-                {index.description}
-              </p>
-              
-              {/* Provider */}
-              <div className="flex items-center justify-between text-xs text-gray-500">
-                <span>Data by {index.provider}</span>
-                <span>Real-time</span>
-              </div>
-              
-              {/* Add Button */}
-              <Button 
-                onClick={() => handleAddIndex(index)}
-                disabled={!isConnected || isCreating === index.id}
-                className="w-full"
-                size="sm"
-              >
-                {isCreating === index.id ? (
-                  "Adding..."
-                ) : (
-                  <>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add to Portfolio
-                  </>
-                )}
-              </Button>
             </CardContent>
           </Card>
         ))}
@@ -319,22 +306,13 @@ export function IndicesExplorer() {
         </Card>
       )}
 
-      {/* Connection Warning */}
-      {!isConnected && (
-        <Card className="border-yellow-200 bg-yellow-50">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <Zap className="w-5 h-5 text-yellow-600" />
-              <div>
-                <h4 className="font-medium text-yellow-800">Connect Wallet to Add Indices</h4>
-                <p className="text-sm text-yellow-700">
-                  Connect your wallet to add indices to your portfolio and start creating conditional orders.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Data Attribution */}
+      <div className="text-center">
+        <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
+          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+          <span>Live data powered by Alpha Vantage</span>
+        </div>
+      </div>
     </div>
   );
 }
