@@ -2,9 +2,11 @@ import { Navbar } from "@/components/navbar";
 import { SwapInterface } from "@/components/swap-interface";
 
 export default function SwapPage() {
-  // In a real app, these would come from environment variables and wallet connection
-  const mockConfig = {
-    walletAddress: "0x742d35Cc6639C443695aE2f8a7D5d3bC6f4e2e8a", // Example address
+  // Configuration from environment variables
+  const config = {
+    walletAddress:
+      process.env.NEXT_PUBLIC_WALLET_ADDRESS ||
+      "0x742d35Cc6639C443695aE2f8a7D5d3bC6f4e2e8a",
     apiKey: process.env.NEXT_PUBLIC_ONEINCH_API_KEY || "",
     rpcUrl:
       process.env.NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL ||
@@ -31,9 +33,9 @@ export default function SwapPage() {
           {/* Swap Interface */}
           <div className="flex justify-center mb-8">
             <SwapInterface
-              walletAddress={mockConfig.walletAddress}
-              apiKey={mockConfig.apiKey}
-              rpcUrl={mockConfig.rpcUrl}
+              walletAddress={config.walletAddress}
+              apiKey={config.apiKey}
+              rpcUrl={config.rpcUrl}
             />
           </div>
 
@@ -152,10 +154,13 @@ export default function SwapPage() {
               environment variables:
             </p>
             <div className="bg-yellow-100 rounded p-3 font-mono text-sm text-yellow-800">
-              <div>NEXT_PUBLIC_ONEINCH_API_KEY=your_1inch_api_key</div>
+              <div>
+                NEXT_PUBLIC_ONEINCH_API_KEY=your_1inch_api_key_here
+              </div>
               <div>
                 NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL=https://sepolia.base.org
               </div>
+              <div>NEXT_PUBLIC_WALLET_ADDRESS=your_wallet_address_here</div>
             </div>
             <p className="text-yellow-700 text-sm mt-2">
               Get your 1inch API key from the{" "}
