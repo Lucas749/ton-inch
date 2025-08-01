@@ -48,55 +48,18 @@ export default function Dashboard() {
         return;
       }
 
-      // COMMENTED OUT: getAllIndices() due to circuit breaker issues
-      // const allIndices = await blockchainService.getAllIndices();
-      
-      // TEMPORARY: Using mock indices to avoid circuit breaker
-      const mockIndices = [
-        {
-          id: 6,
-          name: 'APPLE_STOCK',
-          description: 'Apple Inc. stock price in USD cents',
-          value: 17550,
-          timestamp: Math.floor(Date.now() / 1000),
-          active: true
-        },
-        {
-          id: 7,
-          name: 'BTC_PRICE', 
-          description: 'Bitcoin price in USD',
-          value: 4350000,
-          timestamp: Math.floor(Date.now() / 1000),
-          active: true
-        },
-        {
-          id: 8,
-          name: 'ETH_PRICE',
-          description: 'Ethereum price in USD',
-          value: 240000,
-          timestamp: Math.floor(Date.now() / 1000),
-          active: true
-        },
-        {
-          id: 9,
-          name: 'GOLD_PRICE',
-          description: 'Gold price per ounce in USD cents',
-          value: 205000,
-          timestamp: Math.floor(Date.now() / 1000),
-          active: true
-        }
-      ];
+      const allIndices = await blockchainService.getAllIndices();
       
       // COMMENTED OUT: Load orders sequentially with delays to avoid overwhelming the RPC
       // This was causing performance issues and slowdowns
       const indicesWithOrders: IndexWithOrders[] = [];
       
-      // Simply add mock indices without trying to fetch from blockchain
-      for (let i = 0; i < mockIndices.length; i++) {
-        const index = mockIndices[i];
+      // Simply add indices without trying to fetch orders (orders were causing circuit breaker)
+      for (let i = 0; i < allIndices.length; i++) {
+        const index = allIndices[i];
         indicesWithOrders.push({
           ...index,
-          orders: [], // No orders for performance
+          orders: [], // No orders for performance (this was the circuit breaker issue)
           orderCount: 0 // No orders for performance
         });
       }
