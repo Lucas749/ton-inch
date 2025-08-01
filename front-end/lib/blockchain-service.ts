@@ -396,6 +396,8 @@ export class BlockchainService {
   private preInteraction: any;
   private factory: any;
   private isInitialized = false;
+  private orderCache: Map<number, { orders: Order[], timestamp: number }> = new Map();
+  private readonly CACHE_DURATION = 30000; // 30 seconds
 
   constructor() {
     // Initialize Web3 with Base Sepolia
@@ -1303,51 +1305,133 @@ export class BlockchainService {
   }
 
   /**
-   * Get all orders for a specific index
+   * Get all orders for a specific index with caching and retry logic
    */
   async getOrdersByIndex(indexId: number): Promise<Order[]> {
     try {
+      // Check cache first
+      const cached = this.orderCache.get(indexId);
+      if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
+        console.log(`📋 Using cached orders for index ${indexId}`);
+        return cached.orders;
+      }
+
       if (!this.factory) {
         throw new Error("Factory contract not initialized");
       }
 
       console.log(`🔍 Loading orders for index ${indexId}...`);
 
-      const events = await this.factory.getPastEvents("IndexOrderCreated", {
-        filter: { indexId: indexId },
-        fromBlock: "earliest",
-        toBlock: "latest",
+      const orders = await this.retryWithBackoff(async () => {
+        const events = await this.factory.getPastEvents("IndexOrderCreated", {
+          filter: { indexId: indexId },
+          fromBlock: "earliest",
+          toBlock: "latest",
+        });
+
+        console.log(`📋 Found ${events.length} orders for index ${indexId}`);
+
+        return events.map((event: any) => {
+          const { orderHash, maker, operator, thresholdValue } = event.returnValues;
+          
+          return {
+            hash: orderHash,
+            indexId: indexId,
+            operator: parseInt(operator),
+            threshold: parseInt(thresholdValue),
+            description: `Index ${indexId} order`,
+            fromToken: "",  // Would need to get from order details
+            toToken: "",    // Would need to get from order details
+            fromAmount: "", // Would need to get from order details
+            toAmount: "",   // Would need to get from order details
+            maker: maker,
+            receiver: maker, // Assume same for now
+            expiry: 0, // Would need to get from order details
+            status: "active" as const,
+            createdAt: Date.now(), // Would need to get from block timestamp
+            transactionHash: event.transactionHash,
+          };
+        });
       });
 
-      console.log(`📋 Found ${events.length} orders for index ${indexId}`);
-
-      const orders: Order[] = events.map((event: any) => {
-        const { orderHash, maker, operator, thresholdValue } = event.returnValues;
-        
-        return {
-          hash: orderHash,
-          indexId: indexId,
-          operator: parseInt(operator),
-          threshold: parseInt(thresholdValue),
-          description: `Index ${indexId} order`,
-          fromToken: "",  // Would need to get from order details
-          toToken: "",    // Would need to get from order details
-          fromAmount: "", // Would need to get from order details
-          toAmount: "",   // Would need to get from order details
-          maker: maker,
-          receiver: maker, // Assume same for now
-          expiry: 0, // Would need to get from order details
-          status: "active" as const,
-          createdAt: Date.now(), // Would need to get from block timestamp
-          transactionHash: event.transactionHash,
-        };
+      // Cache the result
+      this.orderCache.set(indexId, {
+        orders,
+        timestamp: Date.now()
       });
 
       return orders;
 
     } catch (error) {
       console.error("Error fetching orders by index:", error);
+      
+      // If we have cached data, return it even if stale
+      const cached = this.orderCache.get(indexId);
+      if (cached) {
+        console.log(`⚠️ Using stale cached orders for index ${indexId} due to error`);
+        return cached.orders;
+      }
+      
       return [];
+    }
+  }
+
+  /**
+   * Retry function with exponential backoff
+   */
+  private async retryWithBackoff<T>(
+    fn: () => Promise<T>, 
+    maxRetries: number = 3, 
+    baseDelay: number = 1000
+  ): Promise<T> {
+    let lastError: any;
+    
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        if (attempt > 0) {
+          const delay = baseDelay * Math.pow(2, attempt - 1);
+          console.log(`⏳ Retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries + 1})`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+        
+        return await fn();
+      } catch (error: any) {
+        lastError = error;
+        
+        // Don't retry if it's not a circuit breaker or rate limit error
+        if (!this.isRetryableError(error)) {
+          throw error;
+        }
+        
+        console.warn(`⚠️ Attempt ${attempt + 1} failed:`, error.message);
+      }
+    }
+    
+    throw lastError;
+  }
+
+  /**
+   * Check if an error is retryable (circuit breaker, rate limit, etc.)
+   */
+  private isRetryableError(error: any): boolean {
+    const message = error.message?.toLowerCase() || '';
+    return message.includes('circuit breaker') || 
+           message.includes('rate limit') || 
+           message.includes('too many requests') ||
+           message.includes('timeout') ||
+           message.includes('network error');
+  }
+
+  /**
+   * Clear order cache for a specific index (call after creating new orders)
+   */
+  public clearOrderCache(indexId?: number): void {
+    if (indexId !== undefined) {
+      this.orderCache.delete(indexId);
+      console.log(`🗑️ Cleared cache for index ${indexId}`);
+    } else {
+      this.orderCache.clear();
+      console.log(`🗑️ Cleared all order cache`);
     }
   }
 
@@ -1416,6 +1500,9 @@ export class BlockchainService {
         });
 
       console.log("✅ Order created!", tx.transactionHash);
+
+      // Clear cache for this index so new order appears immediately
+      this.clearOrderCache(params.indexId);
 
       // Return order object
       return {
