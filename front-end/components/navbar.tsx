@@ -35,28 +35,22 @@ export function Navbar() {
           <div className="hidden md:flex items-center space-x-8">
             <button
               onClick={() => router.push("/")}
-              className="text-sm font-medium text-gray-900 hover:text-blue-600 transition-colors"
+              className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors"
             >
               Home
+            </button>
+            <button
+              onClick={() => router.push("/dashboard")}
+              className="text-sm font-medium text-gray-900 hover:text-blue-600 transition-colors"
+            >
+              Dashboard
             </button>
             <button
               onClick={() => router.push("/alpha-vantage")}
               className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors flex items-center space-x-1"
             >
               <BarChart3 className="w-4 h-4" />
-              <span>Alpha Vantage</span>
-            </button>
-            <button
-              onClick={() => router.push("/dashboard")}
-              className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors"
-            >
-              Dashboard
-            </button>
-            <button
-              onClick={() => router.push("/create-index")}
-              className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors"
-            >
-              Create Index
+              <span>Market Data</span>
             </button>
           </div>
 

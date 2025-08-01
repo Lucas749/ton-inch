@@ -33,6 +33,8 @@ export default function CreateIndex() {
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateLoading, setIsCreateLoading] = useState(false);
   
+
+  
   // New Index Form
   const [newIndexForm, setNewIndexForm] = useState({
     name: "",
@@ -59,6 +61,19 @@ export default function CreateIndex() {
   useEffect(() => {
     loadIndicesWithOrders();
   }, []);
+  
+  // Handle selected index from URL
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const selectedIndexId = urlParams.get('selectedIndex');
+    if (selectedIndexId && indices.length > 0) {
+      const index = indices.find(i => i.id.toString() === selectedIndexId);
+      if (index) {
+        setSelectedIndex(index);
+        setSelectedTab("manage");
+      }
+    }
+  }, [indices]);
 
   const loadIndicesWithOrders = async () => {
     try {
