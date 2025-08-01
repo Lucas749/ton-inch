@@ -1,18 +1,18 @@
 /**
  * 🔗 Wallet Connection Component
- * 
+ *
  * This component handles wallet connection and displays connection status
  */
 
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Wallet, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
-import { useBlockchain } from '@/hooks/useBlockchain';
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Wallet, AlertCircle, CheckCircle, Loader2 } from "lucide-react";
+import { useBlockchain } from "@/hooks/useBlockchain";
 
 interface WalletConnectProps {
   className?: string;
@@ -21,11 +21,11 @@ interface WalletConnectProps {
   compact?: boolean;
 }
 
-export function WalletConnect({ 
-  className = '', 
-  showBalance = true, 
+export function WalletConnect({
+  className = "",
+  showBalance = true,
   showNetwork = true,
-  compact = false 
+  compact = false,
 }: WalletConnectProps) {
   const {
     isConnected,
@@ -36,7 +36,7 @@ export function WalletConnect({
     networkName,
     ethBalance,
     connectWallet,
-    clearError
+    clearError,
   } = useBlockchain();
 
   const [isConnecting, setIsConnecting] = useState(false);
@@ -47,7 +47,7 @@ export function WalletConnect({
       clearError();
       await connectWallet();
     } catch (err) {
-      console.error('Connection failed:', err);
+      console.error("Connection failed:", err);
     } finally {
       setIsConnecting(false);
     }
@@ -59,7 +59,7 @@ export function WalletConnect({
 
   const formatBalance = (balance: string) => {
     const num = parseFloat(balance);
-    if (num < 0.001) return '< 0.001';
+    if (num < 0.001) return "< 0.001";
     return num.toFixed(4);
   };
 
@@ -68,19 +68,20 @@ export function WalletConnect({
       <div className={`flex items-center space-x-2 ${className}`}>
         {isConnected ? (
           <>
-            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+            <Badge
+              variant="outline"
+              className="bg-green-50 text-green-700 border-green-200"
+            >
               <CheckCircle className="w-3 h-3 mr-1" />
               {formatAddress(walletAddress!)}
             </Badge>
             {showBalance && ethBalance && (
-              <Badge variant="outline">
-                {formatBalance(ethBalance)} ETH
-              </Badge>
+              <Badge variant="outline">{formatBalance(ethBalance)} ETH</Badge>
             )}
           </>
         ) : (
-          <Button 
-            onClick={handleConnect} 
+          <Button
+            onClick={handleConnect}
             disabled={isLoading || isConnecting}
             size="sm"
             variant="outline"
@@ -116,10 +117,11 @@ export function WalletConnect({
         {!isConnected ? (
           <div className="space-y-3">
             <p className="text-sm text-gray-600">
-              Connect your wallet to interact with the blockchain and manage your strategies.
+              Connect your wallet to interact with the blockchain and manage
+              your strategies.
             </p>
-            <Button 
-              onClick={handleConnect} 
+            <Button
+              onClick={handleConnect}
               disabled={isLoading || isConnecting}
               className="w-full"
             >
@@ -145,7 +147,7 @@ export function WalletConnect({
               <CheckCircle className="w-5 h-5 text-green-500" />
               <span className="text-sm font-medium">Connected</span>
             </div>
-            
+
             <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Address:</span>
@@ -153,18 +155,18 @@ export function WalletConnect({
                   {formatAddress(walletAddress!)}
                 </Badge>
               </div>
-              
+
               {showNetwork && networkName && (
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Network:</span>
-                  <Badge 
+                  <Badge
                     variant={chainId === 84532 ? "default" : "destructive"}
                   >
                     {networkName}
                   </Badge>
                 </div>
               )}
-              
+
               {showBalance && ethBalance && (
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Balance:</span>

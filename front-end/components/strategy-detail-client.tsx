@@ -55,13 +55,13 @@ export function StrategyDetailClient({
 }: StrategyDetailClientProps) {
   const router = useRouter();
   const [isSwapDialogOpen, setIsSwapDialogOpen] = useState(false);
-  const { 
-    isConnected, 
-    walletAddress, 
-    indices, 
+  const {
+    isConnected,
+    walletAddress,
+    indices,
     ethBalance,
     connectWallet,
-    refreshIndices 
+    refreshIndices,
   } = useBlockchain();
 
   // Load blockchain data on mount
@@ -75,7 +75,7 @@ export function StrategyDetailClient({
   const strategy = {
     id: strategyId,
     name: "ETH Whale Watch",
-    tokenPair: "ETH/USDC", 
+    tokenPair: "ETH/USDC",
     trigger: "Alpha Vantage Data",
     status: isConnected ? "active" : "disconnected",
     totalValue: ethBalance ? `${parseFloat(ethBalance).toFixed(4)} ETH` : "$0",
@@ -88,7 +88,8 @@ export function StrategyDetailClient({
     description:
       "Automatically execute swaps when AAPL stock price crosses above $150 using real blockchain indices.",
     createdAt: "2024-01-15",
-    lastTriggered: indices.length > 0 ? "Active indices detected" : "No indices found",
+    lastTriggered:
+      indices.length > 0 ? "Active indices detected" : "No indices found",
     swapConfig: {
       mode: "intent" as const,
       preset: "fast" as const,
@@ -193,9 +194,7 @@ export function StrategyDetailClient({
         {/* Sidebar */}
         <div className="space-y-6">
           {/* Wallet Connection */}
-          {!isConnected && (
-            <WalletConnect compact={false} />
-          )}
+          {!isConnected && <WalletConnect compact={false} />}
 
           {/* Strategy Stats */}
           <Card>
@@ -296,7 +295,7 @@ export function StrategyDetailClient({
                   </DialogContent>
                 </Dialog>
               ) : (
-                <Button 
+                <Button
                   onClick={connectWallet}
                   className="w-full"
                   variant="outline"

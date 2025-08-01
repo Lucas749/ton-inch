@@ -1,38 +1,38 @@
 /**
  * 📊 Index Management Component
- * 
+ *
  * This component allows users to view, create, and update blockchain indices
  */
 
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogTrigger 
-} from '@/components/ui/dialog';
-import { 
-  Plus, 
-  Edit, 
-  RefreshCw, 
-  TrendingUp, 
-  TrendingDown, 
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Plus,
+  Edit,
+  RefreshCw,
+  TrendingUp,
+  TrendingDown,
   AlertCircle,
   CheckCircle,
-  Loader2
-} from 'lucide-react';
-import { useBlockchain } from '@/hooks/useBlockchain';
-import { WalletConnect } from '@/components/WalletConnect';
+  Loader2,
+} from "lucide-react";
+import { useBlockchain } from "@/hooks/useBlockchain";
+import { WalletConnect } from "@/components/WalletConnect";
 
 interface IndexManagerProps {
   className?: string;
@@ -40,10 +40,10 @@ interface IndexManagerProps {
   onIndexSelect?: (indexId: number) => void;
 }
 
-export function IndexManager({ 
-  className = '', 
+export function IndexManager({
+  className = "",
   showCreateButton = true,
-  onIndexSelect 
+  onIndexSelect,
 }: IndexManagerProps) {
   const {
     isConnected,
@@ -53,22 +53,26 @@ export function IndexManager({
     createIndex,
     updateIndex,
     refreshIndices,
-    clearError
+    clearError,
   } = useBlockchain();
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);
   const [selectedIndexId, setSelectedIndexId] = useState<number | null>(null);
   const [createForm, setCreateForm] = useState({
-    name: '',
-    description: '',
-    initialValue: ''
+    name: "",
+    description: "",
+    initialValue: "",
   });
-  const [updateValue, setUpdateValue] = useState('');
+  const [updateValue, setUpdateValue] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
 
   const handleCreateIndex = async () => {
-    if (!createForm.name || !createForm.description || !createForm.initialValue) {
+    if (
+      !createForm.name ||
+      !createForm.description ||
+      !createForm.initialValue
+    ) {
       return;
     }
 
@@ -79,12 +83,12 @@ export function IndexManager({
         createForm.description,
         parseInt(createForm.initialValue)
       );
-      
-      console.log('✅ Index created with ID:', indexId);
+
+      console.log("✅ Index created with ID:", indexId);
       setIsCreateDialogOpen(false);
-      setCreateForm({ name: '', description: '', initialValue: '' });
+      setCreateForm({ name: "", description: "", initialValue: "" });
     } catch (err) {
-      console.error('❌ Failed to create index:', err);
+      console.error("❌ Failed to create index:", err);
     } finally {
       setActionLoading(false);
     }
@@ -96,13 +100,13 @@ export function IndexManager({
     try {
       setActionLoading(true);
       await updateIndex(selectedIndexId, parseInt(updateValue));
-      
-      console.log('✅ Index updated');
+
+      console.log("✅ Index updated");
       setIsUpdateDialogOpen(false);
-      setUpdateValue('');
+      setUpdateValue("");
       setSelectedIndexId(null);
     } catch (err) {
-      console.error('❌ Failed to update index:', err);
+      console.error("❌ Failed to update index:", err);
     } finally {
       setActionLoading(false);
     }
@@ -147,10 +151,15 @@ export function IndexManager({
               onClick={refreshIndices}
               disabled={isLoading}
             >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+              <RefreshCw
+                className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`}
+              />
             </Button>
             {showCreateButton && (
-              <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+              <Dialog
+                open={isCreateDialogOpen}
+                onOpenChange={setIsCreateDialogOpen}
+              >
                 <DialogTrigger asChild>
                   <Button size="sm">
                     <Plus className="w-4 h-4 mr-2" />
@@ -168,7 +177,9 @@ export function IndexManager({
                         id="index-name"
                         placeholder="e.g., AAPL Stock Price"
                         value={createForm.name}
-                        onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+                        onChange={(e) =>
+                          setCreateForm({ ...createForm, name: e.target.value })
+                        }
                       />
                     </div>
                     <div>
@@ -177,7 +188,12 @@ export function IndexManager({
                         id="index-description"
                         placeholder="e.g., Apple Inc. stock price in USD cents"
                         value={createForm.description}
-                        onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
+                        onChange={(e) =>
+                          setCreateForm({
+                            ...createForm,
+                            description: e.target.value,
+                          })
+                        }
                       />
                     </div>
                     <div>
@@ -187,12 +203,22 @@ export function IndexManager({
                         type="number"
                         placeholder="e.g., 17500 (for $175.00)"
                         value={createForm.initialValue}
-                        onChange={(e) => setCreateForm({ ...createForm, initialValue: e.target.value })}
+                        onChange={(e) =>
+                          setCreateForm({
+                            ...createForm,
+                            initialValue: e.target.value,
+                          })
+                        }
                       />
                     </div>
-                    <Button 
+                    <Button
                       onClick={handleCreateIndex}
-                      disabled={actionLoading || !createForm.name || !createForm.description || !createForm.initialValue}
+                      disabled={
+                        actionLoading ||
+                        !createForm.name ||
+                        !createForm.description ||
+                        !createForm.initialValue
+                      }
                       className="w-full"
                     >
                       {actionLoading ? (
@@ -215,9 +241,9 @@ export function IndexManager({
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
               {error}
-              <Button 
-                variant="link" 
-                className="p-0 h-auto ml-2" 
+              <Button
+                variant="link"
+                className="p-0 h-auto ml-2"
                 onClick={clearError}
               >
                 Dismiss
@@ -235,10 +261,10 @@ export function IndexManager({
         ) : (
           <div className="space-y-3">
             {indices.map((index) => (
-              <Card 
-                key={index.id} 
+              <Card
+                key={index.id}
                 className={`cursor-pointer transition-all hover:shadow-md ${
-                  onIndexSelect ? 'hover:border-blue-300' : ''
+                  onIndexSelect ? "hover:border-blue-300" : ""
                 }`}
                 onClick={() => onIndexSelect?.(index.id)}
               >
@@ -253,14 +279,19 @@ export function IndexManager({
                           ID: {index.id}
                         </Badge>
                         {index.active && (
-                          <Badge variant="default" className="text-xs bg-green-100 text-green-800">
+                          <Badge
+                            variant="default"
+                            className="text-xs bg-green-100 text-green-800"
+                          >
                             <CheckCircle className="w-3 h-3 mr-1" />
                             Active
                           </Badge>
                         )}
                       </div>
                       {index.description && (
-                        <p className="text-xs text-gray-600 mb-2">{index.description}</p>
+                        <p className="text-xs text-gray-600 mb-2">
+                          {index.description}
+                        </p>
                       )}
                       <div className="flex items-center space-x-4 text-xs text-gray-500">
                         <span>Value: {formatValue(index.value)}</span>
@@ -306,7 +337,7 @@ export function IndexManager({
                   onChange={(e) => setUpdateValue(e.target.value)}
                 />
               </div>
-              <Button 
+              <Button
                 onClick={handleUpdateIndex}
                 disabled={actionLoading || !updateValue}
                 className="w-full"
