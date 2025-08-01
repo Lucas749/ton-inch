@@ -36,10 +36,12 @@ export function WalletConnect({
     networkName,
     ethBalance,
     connectWallet,
+    switchToBaseSepoliaNetwork,
     clearError,
   } = useBlockchain();
 
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isSwitchingNetwork, setIsSwitchingNetwork] = useState(false);
 
   const handleConnect = async () => {
     try {
@@ -50,6 +52,18 @@ export function WalletConnect({
       console.error("Connection failed:", err);
     } finally {
       setIsConnecting(false);
+    }
+  };
+
+  const handleSwitchNetwork = async () => {
+    try {
+      setIsSwitchingNetwork(true);
+      clearError();
+      await switchToBaseSepoliaNetwork();
+    } catch (err) {
+      console.error("Network switch failed:", err);
+    } finally {
+      setIsSwitchingNetwork(false);
     }
   };
 
@@ -178,12 +192,30 @@ export function WalletConnect({
             </div>
 
             {chainId !== 84532 && (
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  Please switch to Base Sepolia network for full functionality.
-                </AlertDescription>
-              </Alert>
+              <div className="space-y-3">
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Please switch to Base Sepolia network for full functionality.
+                  </AlertDescription>
+                </Alert>
+                <Button
+                  onClick={handleSwitchNetwork}
+                  disabled={isSwitchingNetwork}
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                >
+                  {isSwitchingNetwork ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Switching Network...
+                    </>
+                  ) : (
+                    "Switch to Base Sepolia"
+                  )}
+                </Button>
+              </div>
             )}
           </div>
         )}

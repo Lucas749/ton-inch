@@ -40,6 +40,7 @@ export interface UseBlockchainReturn {
   refreshIndices: () => Promise<void>;
   validateCondition: (condition: OrderCondition) => Promise<boolean>;
   getTokenBalance: (tokenAddress: string) => Promise<string>;
+  switchToBaseSepoliaNetwork: () => Promise<boolean>;
 
   // Utils
   clearError: () => void;
@@ -194,6 +195,28 @@ export function useBlockchain(): UseBlockchainReturn {
     []
   );
 
+  // Switch to Base Sepolia network
+  const switchToBaseSepoliaNetwork = useCallback(async (): Promise<boolean> => {
+    try {
+      setError(null);
+      const success = await blockchainService.switchToBaseSepoliaNetwork();
+      
+      if (success) {
+        // Refresh network info after switching
+        const networkInfo = await blockchainService.getNetworkInfo();
+        setChainId(networkInfo.chainId);
+        setNetworkName(networkInfo.networkName);
+      }
+      
+      return success;
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to switch network";
+      setError(errorMessage);
+      throw err;
+    }
+  }, []);
+
   // Set up event listeners on mount
   useEffect(() => {
     // Check if already connected
@@ -261,6 +284,7 @@ export function useBlockchain(): UseBlockchainReturn {
     refreshIndices,
     validateCondition,
     getTokenBalance,
+    switchToBaseSepoliaNetwork,
 
     // Utils
     clearError,
