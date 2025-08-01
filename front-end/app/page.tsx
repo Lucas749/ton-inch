@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Navbar } from '@/components/navbar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { IndicesExplorer } from '@/components/IndicesExplorer';
 import { TrendingUp, BarChart3, ArrowRight } from 'lucide-react';
 
 export default function Home() {
@@ -28,7 +29,7 @@ export default function Home() {
             Create custom indices and set up conditional trading orders that execute automatically when your conditions are met.
           </p>
           
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
             <Button 
               onClick={() => router.push('/dashboard')}
               size="lg"
@@ -49,7 +50,11 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+        {/* Indices Explorer */}
+        <IndicesExplorer />
+
+        {/* Features Section */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto mt-24">
           <Card className="text-center">
             <CardContent className="p-6">
               <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-4">
