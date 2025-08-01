@@ -402,7 +402,9 @@ export class BlockchainService {
   private factory: any;
   private isInitialized = false;
   private orderCache: Map<number, { orders: Order[], timestamp: number }> = new Map();
+  private indicesCache: { indices: CustomIndex[], timestamp: number } | null = null;
   private readonly CACHE_DURATION = 30000; // 30 seconds
+  private readonly INDICES_CACHE_DURATION = 10000; // 10 seconds for indices cache
 
   constructor() {
     // Initialize Web3 with Alchemy or fallback to Base Sepolia
@@ -546,10 +548,16 @@ export class BlockchainService {
   }
 
   /**
-   * Get all custom indices from the oracle with rate limiting
+   * Get all custom indices from the oracle with rate limiting and caching
    */
   async getAllIndices(): Promise<CustomIndex[]> {
     try {
+      // Check cache first
+      if (this.indicesCache && Date.now() - this.indicesCache.timestamp < this.INDICES_CACHE_DURATION) {
+        console.log('📋 Using cached indices (avoiding duplicate call)');
+        return this.indicesCache.indices;
+      }
+
       console.log('📊 Fetching all indices with rate limiting...');
       const indices: CustomIndex[] = [];
 
@@ -647,7 +655,15 @@ export class BlockchainService {
       }
 
       console.log(`✅ Loaded ${indices.length} total indices`);
-      return indices.sort((a, b) => a.id - b.id);
+      const sortedIndices = indices.sort((a, b) => a.id - b.id);
+      
+      // Cache the results to prevent duplicate calls
+      this.indicesCache = {
+        indices: sortedIndices,
+        timestamp: Date.now()
+      };
+      
+      return sortedIndices;
     } catch (error) {
       console.error("❌ Error fetching indices:", error);
       return []; // Return empty array instead of throwing
@@ -719,6 +735,9 @@ export class BlockchainService {
         "✅ Index registered in PreInteraction:",
         preIntTx.transactionHash
       );
+
+      // Clear indices cache so new index appears immediately
+      this.clearIndicesCache();
 
       return Number(indexId);
     } catch (error) {
@@ -1342,6 +1361,9 @@ export class BlockchainService {
       console.log("✅ Index registered in PreInteraction:", preIntTx.transactionHash);
       console.log(`🎉 Index "${name}" created with ID: ${indexId}`);
 
+      // Clear indices cache so new index appears immediately
+      this.clearIndicesCache();
+
       return parseInt(indexId);
 
     } catch (error) {
@@ -1411,6 +1433,14 @@ export class BlockchainService {
       this.orderCache.clear();
       console.log(`🗑️ Cleared all order cache`);
     }
+  }
+
+  /**
+   * Clear indices cache (call after creating new indices or when forcing refresh)
+   */
+  public clearIndicesCache(): void {
+    this.indicesCache = null;
+    console.log(`🗑️ Cleared indices cache`);
   }
 
   /**

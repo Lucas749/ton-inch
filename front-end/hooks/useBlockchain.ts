@@ -157,6 +157,8 @@ export function useBlockchain(): UseBlockchainReturn {
   // Refresh indices
   const refreshIndices = useCallback(async () => {
     try {
+      // Clear cache to force fresh data on explicit refresh
+      blockchainService.clearIndicesCache();
       const allIndices = await blockchainService.getAllIndices();
       setIndices(allIndices);
     } catch (err) {
