@@ -32,6 +32,15 @@ export default function Dashboard() {
   const [allOrders, setAllOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTab, setSelectedTab] = useState("overview");
+
+  const handleTabChange = (value: string) => {
+    setSelectedTab(value);
+    
+    // Load orders when switching to Orders tab
+    if (value === "orders") {
+      loadOrdersOnDemand();
+    }
+  };
   
   const { isConnected } = useBlockchain();
   const { orders } = useOrders();
@@ -50,40 +59,15 @@ export default function Dashboard() {
 
       const allIndices = await blockchainService.getAllIndices();
       
-      // Load orders sequentially with delays to avoid overwhelming the RPC
-      const indicesWithOrders: IndexWithOrders[] = [];
-      
-      for (let i = 0; i < allIndices.length; i++) {
-        const index = allIndices[i];
-        
-        try {
-          const orders = await blockchainService.getOrdersByIndex(index.id);
-          indicesWithOrders.push({
-            ...index,
-            orders,
-            orderCount: orders.length
-          });
-        } catch (error) {
-          console.warn(`Failed to load orders for index ${index.id}:`, error);
-          // Add index without orders if request fails
-          indicesWithOrders.push({
-            ...index,
-            orders: [],
-            orderCount: 0
-          });
-        }
-        
-        // Add small delay between requests to prevent overwhelming RPC
-        if (i < allIndices.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-      }
+      // Convert to IndexWithOrders without loading orders automatically
+      const indicesWithOrders: IndexWithOrders[] = allIndices.map(index => ({
+        ...index,
+        orders: [],
+        orderCount: 0 // Will be loaded on-demand when viewing Orders tab
+      }));
 
       setIndices(indicesWithOrders);
-      
-      // Collect all orders
-      const allOrdersFlat = indicesWithOrders.flatMap(index => index.orders);
-      setAllOrders(allOrdersFlat);
+      setAllOrders([]); // Don't load orders automatically
       
     } catch (error) {
       console.error("Error loading data:", error);
@@ -102,6 +86,52 @@ export default function Dashboard() {
 
   const handleViewIndex = (index: IndexWithOrders) => {
     router.push(`/create-index?selectedIndex=${index.id}`);
+  };
+
+  const loadOrdersOnDemand = async () => {
+    if (!isConnected || allOrders.length > 0) return; // Don't reload if already loaded
+    
+    setIsLoading(true);
+    try {
+      console.log('📋 Loading orders on-demand for Orders tab...');
+      const updatedIndices: IndexWithOrders[] = [];
+      
+      for (let i = 0; i < indices.length; i++) {
+        const index = indices[i];
+        
+        try {
+          const orders = await blockchainService.getOrdersByIndex(index.id);
+          updatedIndices.push({
+            ...index,
+            orders,
+            orderCount: orders.length
+          });
+        } catch (error) {
+          console.warn(`Failed to load orders for index ${index.id}:`, error);
+          updatedIndices.push({
+            ...index,
+            orders: [],
+            orderCount: 0
+          });
+        }
+        
+        // Add delay between requests
+        if (i < indices.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+      }
+
+      setIndices(updatedIndices);
+      
+      // Collect all orders
+      const allOrdersFlat = updatedIndices.flatMap(index => index.orders);
+      setAllOrders(allOrdersFlat);
+      
+    } catch (error) {
+      console.error("Error loading orders:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const getOperatorName = (operator: number) => {
@@ -148,21 +178,7 @@ export default function Dashboard() {
 
         {isConnected && (
           <>
-            {/* Circuit Breaker Warning */}
-            <Card className="mb-6 border-yellow-200 bg-yellow-50">
-              <CardContent className="p-4">
-                <div className="flex items-center space-x-2">
-                  <AlertCircle className="w-5 h-5 text-yellow-600" />
-                  <div>
-                    <h4 className="font-medium text-yellow-800">Order Loading Temporarily Disabled</h4>
-                    <p className="text-sm text-yellow-700">
-                      Order history is temporarily disabled to prevent RPC circuit breaker errors. 
-                      Indices are loading normally. Order functionality will be restored when RPC stability improves.
-                    </p>
-          </div>
-                </div>
-              </CardContent>
-            </Card>
+
 
             {/* Overview Stats */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -220,7 +236,7 @@ export default function Dashboard() {
         </div>
 
             {/* Main Content Tabs */}
-            <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
+            <Tabs value={selectedTab} onValueChange={handleTabChange} className="space-y-6">
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="indices">My Indices</TabsTrigger>
