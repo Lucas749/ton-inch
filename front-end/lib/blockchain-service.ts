@@ -1595,14 +1595,14 @@ export class BlockchainService {
   }
 
   /**
-   * Get all indices (predefined + custom) following get_all_indices.js approach
+   * Get all indices (predefined + custom) with rate limiting to avoid circuit breaker
    */
   async getAllIndices(): Promise<CustomIndex[]> {
     try {
-      console.log('📊 Fetching all indices...');
+      console.log('📊 Fetching all indices with rate limiting...');
       const allIndices: CustomIndex[] = [];
 
-      // Predefined indices (0-5)
+      // Predefined indices (0-5) with delays
       const predefinedIndices = [
         { id: 0, type: 'INFLATION_RATE' },
         { id: 1, type: 'ELON_FOLLOWERS' },
@@ -1612,11 +1612,21 @@ export class BlockchainService {
         { id: 5, type: 'TESLA_STOCK' }
       ];
 
-      console.log('📊 Fetching predefined indices...');
-      for (const predefined of predefinedIndices) {
-        const details = await this.getIndexDetails(predefined.id);
-        if (details) {
-          allIndices.push(details);
+      console.log('📊 Fetching predefined indices with delays...');
+      for (let i = 0; i < predefinedIndices.length; i++) {
+        const predefined = predefinedIndices[i];
+        try {
+          const details = await this.getIndexDetailsWithRetry(predefined.id);
+          if (details) {
+            allIndices.push(details);
+          }
+        } catch (error) {
+          console.warn(`⚠️ Failed to fetch predefined index ${predefined.id}:`, error);
+        }
+        
+        // Add delay between requests to avoid overwhelming RPC
+        if (i < predefinedIndices.length - 1) {
+          await this.delay(200); // 200ms delay
         }
       }
 
@@ -1634,17 +1644,26 @@ export class BlockchainService {
         
         console.log(`Found ${indexIds.length} custom indices`);
         
-        // Get detailed info for each custom index
+        // Get detailed info for each custom index with delays
         for (let i = 0; i < indexIds.length; i++) {
           const indexId = Number(indexIds[i]);
-          const details = await this.getIndexDetails(indexId);
+          try {
+            const details = await this.getIndexDetailsWithRetry(indexId);
+            
+            if (details) {
+              // Add oracle data (sometimes more current than preInteraction)
+              details.value = Number(values[i]);
+              details.timestamp = Number(timestamps[i]);
+              details.active = activeStates[i];
+              allIndices.push(details);
+            }
+          } catch (error) {
+            console.warn(`⚠️ Failed to fetch custom index ${indexId}:`, error);
+          }
           
-          if (details) {
-            // Add oracle data (sometimes more current than preInteraction)
-            details.value = Number(values[i]);
-            details.timestamp = Number(timestamps[i]);
-            details.active = activeStates[i];
-            allIndices.push(details);
+          // Add delay between requests
+          if (i < indexIds.length - 1) {
+            await this.delay(200);
           }
         }
       } catch (error) {
@@ -1661,6 +1680,24 @@ export class BlockchainService {
       console.error('❌ Error fetching all indices:', error);
       return [];
     }
+  }
+
+  /**
+   * Delay helper function
+   */
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Get index details with retry logic
+   */
+  private async getIndexDetailsWithRetry(indexId: number): Promise<CustomIndex | null> {
+    return await this.retryWithBackoff(
+      () => this.getIndexDetails(indexId),
+      3, // max 3 retries
+      1000 // 1 second base delay
+    );
   }
 
   /**
