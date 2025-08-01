@@ -97,26 +97,26 @@ export default function CreateStrategy() {
   };
 
   const fillDemoData = () => {
-    // Fill demo data with TestUSDC and small amounts for testing
+    // Fill demo data with real USDC and very small amounts for testing
     setStrategyData({
       name: "Apple Stock Bull Run Alert",
-      description: "Execute trade when Apple stock price exceeds $170.00",
-      tokenIn: CONTRACTS.TestUSDC, // Use TestUSDC for testing
+      description: "Execute trade when Apple stock price exceeds $175.00",
+      tokenIn: CONTRACTS.USDC,      // Use real USDC (matching backend demo)
       tokenOut: CONTRACTS.WETH,     // Keep WETH as target
       triggerType: "alphavantage",
       triggerParams: {
         dataType: "stock",
         symbol: "AAPL",
         indicator: "price",
-        threshold: "170.00",
+        threshold: "175.00",
         condition: "greater_than",
         keywords: "",
         amount: "",
         webhookUrl: "",
         direction: "up",
       },
-      orderAmount: "10",    // Small amount: 10 TestUSDC
-      targetPrice: "0.003", // Small amount: 0.003 ETH
+      orderAmount: "0.1",     // Very small amount: 0.1 USDC
+      targetPrice: "0.00003", // Proportionally smaller: 0.00003 ETH
       slippage: "1",
       expiry: "2", // 2 hours
       swapConfig: {
@@ -127,17 +127,17 @@ export default function CreateStrategy() {
         rpcUrl: "https://sepolia.base.org",
       },
       orderCondition: {
-        indexId: "0", // APPLE_STOCK index (assuming first index)
+        indexId: "25", // Index 25 - APPLE_STOCK that exists
         operator: OPERATORS.GT, // Greater than
-        threshold: "17000", // $170.00 * 100
-        description: "Apple stock > $170.00",
+        threshold: "17500", // $175.00 * 100
+        description: "Apple stock > $175.00",
       },
     });
 
     // Auto-advance to the review step to test the full flow
     setCurrentStep(3);
     
-    alert("🚀 Demo data loaded! Steps to test:\n1. Create Test Index (📊)\n2. Get Test Tokens (🪙)\n3. Create Strategy");
+    alert("🚀 Demo data loaded! Using Index 25 and 0.1 USDC for minimal test");
   };
 
   const handleCreateTestIndex = async () => {
