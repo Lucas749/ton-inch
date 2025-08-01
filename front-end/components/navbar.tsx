@@ -53,10 +53,10 @@ export function Navbar() {
               Dashboard
             </button>
             <button
-              onClick={() => router.push("/create-strategy")}
+              onClick={() => router.push("/create-index")}
               className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors"
             >
-              Create Strategy
+              Create Index
             </button>
           </div>
 
