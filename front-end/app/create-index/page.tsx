@@ -105,7 +105,7 @@ export default function CreateIndex() {
         
         // Add small delay between requests to prevent overwhelming RPC
         if (i < allIndices.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 200));
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
       }
 
@@ -226,6 +226,22 @@ export default function CreateIndex() {
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Index Management</h1>
           <p className="text-gray-600">Create custom indices and manage their associated trading orders</p>
         </div>
+
+        {/* Circuit Breaker Warning */}
+        <Card className="mb-6 border-yellow-200 bg-yellow-50">
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <AlertCircle className="w-5 h-5 text-yellow-600" />
+              <div>
+                <h4 className="font-medium text-yellow-800">Order Loading Temporarily Disabled</h4>
+                <p className="text-sm text-yellow-700">
+                  Order history display is temporarily disabled to prevent RPC circuit breaker errors. 
+                  You can still create new orders, but existing order history won't load until RPC stability improves.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-3">

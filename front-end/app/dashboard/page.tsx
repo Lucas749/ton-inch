@@ -75,7 +75,7 @@ export default function Dashboard() {
         
         // Add small delay between requests to prevent overwhelming RPC
         if (i < allIndices.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 200));
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
       }
 
@@ -148,6 +148,22 @@ export default function Dashboard() {
 
         {isConnected && (
           <>
+            {/* Circuit Breaker Warning */}
+            <Card className="mb-6 border-yellow-200 bg-yellow-50">
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-2">
+                  <AlertCircle className="w-5 h-5 text-yellow-600" />
+                  <div>
+                    <h4 className="font-medium text-yellow-800">Order Loading Temporarily Disabled</h4>
+                    <p className="text-sm text-yellow-700">
+                      Order history is temporarily disabled to prevent RPC circuit breaker errors. 
+                      Indices are loading normally. Order functionality will be restored when RPC stability improves.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Overview Stats */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
               <Card>
