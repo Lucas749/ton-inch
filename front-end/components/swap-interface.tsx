@@ -21,7 +21,14 @@ import {
   AlertCircle,
   CheckCircle,
 } from "lucide-react";
-import { OneInchService, TOKENS, SwapQuoteResponse } from "@/lib/1inch-service";
+import { 
+  OneInchService, 
+  TOKENS, 
+  SwapQuoteResponse, 
+  IntentSwapQuoteResponse,
+  SwapMode,
+  OrderStatus
+} from "@/lib/1inch-service";
 
 interface Token {
   address: string;
@@ -57,12 +64,17 @@ export function SwapInterface({
   const [fromAmount, setFromAmount] = useState<string>("");
   const [toAmount, setToAmount] = useState<string>("");
   const [slippage, setSlippage] = useState<number>(1);
+  const [swapMode, setSwapMode] = useState<SwapMode>("classic");
   const [quote, setQuote] = useState<SwapQuoteResponse | null>(null);
+  const [intentQuote, setIntentQuote] = useState<IntentSwapQuoteResponse | null>(null);
   const [isLoadingQuote, setIsLoadingQuote] = useState(false);
   const [isSwapping, setIsSwapping] = useState(false);
   const [error, setError] = useState<string>("");
   const [success, setSuccess] = useState<string>("");
   const [txHash, setTxHash] = useState<string>("");
+  const [orderHash, setOrderHash] = useState<string>("");
+  const [orderStatus, setOrderStatus] = useState<OrderStatus | null>(null);
+  const [preset, setPreset] = useState<"fast" | "fair" | "auction">("fast");
 
   const oneInchService =
     apiKey && rpcUrl && walletAddress
@@ -78,12 +90,17 @@ export function SwapInterface({
   // Get quote when amount or tokens change
   useEffect(() => {
     if (fromAmount && parseFloat(fromAmount) > 0 && isConfigured) {
-      getQuote();
+      if (swapMode === "classic") {
+        getQuote();
+      } else {
+        getIntentQuote();
+      }
     } else {
       setToAmount("");
       setQuote(null);
+      setIntentQuote(null);
     }
-  }, [fromAmount, fromToken, toToken, slippage, isConfigured]);
+  }, [fromAmount, fromToken, toToken, slippage, swapMode, preset, isConfigured]);
 
   const getQuote = async () => {
     if (!oneInchService || !fromAmount || parseFloat(fromAmount) <= 0) return;
@@ -120,6 +137,41 @@ export function SwapInterface({
     }
   };
 
+  const getIntentQuote = async () => {
+    if (!oneInchService || !fromAmount || parseFloat(fromAmount) <= 0) return;
+
+    setIsLoadingQuote(true);
+    setError("");
+
+    try {
+      const amount = OneInchService.parseTokenAmount(
+        fromAmount,
+        fromToken.decimals
+      );
+
+      const intentQuoteResponse = await oneInchService.getIntentSwapQuote({
+        srcToken: fromToken.address,
+        dstToken: toToken.address,
+        amount,
+        walletAddress: walletAddress!,
+        preset,
+      });
+
+      setIntentQuote(intentQuoteResponse);
+      const formattedAmount = OneInchService.formatTokenAmount(
+        intentQuoteResponse.dstAmount,
+        toToken.decimals
+      );
+      setToAmount(formattedAmount);
+    } catch (err) {
+      setError(`Failed to get Intent quote: ${(err as Error).message}`);
+      setToAmount("");
+      setIntentQuote(null);
+    } finally {
+      setIsLoadingQuote(false);
+    }
+  };
+
   const handleSwapTokens = () => {
     const tempToken = fromToken;
     setFromToken(toToken);
@@ -127,9 +179,18 @@ export function SwapInterface({
     setFromAmount(toAmount);
     setToAmount("");
     setQuote(null);
+    setIntentQuote(null);
   };
 
   const handleSwap = async () => {
+    if (swapMode === "classic") {
+      await handleClassicSwap();
+    } else {
+      await handleIntentSwap();
+    }
+  };
+
+  const handleClassicSwap = async () => {
     if (!oneInchService || !fromAmount || !quote) return;
 
     setIsSwapping(true);
@@ -152,7 +213,7 @@ export function SwapInterface({
 
       setTxHash(result.swapTxHash);
       setSuccess(
-        `Swap successful! ${
+        `Classic swap successful! ${
           result.approvalTxHash ? "Approval and swap" : "Swap"
         } transaction${result.approvalTxHash ? "s" : ""} completed.`
       );
@@ -162,9 +223,63 @@ export function SwapInterface({
       setToAmount("");
       setQuote(null);
     } catch (err) {
-      setError(`Swap failed: ${(err as Error).message}`);
+      setError(`Classic swap failed: ${(err as Error).message}`);
     } finally {
       setIsSwapping(false);
+    }
+  };
+
+  const handleIntentSwap = async () => {
+    if (!oneInchService || !fromAmount || !intentQuote) return;
+
+    setIsSwapping(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const amount = OneInchService.parseTokenAmount(
+        fromAmount,
+        fromToken.decimals
+      );
+
+      const result = await oneInchService.performIntentSwap({
+        srcToken: fromToken.address,
+        dstToken: toToken.address,
+        amount,
+        walletAddress: walletAddress!,
+        preset,
+      });
+
+      setOrderHash(result.orderHash);
+      setSuccess(
+        `Intent swap order created successfully! Order will be filled by resolvers. No gas fees required.`
+      );
+
+      // Start monitoring order status
+      monitorOrderStatus(result.orderHash);
+
+      // Reset form
+      setFromAmount("");
+      setToAmount("");
+      setIntentQuote(null);
+    } catch (err) {
+      setError(`Intent swap failed: ${(err as Error).message}`);
+    } finally {
+      setIsSwapping(false);
+    }
+  };
+
+  const monitorOrderStatus = async (orderHash: string) => {
+    try {
+      const status = await oneInchService!.getOrderStatus(orderHash);
+      setOrderStatus(status);
+      
+      // Continue monitoring if order is still pending
+      if (status.status === "pending" || status.status === "partially-filled") {
+        setTimeout(() => monitorOrderStatus(orderHash), 10000); // Check every 10 seconds
+      }
+    } catch (err) {
+      console.error("Failed to get order status:", err);
     }
   };
 
@@ -208,6 +323,53 @@ export function SwapInterface({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Swap Mode Selector */}
+        <div className="space-y-2">
+          <Label>Swap Mode</Label>
+          <div className="flex space-x-2">
+            <Button
+              variant={swapMode === "classic" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSwapMode("classic")}
+              className="flex-1"
+            >
+              Classic Swap
+            </Button>
+            <Button
+              variant={swapMode === "intent" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSwapMode("intent")}
+              className="flex-1"
+            >
+              Intent Swap (Gasless)
+            </Button>
+          </div>
+          {swapMode === "intent" && (
+            <div className="text-xs text-muted-foreground bg-blue-50 p-2 rounded">
+              <strong>Intent Swap:</strong> Gasless swaps using Dutch auction. Orders are filled by resolvers with no upfront gas costs.
+            </div>
+          )}
+        </div>
+
+        {/* Preset selector for Intent swaps */}
+        {swapMode === "intent" && (
+          <div className="space-y-2">
+            <Label>Execution Speed</Label>
+            <Select
+              value={preset}
+              onValueChange={(value: "fast" | "fair" | "auction") => setPreset(value)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="fast">Fast - Quick execution</SelectItem>
+                <SelectItem value="fair">Fair - Balanced speed/price</SelectItem>
+                <SelectItem value="auction">Auction - Best price</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
         {/* From Token */}
         <div className="space-y-2">
           <Label htmlFor="from-amount">From</Label>
@@ -309,7 +471,7 @@ export function SwapInterface({
         </div>
 
         {/* Quote Information */}
-        {quote && (
+        {swapMode === "classic" && quote && (
           <div className="p-3 bg-blue-50 rounded-lg space-y-2">
             <div className="text-sm text-gray-600">
               <div className="flex justify-between">
@@ -330,6 +492,52 @@ export function SwapInterface({
               <div className="flex justify-between">
                 <span>Est. Gas:</span>
                 <span>{parseInt(quote.gas).toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Intent Quote Information */}
+        {swapMode === "intent" && intentQuote && (
+          <div className="p-3 bg-green-50 rounded-lg space-y-2">
+            <div className="text-sm text-gray-600">
+              <div className="flex justify-between">
+                <span>Starting Rate:</span>
+                <span>
+                  1 {fromToken.symbol} ≈{" "}
+                  {(
+                    parseFloat(
+                      OneInchService.formatTokenAmount(
+                        intentQuote.auctionStartAmount,
+                        toToken.decimals
+                      )
+                    ) / parseFloat(fromAmount)
+                  ).toFixed(6)}{" "}
+                  {toToken.symbol}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Minimum Rate:</span>
+                <span>
+                  1 {fromToken.symbol} ≈{" "}
+                  {(
+                    parseFloat(
+                      OneInchService.formatTokenAmount(
+                        intentQuote.auctionEndAmount,
+                        toToken.decimals
+                      )
+                    ) / parseFloat(fromAmount)
+                  ).toFixed(6)}{" "}
+                  {toToken.symbol}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Auction Duration:</span>
+                <span>{Math.floor(intentQuote.auctionDuration / 60)} minutes</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Gas Cost:</span>
+                <span className="text-green-600 font-semibold">Free (Gasless)</span>
               </div>
             </div>
           </div>
@@ -362,6 +570,41 @@ export function SwapInterface({
                   </a>
                 </div>
               )}
+              {orderHash && (
+                <div className="mt-2 text-xs">
+                  <div>Order Hash: <code className="bg-gray-100 px-1 rounded">{orderHash.slice(0, 10)}...{orderHash.slice(-8)}</code></div>
+                </div>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Order Status for Intent Swaps */}
+        {orderStatus && (
+          <Alert className="border-blue-200 bg-blue-50">
+            <AlertCircle className="h-4 w-4 text-blue-600" />
+            <AlertDescription className="text-blue-800">
+              <div className="space-y-1">
+                <div>Order Status: <Badge variant="outline">{orderStatus.status}</Badge></div>
+                <div className="text-xs">Created: {new Date(orderStatus.createdAt * 1000).toLocaleString()}</div>
+                {orderStatus.fills.length > 0 && (
+                  <div className="text-xs">
+                    Fills: {orderStatus.fills.length}
+                    {orderStatus.fills.map((fill, i) => (
+                      <div key={i} className="ml-2">
+                        <a
+                          href={getExplorerUrl(fill.txHash)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800"
+                        >
+                          Fill {i + 1}: {fill.txHash.slice(0, 10)}...
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </AlertDescription>
           </Alert>
         )}
@@ -375,14 +618,15 @@ export function SwapInterface({
             parseFloat(fromAmount) <= 0 ||
             isSwapping ||
             isLoadingQuote ||
-            !quote
+            (swapMode === "classic" && !quote) ||
+            (swapMode === "intent" && !intentQuote)
           }
           className="w-full"
         >
           {isSwapping ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Swapping...
+              {swapMode === "intent" ? "Creating Order..." : "Swapping..."}
             </>
           ) : isLoadingQuote ? (
             <>
@@ -390,7 +634,7 @@ export function SwapInterface({
               Getting Quote...
             </>
           ) : (
-            "Swap Tokens"
+            swapMode === "intent" ? "Create Intent Order" : "Swap Tokens"
           )}
         </Button>
 
