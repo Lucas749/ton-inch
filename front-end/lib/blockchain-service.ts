@@ -1198,6 +1198,15 @@ export class BlockchainService {
 export const blockchainService = new BlockchainService();
 
 // Export contracts for use in other components
+// Contract addresses - keep in sync with other files  
+const CONTRACTS = {
+  TestUSDC: "0x2026c63430A1B526638bEF55Fea7174220cD3965",
+  WETH: "0x4200000000000000000000000000000000000006", 
+  IndexLimitOrderFactory: "0x0312Af95deFE475B89852ec05Eab5A785f647e73",
+  MockOracleAddress: "0x8c14b2Aa4Ca7D3Ceb98b96B5A6b8C23Bf18fFA1c",
+  PreInteractionAddress: "0xF56d8a2e91Eb1dC06c7fEa5C02c62e3eEb4eA56d",
+};
+
 export { CONTRACTS };
 
 // Type declarations for window.ethereum

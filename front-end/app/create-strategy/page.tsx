@@ -12,6 +12,7 @@ import { blockchainService } from "@/lib/blockchain-service";
 const CONTRACTS = {
   TestUSDC: "0x2026c63430A1B526638bEF55Fea7174220cD3965",
   WETH: "0x4200000000000000000000000000000000000006",
+  IndexLimitOrderFactory: "0x0312Af95deFE475B89852ec05Eab5A785f647e73",
 };
 
 import { StepNavigation, steps } from "@/components/create-strategy/StepNavigation";
