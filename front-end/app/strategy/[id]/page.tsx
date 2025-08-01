@@ -38,11 +38,7 @@ const priceData = [
 export async function generateStaticParams() {
   // Return the strategy IDs that should be pre-generated
   // For now, we'll generate pages for strategies 1, 2, and 3
-  return [
-    { id: '1' },
-    { id: '2' },
-    { id: '3' },
-  ];
+  return [{ id: "1" }, { id: "2" }, { id: "3" }];
 }
 
 export default function StrategyDetail() {
