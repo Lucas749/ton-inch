@@ -8,11 +8,12 @@ import { useBlockchain } from "@/hooks/useBlockchain";
 import { useOrders, OPERATORS } from "@/hooks/useOrders";
 import { blockchainService } from "@/lib/blockchain-service";
 
-// Contract addresses - avoiding import issues
+// Contract addresses - matching backend comprehensive demo
 const CONTRACTS = {
-  TestUSDC: "0x2026c63430A1B526638bEF55Fea7174220cD3965",
-  WETH: "0x4200000000000000000000000000000000000006",
-  IndexLimitOrderFactory: "0x0312Af95deFE475B89852ec05Eab5A785f647e73",
+  USDC: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
+  WETH: '0x4200000000000000000000000000000000000006',
+  IndexLimitOrderFactory: '0x0312Af95deFE475B89852ec05Eab5A785f647e73',
+  TestUSDC: '0x2026c63430A1B526638bEF55Fea7174220cD3965'
 };
 
 import { StepNavigation, steps } from "@/components/create-strategy/StepNavigation";
@@ -187,17 +188,17 @@ export default function CreateStrategy() {
         return;
       }
 
-      // Check if user has test tokens first
+      // Check if user has USDC balance (matching backend demo)
       try {
-        const testUSDCBalance = await blockchainService.getTestUSDCBalance();
-        console.log("🪙 TestUSDC Balance:", testUSDCBalance);
+        const usdcBalance = await blockchainService.getTokenBalance(CONTRACTS.USDC);
+        console.log("🪙 USDC Balance:", usdcBalance);
         
-        if (parseFloat(testUSDCBalance) < parseFloat(strategyData.orderAmount)) {
-          alert(`❌ Insufficient TestUSDC balance! You have ${testUSDCBalance} but need ${strategyData.orderAmount}. Click "Get Test Tokens" first.`);
+        if (parseFloat(usdcBalance) < parseFloat(strategyData.orderAmount)) {
+          alert(`❌ Insufficient USDC balance! You have ${usdcBalance} but need ${strategyData.orderAmount}.`);
           return;
         }
       } catch (error) {
-        console.warn("Could not check TestUSDC balance:", error);
+        console.warn("Could not check USDC balance:", error);
       }
 
       // Check if the index exists first
@@ -215,8 +216,8 @@ export default function CreateStrategy() {
         operator: strategyData.orderCondition.operator,
         threshold: parseInt(strategyData.orderCondition.threshold),
         description: strategyData.orderCondition.description || `${strategyData.name} - ${getOperatorName(strategyData.orderCondition.operator)} ${strategyData.orderCondition.threshold}`,
-        fromToken: strategyData.tokenIn || CONTRACTS.TestUSDC, // Default to TestUSDC
-        toToken: strategyData.tokenOut || CONTRACTS.WETH,      // Default to WETH
+        fromToken: strategyData.tokenIn || CONTRACTS.USDC, // Default to USDC (matching backend)
+        toToken: strategyData.tokenOut || CONTRACTS.WETH,   // Default to WETH
         fromAmount: strategyData.orderAmount,
         toAmount: strategyData.targetPrice || "0.003",
         expiry: Math.floor(Date.now() / 1000) + (parseInt(strategyData.expiry) * 3600),
