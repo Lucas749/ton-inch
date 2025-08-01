@@ -154,9 +154,7 @@ export default function SwapPage() {
               environment variables:
             </p>
             <div className="bg-yellow-100 rounded p-3 font-mono text-sm text-yellow-800">
-              <div>
-                NEXT_PUBLIC_ONEINCH_API_KEY=your_1inch_api_key_here
-              </div>
+              <div>NEXT_PUBLIC_ONEINCH_API_KEY=your_1inch_api_key_here</div>
               <div>
                 NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL=https://sepolia.base.org
               </div>
