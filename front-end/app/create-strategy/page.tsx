@@ -177,7 +177,7 @@ export default function CreateStrategy() {
     }
   };
 
-  const renderTriggerIcon = (type: string): JSX.Element => {
+  const renderTriggerIcon = (type: string) => {
     switch (type) {
       case "alphavantage":
         return <BarChart3 className="w-4 h-4" />;
