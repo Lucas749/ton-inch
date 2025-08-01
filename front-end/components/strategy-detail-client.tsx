@@ -25,6 +25,7 @@ import {
 import { SwapInterface } from "@/components/swap-interface";
 import { WalletConnect } from "@/components/WalletConnect";
 import { useBlockchain } from "@/hooks/useBlockchain";
+import { useOrders } from "@/hooks/useOrders";
 import {
   LineChart,
   Line,
@@ -63,13 +64,15 @@ export function StrategyDetailClient({
     connectWallet,
     refreshIndices,
   } = useBlockchain();
+  const { orders, isLoading: ordersLoading, error: ordersError, refreshOrders, cancelOrder } = useOrders();
 
   // Load blockchain data on mount
   useEffect(() => {
     if (isConnected) {
       refreshIndices();
+      refreshOrders();
     }
-  }, [isConnected, refreshIndices]);
+  }, [isConnected, refreshIndices, refreshOrders]);
 
   // Get strategy data (enhanced with real blockchain data)
   const strategy = {
@@ -262,6 +265,96 @@ export function StrategyDetailClient({
             </CardContent>
           </Card>
 
+          {/* Order History */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">Order History</CardTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={refreshOrders}
+                  disabled={ordersLoading}
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${ordersLoading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {ordersError && (
+                <div className="text-red-600 text-sm mb-4">
+                  Error loading orders: {ordersError}
+                </div>
+              )}
+              
+              {ordersLoading ? (
+                <div className="text-center py-4 text-gray-500">
+                  Loading orders...
+                </div>
+              ) : orders.length === 0 ? (
+                <div className="text-center py-4 text-gray-500">
+                  No orders found for this strategy.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {orders.slice(0, 5).map((order) => (
+                    <div
+                      key={order.hash}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2">
+                          <Badge
+                            variant={
+                              order.status === 'active' ? 'default' :
+                              order.status === 'filled' ? 'secondary' :
+                              'outline'
+                            }
+                          >
+                            {order.status}
+                          </Badge>
+                          <span className="text-sm font-medium">
+                            {order.description || 'Order'}
+                          </span>
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          Hash: {order.hash.slice(0, 10)}...{order.hash.slice(-8)}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          Condition: Index {order.indexId} {order.operator === 0 ? '>' : 
+                                     order.operator === 1 ? '<' : 
+                                     order.operator === 2 ? '>=' : 
+                                     order.operator === 3 ? '<=' : '=='} {order.threshold}
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        {order.status === 'active' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => cancelOrder(order.hash)}
+                            className="text-red-600 border-red-200 hover:bg-red-50"
+                          >
+                            Cancel
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {orders.length > 5 && (
+                    <div className="text-center py-2">
+                      <span className="text-sm text-gray-500">
+                        Showing 5 of {orders.length} orders
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Quick Actions */}
           <Card>
             <CardHeader>
@@ -310,8 +403,27 @@ export function StrategyDetailClient({
               <Button
                 variant="outline"
                 className="w-full text-red-600 border-red-200 hover:bg-red-50"
+                onClick={async () => {
+                  const activeOrders = orders.filter(order => order.status === 'active');
+                  if (activeOrders.length === 0) {
+                    alert('No active orders to cancel');
+                    return;
+                  }
+                  
+                  if (confirm(`Cancel ${activeOrders.length} active orders?`)) {
+                    for (const order of activeOrders) {
+                      try {
+                        await cancelOrder(order.hash);
+                      } catch (error) {
+                        console.error(`Failed to cancel order ${order.hash}:`, error);
+                      }
+                    }
+                    alert('Cancel requests sent for all active orders');
+                  }
+                }}
+                disabled={ordersLoading}
               >
-                Cancel All Orders
+                Cancel All Orders ({orders.filter(order => order.status === 'active').length})
               </Button>
             </CardContent>
           </Card>

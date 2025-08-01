@@ -7,6 +7,7 @@ import { VoicesSection } from "@/components/voices-section";
 import { TokenCarousel } from "@/components/token-carousel";
 import { IndexManager } from "@/components/IndexManager";
 import { WalletConnect } from "@/components/WalletConnect";
+import { OrderMonitor } from "@/components/OrderMonitor";
 
 export default function Dashboard() {
   return (
@@ -35,6 +36,9 @@ export default function Dashboard() {
             <TabsTrigger value="indices" className="font-medium">
               Blockchain Indices
             </TabsTrigger>
+            <TabsTrigger value="orders" className="font-medium">
+              Order Monitor
+            </TabsTrigger>
             <TabsTrigger value="voices" className="font-medium">
               Voices
             </TabsTrigger>
@@ -49,6 +53,10 @@ export default function Dashboard() {
 
           <TabsContent value="indices" className="space-y-8">
             <IndexManager />
+          </TabsContent>
+
+          <TabsContent value="orders" className="space-y-8">
+            <OrderMonitor />
           </TabsContent>
 
           <TabsContent value="voices" className="space-y-8">
