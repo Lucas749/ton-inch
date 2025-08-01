@@ -91,7 +91,7 @@ const API_CATEGORIES = [
   },
   {
     id: "crypto",
-    name: "Cryptocurrencies", 
+    name: "Cryptocurrencies",
     icon: Bitcoin,
     description: "Digital currency exchange rates",
     color: "bg-yellow-50 text-yellow-700 border-yellow-200",
@@ -126,10 +126,19 @@ const TECHNICAL_INDICATORS = [
 ];
 
 const POPULAR_SYMBOLS = [
-  "AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "META", "NVDA", "NFLX", "IBM", "SPY"
+  "AAPL",
+  "MSFT",
+  "GOOGL",
+  "AMZN",
+  "TSLA",
+  "META",
+  "NVDA",
+  "NFLX",
+  "IBM",
+  "SPY",
 ];
 
-export function AlphaVantageExplorer({ apiKey = "demo" }: ExplorerProps) {
+export function AlphaVantageExplorer({ apiKey = "123" }: ExplorerProps) {
   const [selectedCategory, setSelectedCategory] = useState("stocks");
   const [symbol, setSymbol] = useState("IBM");
   const [searchQuery, setSearchQuery] = useState("");
@@ -137,22 +146,24 @@ export function AlphaVantageExplorer({ apiKey = "demo" }: ExplorerProps) {
   const [indicator, setIndicator] = useState<TechnicalIndicatorFunction>("SMA");
   const [timePeriod, setTimePeriod] = useState(20);
   const [seriesType, setSeriesType] = useState<SeriesType>("close");
-  
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>("");
   const [data, setData] = useState<any>(null);
   const [chartData, setChartData] = useState<any[]>([]);
-  
+
   const alphaVantageService = new AlphaVantageService({ apiKey });
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
-    
+
     setIsLoading(true);
     setError("");
-    
+
     try {
-      const searchResults = await alphaVantageService.searchSymbols(searchQuery);
+      const searchResults = await alphaVantageService.searchSymbols(
+        searchQuery
+      );
       setData(searchResults);
     } catch (err) {
       setError(`Search failed: ${(err as Error).message}`);
@@ -164,12 +175,16 @@ export function AlphaVantageExplorer({ apiKey = "demo" }: ExplorerProps) {
   const fetchStockData = async () => {
     setIsLoading(true);
     setError("");
-    
+
     try {
       let response: TimeSeriesResponse;
-      
+
       if (interval === "daily") {
-        response = await alphaVantageService.getDailyTimeSeries(symbol, false, "compact");
+        response = await alphaVantageService.getDailyTimeSeries(
+          symbol,
+          false,
+          "compact"
+        );
       } else if (interval === "weekly") {
         response = await alphaVantageService.getWeeklyTimeSeries(symbol);
       } else if (interval === "monthly") {
@@ -181,7 +196,7 @@ export function AlphaVantageExplorer({ apiKey = "demo" }: ExplorerProps) {
           { outputSize: "compact" }
         );
       }
-      
+
       setData(response);
       const parsedData = AlphaVantageService.parseTimeSeriesData(response);
       setChartData(parsedData.slice(-50)); // Show last 50 data points
@@ -195,7 +210,7 @@ export function AlphaVantageExplorer({ apiKey = "demo" }: ExplorerProps) {
   const fetchTechnicalIndicator = async () => {
     setIsLoading(true);
     setError("");
-    
+
     try {
       const response = await alphaVantageService.getTechnicalIndicator(
         symbol,
@@ -203,12 +218,15 @@ export function AlphaVantageExplorer({ apiKey = "demo" }: ExplorerProps) {
         interval,
         { timePeriod, seriesType }
       );
-      
+
       setData(response);
-      const parsedData = AlphaVantageService.parseTechnicalIndicatorData(response);
+      const parsedData =
+        AlphaVantageService.parseTechnicalIndicatorData(response);
       setChartData(parsedData.slice(-50)); // Show last 50 data points
     } catch (err) {
-      setError(`Failed to fetch technical indicator: ${(err as Error).message}`);
+      setError(
+        `Failed to fetch technical indicator: ${(err as Error).message}`
+      );
     } finally {
       setIsLoading(false);
     }
@@ -217,7 +235,7 @@ export function AlphaVantageExplorer({ apiKey = "demo" }: ExplorerProps) {
   const fetchCompanyOverview = async () => {
     setIsLoading(true);
     setError("");
-    
+
     try {
       const response = await alphaVantageService.getCompanyOverview(symbol);
       setData(response);
@@ -232,7 +250,7 @@ export function AlphaVantageExplorer({ apiKey = "demo" }: ExplorerProps) {
   const fetchQuote = async () => {
     setIsLoading(true);
     setError("");
-    
+
     try {
       const response = await alphaVantageService.getQuote(symbol);
       setData(response);
@@ -247,33 +265,47 @@ export function AlphaVantageExplorer({ apiKey = "demo" }: ExplorerProps) {
   const fetchForexData = async () => {
     setIsLoading(true);
     setError("");
-    
+
     try {
       const [from, to] = symbol.split("/");
       if (!from || !to) {
         throw new Error("Please use format like USD/EUR");
       }
-      
+
       const response = await alphaVantageService.getForexTimeSeries(
         from,
         to,
-        interval === "1min" || interval === "5min" || interval === "15min" || 
-        interval === "30min" || interval === "60min" ? interval : "daily",
+        interval === "1min" ||
+          interval === "5min" ||
+          interval === "15min" ||
+          interval === "30min" ||
+          interval === "60min"
+          ? interval
+          : "daily",
         "compact"
       );
-      
+
       setData(response);
       // Parse forex data (simplified)
-      const timeSeriesKey = Object.keys(response).find(key => key.includes("Time Series"));
+      const timeSeriesKey = Object.keys(response).find((key) =>
+        key.includes("Time Series")
+      );
       if (timeSeriesKey) {
-        const timeSeries = response[timeSeriesKey as keyof typeof response] as any;
-        const parsedData = Object.entries(timeSeries).map(([date, data]: [string, any]) => ({
-          date,
-          close: parseFloat(data["4. close"]),
-          open: parseFloat(data["1. open"]),
-          high: parseFloat(data["2. high"]),
-          low: parseFloat(data["3. low"]),
-        })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).slice(-50);
+        const timeSeries = response[
+          timeSeriesKey as keyof typeof response
+        ] as any;
+        const parsedData = Object.entries(timeSeries)
+          .map(([date, data]: [string, any]) => ({
+            date,
+            close: parseFloat(data["4. close"]),
+            open: parseFloat(data["1. open"]),
+            high: parseFloat(data["2. high"]),
+            low: parseFloat(data["3. low"]),
+          }))
+          .sort(
+            (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+          )
+          .slice(-50);
         setChartData(parsedData);
       }
     } catch (err) {
@@ -286,9 +318,13 @@ export function AlphaVantageExplorer({ apiKey = "demo" }: ExplorerProps) {
   const fetchCryptoData = async () => {
     setIsLoading(true);
     setError("");
-    
+
     try {
-      const response = await alphaVantageService.getCryptoTimeSeries(symbol, "USD", "daily");
+      const response = await alphaVantageService.getCryptoTimeSeries(
+        symbol,
+        "USD",
+        "daily"
+      );
       setData(response);
       setChartData([]);
     } catch (err) {
@@ -301,7 +337,7 @@ export function AlphaVantageExplorer({ apiKey = "demo" }: ExplorerProps) {
   const fetchNewsData = async () => {
     setIsLoading(true);
     setError("");
-    
+
     try {
       const response = await alphaVantageService.getNewsAndSentiment(
         [symbol],
@@ -353,21 +389,21 @@ export function AlphaVantageExplorer({ apiKey = "demo" }: ExplorerProps) {
         <ResponsiveContainer width="100%" height={400}>
           <LineChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis 
-              dataKey="date" 
+            <XAxis
+              dataKey="date"
               tick={{ fontSize: 12 }}
               tickFormatter={(value) => new Date(value).toLocaleDateString()}
             />
             <YAxis tick={{ fontSize: 12 }} />
-            <Tooltip 
+            <Tooltip
               labelFormatter={(value) => new Date(value).toLocaleDateString()}
               formatter={(value: number) => [value.toFixed(2), "Price"]}
             />
             <Legend />
-            <Line 
-              type="monotone" 
-              dataKey="close" 
-              stroke="#2563eb" 
+            <Line
+              type="monotone"
+              dataKey="close"
+              stroke="#2563eb"
               strokeWidth={2}
               name="Close Price"
               dot={false}
@@ -382,38 +418,80 @@ export function AlphaVantageExplorer({ apiKey = "demo" }: ExplorerProps) {
         <ResponsiveContainer width="100%" height={400}>
           <LineChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis 
-              dataKey="date" 
+            <XAxis
+              dataKey="date"
               tick={{ fontSize: 12 }}
               tickFormatter={(value) => new Date(value).toLocaleDateString()}
             />
             <YAxis tick={{ fontSize: 12 }} />
-            <Tooltip 
+            <Tooltip
               labelFormatter={(value) => new Date(value).toLocaleDateString()}
             />
             <Legend />
             {indicator === "BBANDS" ? (
               <>
-                <Line type="monotone" dataKey="real_upper_band" stroke="#ef4444" name="Upper Band" dot={false} />
-                <Line type="monotone" dataKey="real_middle_band" stroke="#2563eb" name="Middle Band" dot={false} />
-                <Line type="monotone" dataKey="real_lower_band" stroke="#10b981" name="Lower Band" dot={false} />
+                <Line
+                  type="monotone"
+                  dataKey="real_upper_band"
+                  stroke="#ef4444"
+                  name="Upper Band"
+                  dot={false}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="real_middle_band"
+                  stroke="#2563eb"
+                  name="Middle Band"
+                  dot={false}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="real_lower_band"
+                  stroke="#10b981"
+                  name="Lower Band"
+                  dot={false}
+                />
               </>
             ) : indicator === "MACD" ? (
               <>
-                <Line type="monotone" dataKey="macd" stroke="#2563eb" name="MACD" dot={false} />
-                <Line type="monotone" dataKey="macd_signal" stroke="#ef4444" name="Signal" dot={false} />
+                <Line
+                  type="monotone"
+                  dataKey="macd"
+                  stroke="#2563eb"
+                  name="MACD"
+                  dot={false}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="macd_signal"
+                  stroke="#ef4444"
+                  name="Signal"
+                  dot={false}
+                />
                 <Bar dataKey="macd_hist" fill="#10b981" name="Histogram" />
               </>
             ) : indicator === "STOCH" ? (
               <>
-                <Line type="monotone" dataKey="slowk" stroke="#2563eb" name="SlowK" dot={false} />
-                <Line type="monotone" dataKey="slowd" stroke="#ef4444" name="SlowD" dot={false} />
+                <Line
+                  type="monotone"
+                  dataKey="slowk"
+                  stroke="#2563eb"
+                  name="SlowK"
+                  dot={false}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="slowd"
+                  stroke="#ef4444"
+                  name="SlowD"
+                  dot={false}
+                />
               </>
             ) : (
-              <Line 
-                type="monotone" 
-                dataKey="value" 
-                stroke="#2563eb" 
+              <Line
+                type="monotone"
+                dataKey="value"
+                stroke="#2563eb"
                 strokeWidth={2}
                 name={indicator}
                 dot={false}
@@ -442,29 +520,48 @@ export function AlphaVantageExplorer({ apiKey = "demo" }: ExplorerProps) {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2 text-sm">
-                  <div><strong>Sector:</strong> {overview.Sector}</div>
-                  <div><strong>Industry:</strong> {overview.Industry}</div>
-                  <div><strong>Exchange:</strong> {overview.Exchange}</div>
-                  <div><strong>Currency:</strong> {overview.Currency}</div>
+                  <div>
+                    <strong>Sector:</strong> {overview.Sector}
+                  </div>
+                  <div>
+                    <strong>Industry:</strong> {overview.Industry}
+                  </div>
+                  <div>
+                    <strong>Exchange:</strong> {overview.Exchange}
+                  </div>
+                  <div>
+                    <strong>Currency:</strong> {overview.Currency}
+                  </div>
                 </div>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Key Metrics</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2 text-sm">
-                  <div><strong>Market Cap:</strong> ${parseInt(overview.MarketCapitalization || "0").toLocaleString()}</div>
-                  <div><strong>P/E Ratio:</strong> {overview.PERatio}</div>
-                  <div><strong>EPS:</strong> {overview.EPS}</div>
-                  <div><strong>Dividend Yield:</strong> {overview.DividendYield}</div>
+                  <div>
+                    <strong>Market Cap:</strong> $
+                    {parseInt(
+                      overview.MarketCapitalization || "0"
+                    ).toLocaleString()}
+                  </div>
+                  <div>
+                    <strong>P/E Ratio:</strong> {overview.PERatio}
+                  </div>
+                  <div>
+                    <strong>EPS:</strong> {overview.EPS}
+                  </div>
+                  <div>
+                    <strong>Dividend Yield:</strong> {overview.DividendYield}
+                  </div>
                 </div>
               </CardContent>
             </Card>
           </div>
-          
+
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Description</CardTitle>
@@ -488,18 +585,26 @@ export function AlphaVantageExplorer({ apiKey = "demo" }: ExplorerProps) {
                   <h3 className="font-semibold text-lg">{article.title}</h3>
                   <div className="flex items-center space-x-4 text-sm text-gray-500">
                     <span>{article.source}</span>
-                    <span>{new Date(article.time_published).toLocaleDateString()}</span>
-                    <Badge variant={
-                      article.overall_sentiment_label === "Bullish" ? "default" :
-                      article.overall_sentiment_label === "Bearish" ? "destructive" : "secondary"
-                    }>
-                      {article.overall_sentiment_label} ({article.overall_sentiment_score.toFixed(2)})
+                    <span>
+                      {new Date(article.time_published).toLocaleDateString()}
+                    </span>
+                    <Badge
+                      variant={
+                        article.overall_sentiment_label === "Bullish"
+                          ? "default"
+                          : article.overall_sentiment_label === "Bearish"
+                          ? "destructive"
+                          : "secondary"
+                      }
+                    >
+                      {article.overall_sentiment_label} (
+                      {article.overall_sentiment_score.toFixed(2)})
                     </Badge>
                   </div>
                   <p className="text-sm text-gray-600">{article.summary}</p>
-                  <a 
-                    href={article.url} 
-                    target="_blank" 
+                  <a
+                    href={article.url}
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-600 hover:text-blue-800 text-sm"
                   >
@@ -530,12 +635,15 @@ export function AlphaVantageExplorer({ apiKey = "demo" }: ExplorerProps) {
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       <div className="text-center space-y-4">
-        <h1 className="text-4xl font-bold text-gray-900">Alpha Vantage Data Explorer</h1>
+        <h1 className="text-4xl font-bold text-gray-900">
+          Alpha Vantage Data Explorer
+        </h1>
         <p className="text-lg text-gray-600">
-          Explore financial data across stocks, forex, crypto, and economic indicators
+          Explore financial data across stocks, forex, crypto, and economic
+          indicators
         </p>
         <Badge variant="outline" className="text-sm">
-          Using API Key: {apiKey === "demo" ? "Demo (Limited)" : "Custom"}
+          Using API Key: {apiKey === "123" ? "Demo (Limited)" : "Custom"}
         </Badge>
       </div>
 
@@ -564,7 +672,9 @@ export function AlphaVantageExplorer({ apiKey = "demo" }: ExplorerProps) {
                   <CardContent className="p-4 text-center">
                     <Icon className="w-8 h-8 mx-auto mb-2 text-gray-600" />
                     <h3 className="font-semibold text-sm">{category.name}</h3>
-                    <p className="text-xs text-gray-500 mt-1">{category.description}</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {category.description}
+                    </p>
                   </CardContent>
                 </Card>
               );
@@ -587,7 +697,9 @@ export function AlphaVantageExplorer({ apiKey = "demo" }: ExplorerProps) {
                   id="symbol"
                   value={symbol}
                   onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-                  placeholder={selectedCategory === "forex" ? "USD/EUR" : "AAPL"}
+                  placeholder={
+                    selectedCategory === "forex" ? "USD/EUR" : "AAPL"
+                  }
                 />
               </div>
               <div className="flex flex-wrap gap-1">
@@ -605,10 +717,15 @@ export function AlphaVantageExplorer({ apiKey = "demo" }: ExplorerProps) {
               </div>
             </div>
 
-            {(selectedCategory === "stocks" || selectedCategory === "technical" || selectedCategory === "forex") && (
+            {(selectedCategory === "stocks" ||
+              selectedCategory === "technical" ||
+              selectedCategory === "forex") && (
               <div className="space-y-2">
                 <Label htmlFor="interval">Interval</Label>
-                <Select value={interval} onValueChange={(value: Interval) => setInterval(value)}>
+                <Select
+                  value={interval}
+                  onValueChange={(value: Interval) => setInterval(value)}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -630,7 +747,12 @@ export function AlphaVantageExplorer({ apiKey = "demo" }: ExplorerProps) {
               <>
                 <div className="space-y-2">
                   <Label htmlFor="indicator">Technical Indicator</Label>
-                  <Select value={indicator} onValueChange={(value: TechnicalIndicatorFunction) => setIndicator(value)}>
+                  <Select
+                    value={indicator}
+                    onValueChange={(value: TechnicalIndicatorFunction) =>
+                      setIndicator(value)
+                    }
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -658,7 +780,10 @@ export function AlphaVantageExplorer({ apiKey = "demo" }: ExplorerProps) {
 
                 <div className="space-y-2">
                   <Label htmlFor="seriesType">Series Type</Label>
-                  <Select value={seriesType} onValueChange={(value: SeriesType) => setSeriesType(value)}>
+                  <Select
+                    value={seriesType}
+                    onValueChange={(value: SeriesType) => setSeriesType(value)}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -675,7 +800,11 @@ export function AlphaVantageExplorer({ apiKey = "demo" }: ExplorerProps) {
           </div>
 
           <div className="mt-4 flex space-x-2">
-            <Button onClick={handleFetchData} disabled={isLoading} className="flex-1">
+            <Button
+              onClick={handleFetchData}
+              disabled={isLoading}
+              className="flex-1"
+            >
               {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -690,7 +819,11 @@ export function AlphaVantageExplorer({ apiKey = "demo" }: ExplorerProps) {
             </Button>
 
             {selectedCategory === "stocks" && (
-              <Button onClick={fetchQuote} disabled={isLoading} variant="outline">
+              <Button
+                onClick={fetchQuote}
+                disabled={isLoading}
+                variant="outline"
+              >
                 Get Quote
               </Button>
             )}
@@ -732,9 +865,7 @@ export function AlphaVantageExplorer({ apiKey = "demo" }: ExplorerProps) {
           <CardHeader>
             <CardTitle>Chart Visualization</CardTitle>
           </CardHeader>
-          <CardContent>
-            {renderChart()}
-          </CardContent>
+          <CardContent>{renderChart()}</CardContent>
         </Card>
       )}
 
@@ -744,9 +875,7 @@ export function AlphaVantageExplorer({ apiKey = "demo" }: ExplorerProps) {
           <CardHeader>
             <CardTitle>Data Results</CardTitle>
           </CardHeader>
-          <CardContent>
-            {renderDataDisplay()}
-          </CardContent>
+          <CardContent>{renderDataDisplay()}</CardContent>
         </Card>
       )}
 
@@ -758,11 +887,11 @@ export function AlphaVantageExplorer({ apiKey = "demo" }: ExplorerProps) {
         <CardContent>
           <div className="text-sm text-gray-600 space-y-2">
             <p>
-              This explorer uses the Alpha Vantage API with demo data. 
-              For full access, get your free API key at{" "}
-              <a 
-                href="https://www.alphavantage.co/support/#api-key" 
-                target="_blank" 
+              This explorer uses the Alpha Vantage API with demo data. For full
+              access, get your free API key at{" "}
+              <a
+                href="https://www.alphavantage.co/support/#api-key"
+                target="_blank"
                 rel="noopener noreferrer"
                 className="text-blue-600 hover:text-blue-800"
               >
