@@ -1,7 +1,7 @@
 "use client";
 
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { Search, Bell, TrendingUp } from "lucide-react";
+import { Search, Bell, TrendingUp, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
@@ -38,6 +38,13 @@ export function Navbar() {
               className="text-sm font-medium text-gray-900 hover:text-blue-600 transition-colors"
             >
               Home
+            </button>
+            <button
+              onClick={() => router.push("/alpha-vantage")}
+              className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors flex items-center space-x-1"
+            >
+              <BarChart3 className="w-4 h-4" />
+              <span>Alpha Vantage</span>
             </button>
             <button
               onClick={() => router.push("/dashboard")}
