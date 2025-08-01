@@ -50,9 +50,21 @@ export default function Dashboard() {
 
       const allIndices = await blockchainService.getAllIndices();
       
-      // Load orders sequentially with delays to avoid overwhelming the RPC
+      // COMMENTED OUT: Load orders sequentially with delays to avoid overwhelming the RPC
+      // This was causing performance issues and slowdowns
       const indicesWithOrders: IndexWithOrders[] = [];
       
+      // Simply add indices without trying to fetch orders
+      for (let i = 0; i < allIndices.length; i++) {
+        const index = allIndices[i];
+        indicesWithOrders.push({
+          ...index,
+          orders: [], // No orders for performance
+          orderCount: 0 // No orders for performance
+        });
+      }
+      
+      /* COMMENTED OUT: Order fetching code
       for (let i = 0; i < allIndices.length; i++) {
         const index = allIndices[i];
         
@@ -78,12 +90,13 @@ export default function Dashboard() {
           await new Promise(resolve => setTimeout(resolve, 500));
         }
       }
+      */
 
       setIndices(indicesWithOrders);
       
-      // Collect all orders
-      const allOrdersFlat = indicesWithOrders.flatMap(index => index.orders);
-      setAllOrders(allOrdersFlat);
+      // COMMENTED OUT: Collect all orders for performance
+      // const allOrdersFlat = indicesWithOrders.flatMap(index => index.orders);
+      setAllOrders([]); // Empty orders array for performance
       
     } catch (error) {
       console.error("Error loading data:", error);
@@ -118,8 +131,8 @@ export default function Dashboard() {
   const stats = {
     totalIndices: indices.length,
     activeIndices: indices.filter(i => i.active).length,
-    totalOrders: allOrders.length,
-    activeOrders: allOrders.filter(o => o.status === "active").length
+    totalOrders: 0, // Commented out for performance: allOrders.length,
+    activeOrders: 0 // Commented out for performance: allOrders.filter(o => o.status === "active").length
   };
 
   return (
