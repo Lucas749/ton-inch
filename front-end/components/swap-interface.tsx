@@ -463,7 +463,7 @@ export function SwapInterface({
         </div>
 
         {/* Quote Information */}
-        {swapMode === "classic" && quote && (
+        {swapMode === "classic" && quote && fromToken && toToken && (
           <div className="p-3 bg-blue-50 rounded-lg space-y-2">
             <div className="text-sm text-gray-600">
               <div className="flex justify-between">
@@ -490,7 +490,7 @@ export function SwapInterface({
         )}
 
         {/* Intent Quote Information */}
-        {swapMode === "intent" && intentQuote && (
+        {swapMode === "intent" && intentQuote && fromToken && toToken && (
           <div className="p-3 bg-green-50 rounded-lg space-y-2">
             <div className="text-sm text-gray-600">
               <div className="flex justify-between">
