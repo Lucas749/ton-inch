@@ -97,11 +97,11 @@ export default function CreateStrategy() {
   };
 
   const fillDemoData = () => {
-    // Fill demo data with real USDC and very small amounts for testing
+    // Fill demo data with TestUSDC and very small amounts for testing
     setStrategyData({
       name: "Apple Stock Bull Run Alert",
       description: "Execute trade when Apple stock price exceeds $175.00",
-      tokenIn: CONTRACTS.USDC,      // Use real USDC (matching backend demo)
+      tokenIn: CONTRACTS.TestUSDC,  // Use TestUSDC for easy testing
       tokenOut: CONTRACTS.WETH,     // Keep WETH as target
       triggerType: "alphavantage",
       triggerParams: {
@@ -137,7 +137,7 @@ export default function CreateStrategy() {
     // Auto-advance to the review step to test the full flow
     setCurrentStep(3);
     
-    alert("🚀 Demo data loaded! Using Index 25 and 0.1 USDC for minimal test");
+    alert("🚀 Demo data loaded! Using Index 25 and 0.1 TestUSDC for minimal test");
   };
 
   const handleCreateTestIndex = async () => {
@@ -188,17 +188,17 @@ export default function CreateStrategy() {
         return;
       }
 
-      // Check if user has USDC balance (matching backend demo)
+      // Check if user has TestUSDC balance  
       try {
-        const usdcBalance = await blockchainService.getTokenBalance(CONTRACTS.USDC);
-        console.log("🪙 USDC Balance:", usdcBalance);
+        const testUSDCBalance = await blockchainService.getTestUSDCBalance();
+        console.log("🪙 TestUSDC Balance:", testUSDCBalance);
         
-        if (parseFloat(usdcBalance) < parseFloat(strategyData.orderAmount)) {
-          alert(`❌ Insufficient USDC balance! You have ${usdcBalance} but need ${strategyData.orderAmount}.`);
+        if (parseFloat(testUSDCBalance) < parseFloat(strategyData.orderAmount)) {
+          alert(`❌ Insufficient TestUSDC balance! You have ${testUSDCBalance} but need ${strategyData.orderAmount}. Click "Get Test Tokens" first.`);
           return;
         }
       } catch (error) {
-        console.warn("Could not check USDC balance:", error);
+        console.warn("Could not check TestUSDC balance:", error);
       }
 
       // Check if the index exists first
@@ -216,8 +216,8 @@ export default function CreateStrategy() {
         operator: strategyData.orderCondition.operator,
         threshold: parseInt(strategyData.orderCondition.threshold),
         description: strategyData.orderCondition.description || `${strategyData.name} - ${getOperatorName(strategyData.orderCondition.operator)} ${strategyData.orderCondition.threshold}`,
-        fromToken: strategyData.tokenIn || CONTRACTS.USDC, // Default to USDC (matching backend)
-        toToken: strategyData.tokenOut || CONTRACTS.WETH,   // Default to WETH
+        fromToken: strategyData.tokenIn || CONTRACTS.TestUSDC, // Default to TestUSDC for testing
+        toToken: strategyData.tokenOut || CONTRACTS.WETH,      // Default to WETH
         fromAmount: strategyData.orderAmount,
         toAmount: strategyData.targetPrice || "0.003",
         expiry: Math.floor(Date.now() / 1000) + (parseInt(strategyData.expiry) * 3600),
