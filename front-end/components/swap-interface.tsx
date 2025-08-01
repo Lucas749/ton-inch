@@ -84,7 +84,13 @@ export function SwapInterface({
 
   // Get quote when amount or tokens change
   useEffect(() => {
-    if (fromAmount && parseFloat(fromAmount) > 0 && isConfigured && fromToken && toToken) {
+    if (
+      fromAmount &&
+      parseFloat(fromAmount) > 0 &&
+      isConfigured &&
+      fromToken &&
+      toToken
+    ) {
       if (swapMode === "classic") {
         getQuote();
       } else {
@@ -106,7 +112,14 @@ export function SwapInterface({
   ]);
 
   const getQuote = async () => {
-    if (!oneInchService || !fromAmount || parseFloat(fromAmount) <= 0 || !fromToken || !toToken) return;
+    if (
+      !oneInchService ||
+      !fromAmount ||
+      parseFloat(fromAmount) <= 0 ||
+      !fromToken ||
+      !toToken
+    )
+      return;
 
     setIsLoadingQuote(true);
     setError("");
@@ -141,7 +154,14 @@ export function SwapInterface({
   };
 
   const getIntentQuote = async () => {
-    if (!oneInchService || !fromAmount || parseFloat(fromAmount) <= 0 || !fromToken || !toToken) return;
+    if (
+      !oneInchService ||
+      !fromAmount ||
+      parseFloat(fromAmount) <= 0 ||
+      !fromToken ||
+      !toToken
+    )
+      return;
 
     setIsLoadingQuote(true);
     setError("");
@@ -194,7 +214,8 @@ export function SwapInterface({
   };
 
   const handleClassicSwap = async () => {
-    if (!oneInchService || !fromAmount || !quote || !fromToken || !toToken) return;
+    if (!oneInchService || !fromAmount || !quote || !fromToken || !toToken)
+      return;
 
     setIsSwapping(true);
     setError("");
@@ -233,7 +254,14 @@ export function SwapInterface({
   };
 
   const handleIntentSwap = async () => {
-    if (!oneInchService || !fromAmount || !intentQuote || !fromToken || !toToken) return;
+    if (
+      !oneInchService ||
+      !fromAmount ||
+      !intentQuote ||
+      !fromToken ||
+      !toToken
+    )
+      return;
 
     setIsSwapping(true);
     setError("");
