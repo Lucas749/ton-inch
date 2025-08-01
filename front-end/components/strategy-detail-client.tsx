@@ -1,9 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import {
   ArrowLeft,
   TrendingUp,
@@ -11,7 +13,9 @@ import {
   Target,
   Clock,
   DollarSign,
+  RefreshCw,
 } from "lucide-react";
+import { SwapInterface } from "@/components/swap-interface";
 import {
   LineChart,
   Line,
@@ -41,6 +45,7 @@ export function StrategyDetailClient({
   strategyId,
 }: StrategyDetailClientProps) {
   const router = useRouter();
+  const [isSwapDialogOpen, setIsSwapDialogOpen] = useState(false);
 
   // Mock strategy data
   const strategy = {
@@ -60,6 +65,13 @@ export function StrategyDetailClient({
       "Automatically execute limit orders when large ETH transfers (>10k ETH) are detected from major exchanges.",
     createdAt: "2024-01-15",
     lastTriggered: "2 hours ago",
+    swapConfig: {
+      mode: "intent",
+      preset: "fast",
+      walletAddress: "0x742d35Cc6639C443695aE2f8a7D5d3bC6f4e2e8a",
+      apiKey: process.env.NEXT_PUBLIC_ONEINCH_API_KEY || "",
+      rpcUrl: "https://sepolia.base.org",
+    },
   };
 
   return (
@@ -228,9 +240,26 @@ export function StrategyDetailClient({
               <CardTitle className="text-lg">Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <Button className="w-full gradient-primary text-white">
-                Add Funds
-              </Button>
+              <Dialog open={isSwapDialogOpen} onOpenChange={setIsSwapDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="w-full gradient-primary text-white">
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Manual Trigger
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Manual Trigger Swap - {strategy.name}</DialogTitle>
+                  </DialogHeader>
+                  <div className="mt-4">
+                    <SwapInterface 
+                      walletAddress={strategy.swapConfig.walletAddress}
+                      apiKey={strategy.swapConfig.apiKey}
+                      rpcUrl={strategy.swapConfig.rpcUrl}
+                    />
+                  </div>
+                </DialogContent>
+              </Dialog>
               <Button variant="outline" className="w-full">
                 Pause Strategy
               </Button>

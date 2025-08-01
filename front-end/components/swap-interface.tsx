@@ -21,13 +21,13 @@ import {
   AlertCircle,
   CheckCircle,
 } from "lucide-react";
-import { 
-  OneInchService, 
-  TOKENS, 
-  SwapQuoteResponse, 
+import {
+  OneInchService,
+  TOKENS,
+  SwapQuoteResponse,
   IntentSwapQuoteResponse,
   SwapMode,
-  OrderStatus
+  OrderStatus,
 } from "@/lib/1inch-service";
 
 interface Token {
@@ -66,7 +66,8 @@ export function SwapInterface({
   const [slippage, setSlippage] = useState<number>(1);
   const [swapMode, setSwapMode] = useState<SwapMode>("classic");
   const [quote, setQuote] = useState<SwapQuoteResponse | null>(null);
-  const [intentQuote, setIntentQuote] = useState<IntentSwapQuoteResponse | null>(null);
+  const [intentQuote, setIntentQuote] =
+    useState<IntentSwapQuoteResponse | null>(null);
   const [isLoadingQuote, setIsLoadingQuote] = useState(false);
   const [isSwapping, setIsSwapping] = useState(false);
   const [error, setError] = useState<string>("");
@@ -100,7 +101,15 @@ export function SwapInterface({
       setQuote(null);
       setIntentQuote(null);
     }
-  }, [fromAmount, fromToken, toToken, slippage, swapMode, preset, isConfigured]);
+  }, [
+    fromAmount,
+    fromToken,
+    toToken,
+    slippage,
+    swapMode,
+    preset,
+    isConfigured,
+  ]);
 
   const getQuote = async () => {
     if (!oneInchService || !fromAmount || parseFloat(fromAmount) <= 0) return;
@@ -273,7 +282,7 @@ export function SwapInterface({
     try {
       const status = await oneInchService!.getOrderStatus(orderHash);
       setOrderStatus(status);
-      
+
       // Continue monitoring if order is still pending
       if (status.status === "pending" || status.status === "partially-filled") {
         setTimeout(() => monitorOrderStatus(orderHash), 10000); // Check every 10 seconds
@@ -346,7 +355,8 @@ export function SwapInterface({
           </div>
           {swapMode === "intent" && (
             <div className="text-xs text-muted-foreground bg-blue-50 p-2 rounded">
-              <strong>Intent Swap:</strong> Gasless swaps using Dutch auction. Orders are filled by resolvers with no upfront gas costs.
+              <strong>Intent Swap:</strong> Gasless swaps using Dutch auction.
+              Orders are filled by resolvers with no upfront gas costs.
             </div>
           )}
         </div>
@@ -357,14 +367,18 @@ export function SwapInterface({
             <Label>Execution Speed</Label>
             <Select
               value={preset}
-              onValueChange={(value: "fast" | "fair" | "auction") => setPreset(value)}
+              onValueChange={(value: "fast" | "fair" | "auction") =>
+                setPreset(value)
+              }
             >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="fast">Fast - Quick execution</SelectItem>
-                <SelectItem value="fair">Fair - Balanced speed/price</SelectItem>
+                <SelectItem value="fair">
+                  Fair - Balanced speed/price
+                </SelectItem>
                 <SelectItem value="auction">Auction - Best price</SelectItem>
               </SelectContent>
             </Select>
@@ -533,11 +547,15 @@ export function SwapInterface({
               </div>
               <div className="flex justify-between">
                 <span>Auction Duration:</span>
-                <span>{Math.floor(intentQuote.auctionDuration / 60)} minutes</span>
+                <span>
+                  {Math.floor(intentQuote.auctionDuration / 60)} minutes
+                </span>
               </div>
               <div className="flex justify-between">
                 <span>Gas Cost:</span>
-                <span className="text-green-600 font-semibold">Free (Gasless)</span>
+                <span className="text-green-600 font-semibold">
+                  Free (Gasless)
+                </span>
               </div>
             </div>
           </div>
@@ -572,7 +590,12 @@ export function SwapInterface({
               )}
               {orderHash && (
                 <div className="mt-2 text-xs">
-                  <div>Order Hash: <code className="bg-gray-100 px-1 rounded">{orderHash.slice(0, 10)}...{orderHash.slice(-8)}</code></div>
+                  <div>
+                    Order Hash:{" "}
+                    <code className="bg-gray-100 px-1 rounded">
+                      {orderHash.slice(0, 10)}...{orderHash.slice(-8)}
+                    </code>
+                  </div>
                 </div>
               )}
             </AlertDescription>
@@ -585,8 +608,14 @@ export function SwapInterface({
             <AlertCircle className="h-4 w-4 text-blue-600" />
             <AlertDescription className="text-blue-800">
               <div className="space-y-1">
-                <div>Order Status: <Badge variant="outline">{orderStatus.status}</Badge></div>
-                <div className="text-xs">Created: {new Date(orderStatus.createdAt * 1000).toLocaleString()}</div>
+                <div>
+                  Order Status:{" "}
+                  <Badge variant="outline">{orderStatus.status}</Badge>
+                </div>
+                <div className="text-xs">
+                  Created:{" "}
+                  {new Date(orderStatus.createdAt * 1000).toLocaleString()}
+                </div>
                 {orderStatus.fills.length > 0 && (
                   <div className="text-xs">
                     Fills: {orderStatus.fills.length}
@@ -633,8 +662,10 @@ export function SwapInterface({
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               Getting Quote...
             </>
+          ) : swapMode === "intent" ? (
+            "Create Intent Order"
           ) : (
-            swapMode === "intent" ? "Create Intent Order" : "Swap Tokens"
+            "Swap Tokens"
           )}
         </Button>
 

@@ -186,7 +186,10 @@ export class OneInchService {
     return url.toString();
   }
 
-  private buildFusionQueryURL(path: string, params: Record<string, string>): string {
+  private buildFusionQueryURL(
+    path: string,
+    params: Record<string, string>
+  ): string {
     const url = new URL(INCH_FUSION_API_BASE_URL + path);
     url.search = new URLSearchParams(params).toString();
     return url.toString();
@@ -220,9 +223,10 @@ export class OneInchService {
     method: "GET" | "POST" = "GET",
     body?: any
   ): Promise<T> {
-    const url = method === "GET" 
-      ? this.buildFusionQueryURL(endpointPath, queryParams)
-      : INCH_FUSION_API_BASE_URL + endpointPath;
+    const url =
+      method === "GET"
+        ? this.buildFusionQueryURL(endpointPath, queryParams)
+        : INCH_FUSION_API_BASE_URL + endpointPath;
 
     const requestInit: RequestInit = {
       method,
@@ -241,7 +245,9 @@ export class OneInchService {
 
     if (!response.ok) {
       const body = await response.text();
-      throw new Error(`1inch Fusion API returned status ${response.status}: ${body}`);
+      throw new Error(
+        `1inch Fusion API returned status ${response.status}: ${body}`
+      );
     }
 
     return (await response.json()) as T;
@@ -472,40 +478,56 @@ export class OneInchService {
    * Get a quote for an Intent swap (Fusion mode)
    * Gasless swaps with Dutch auction mechanism
    */
-  async getIntentSwapQuote(params: IntentSwapParams): Promise<IntentSwapQuoteResponse> {
+  async getIntentSwapQuote(
+    params: IntentSwapParams
+  ): Promise<IntentSwapQuoteResponse> {
     const queryParams = {
       srcToken: params.srcToken,
       dstToken: params.dstToken,
       amount: params.amount,
       walletAddress: params.walletAddress,
       ...(params.preset && { preset: params.preset }),
-      ...(params.takingSurplusRecipient && { takingSurplusRecipient: params.takingSurplusRecipient }),
+      ...(params.takingSurplusRecipient && {
+        takingSurplusRecipient: params.takingSurplusRecipient,
+      }),
       ...(params.permits && { permits: params.permits }),
       ...(params.receiver && { receiver: params.receiver }),
       ...(params.nonce && { nonce: params.nonce }),
     };
 
-    return this.callFusionAPI<IntentSwapQuoteResponse>("/quote/receive", queryParams);
+    return this.callFusionAPI<IntentSwapQuoteResponse>(
+      "/quote/receive",
+      queryParams
+    );
   }
 
   /**
    * Create an Intent swap order (Fusion mode)
    * This creates a gasless order that will be filled by resolvers
    */
-  async createIntentSwapOrder(params: IntentSwapOrderRequest): Promise<IntentSwapOrderResponse> {
+  async createIntentSwapOrder(
+    params: IntentSwapOrderRequest
+  ): Promise<IntentSwapOrderResponse> {
     const body = {
       srcToken: params.srcToken,
       dstToken: params.dstToken,
       amount: params.amount,
       walletAddress: params.walletAddress,
       ...(params.preset && { preset: params.preset }),
-      ...(params.takingSurplusRecipient && { takingSurplusRecipient: params.takingSurplusRecipient }),
+      ...(params.takingSurplusRecipient && {
+        takingSurplusRecipient: params.takingSurplusRecipient,
+      }),
       ...(params.permits && { permits: params.permits }),
       ...(params.receiver && { receiver: params.receiver }),
       ...(params.nonce && { nonce: params.nonce }),
     };
 
-    return this.callFusionAPI<IntentSwapOrderResponse>("/order/submit", {}, "POST", body);
+    return this.callFusionAPI<IntentSwapOrderResponse>(
+      "/order/submit",
+      {},
+      "POST",
+      body
+    );
   }
 
   /**
@@ -518,22 +540,34 @@ export class OneInchService {
   /**
    * Get all active orders for a wallet address
    */
-  async getActiveOrders(walletAddress: string, limit: number = 100): Promise<OrderStatus[]> {
+  async getActiveOrders(
+    walletAddress: string,
+    limit: number = 100
+  ): Promise<OrderStatus[]> {
     const queryParams = {
       address: walletAddress,
       limit: limit.toString(),
     };
 
-    const response = await this.callFusionAPI<{ orders: OrderStatus[] }>("/orders", queryParams);
+    const response = await this.callFusionAPI<{ orders: OrderStatus[] }>(
+      "/orders",
+      queryParams
+    );
     return response.orders || [];
   }
 
   /**
    * Cancel an Intent swap order
    */
-  async cancelOrder(orderHash: string): Promise<{ success: boolean; txHash?: string }> {
+  async cancelOrder(
+    orderHash: string
+  ): Promise<{ success: boolean; txHash?: string }> {
     try {
-      const response = await this.callFusionAPI<{ txHash: string }>(`/orders/${orderHash}/cancel`, {}, "POST");
+      const response = await this.callFusionAPI<{ txHash: string }>(
+        `/orders/${orderHash}/cancel`,
+        {},
+        "POST"
+      );
       return { success: true, txHash: response.txHash };
     } catch (error) {
       console.error("Failed to cancel order:", error);
@@ -548,24 +582,26 @@ export class OneInchService {
     params: IntentSwapParams
   ): Promise<{ orderHash: string; quoteId: string }> {
     console.log("Creating Intent swap order...");
-    
+
     const orderRequest: IntentSwapOrderRequest = {
       srcToken: params.srcToken,
       dstToken: params.dstToken,
       amount: params.amount,
       walletAddress: params.walletAddress,
       preset: params.preset || "fast",
-      ...(params.takingSurplusRecipient && { takingSurplusRecipient: params.takingSurplusRecipient }),
+      ...(params.takingSurplusRecipient && {
+        takingSurplusRecipient: params.takingSurplusRecipient,
+      }),
       ...(params.permits && { permits: params.permits }),
       ...(params.receiver && { receiver: params.receiver }),
       ...(params.nonce && { nonce: params.nonce }),
     };
 
     const orderResponse = await this.createIntentSwapOrder(orderRequest);
-    
+
     console.log("Intent swap order created:", {
       orderHash: orderResponse.orderHash,
-      quoteId: orderResponse.quoteId
+      quoteId: orderResponse.quoteId,
     });
 
     return {
