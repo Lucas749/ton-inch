@@ -51,6 +51,12 @@ export function Navbar() {
             >
               Create Strategy
             </button>
+            <button
+              onClick={() => router.push("/swap")}
+              className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors"
+            >
+              Swap
+            </button>
           </div>
 
           {/* Search and Actions */}
