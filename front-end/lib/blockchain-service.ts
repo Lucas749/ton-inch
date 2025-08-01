@@ -1221,6 +1221,56 @@ export class BlockchainService {
   }
 
   /**
+   * Create a new custom index (both in oracle and preInteraction)
+   */
+  async createIndex(name: string, description: string, initialValue: number): Promise<number> {
+    try {
+      console.log("🔄 Creating index:", { name, description, initialValue });
+      
+      if (!this.isWalletConnected()) {
+        throw new Error("Wallet not connected. Please connect your wallet first.");
+      }
+
+      if (!this.oracle || !this.preInteraction) {
+        throw new Error("Contracts not initialized");
+      }
+
+      // Step 1: Get next index ID
+      const indexId = await this.oracle.methods.getNextCustomIndexId().call();
+      console.log("📋 Next index ID:", indexId);
+
+      // Step 2: Create in oracle
+      console.log("🔄 Creating index in oracle...");
+      const oracleTx = await this.oracle.methods
+        .createCustomIndex(initialValue)
+        .send({
+          from: this.account,
+          gas: 150000,
+        });
+
+      console.log("✅ Index created in oracle:", oracleTx.transactionHash);
+
+      // Step 3: Register in PreInteraction
+      console.log("🔄 Registering index in PreInteraction...");
+      const preIntTx = await this.preInteraction.methods
+        .registerIndex(name, description, CONTRACTS.MockIndexOracle)
+        .send({
+          from: this.account,
+          gas: 300000,
+        });
+
+      console.log("✅ Index registered in PreInteraction:", preIntTx.transactionHash);
+      console.log(`🎉 Index "${name}" created with ID: ${indexId}`);
+
+      return parseInt(indexId);
+
+    } catch (error) {
+      console.error("❌ Error creating index:", error);
+      throw error;
+    }
+  }
+
+  /**
    * Create a new index order using the factory contract
    */
   async createOrder(params: OrderParams): Promise<Order | null> {

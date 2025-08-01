@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { useBlockchain } from "@/hooks/useBlockchain";
 import { useOrders, OPERATORS } from "@/hooks/useOrders";
-import { blockchainService, CustomIndex, Order } from "@/lib/blockchain-service";
+import { blockchainService, CustomIndex, Order, CONTRACTS } from "@/lib/blockchain-service";
 
 interface IndexWithOrders extends CustomIndex {
   orders: Order[];
@@ -43,8 +43,8 @@ export default function CreateIndex() {
   // New Order Form
   const [newOrderForm, setNewOrderForm] = useState({
     description: "",
-    fromToken: "",
-    toToken: "",
+    fromToken: CONTRACTS.USDC,
+    toToken: CONTRACTS.WETH,
     fromAmount: "",
     toAmount: "",
     operator: OPERATORS.GT,
@@ -149,6 +149,29 @@ export default function CreateIndex() {
       console.error("❌ Error creating order:", error);
       alert("Failed to create order: " + (error as Error).message);
     }
+  };
+
+  const fillDemoIndexData = () => {
+    setNewIndexForm({
+      name: "APPLE_STOCK",
+      description: "Apple Inc. stock price in USD cents",
+      initialValue: "17500" // $175.00
+    });
+    alert("🚀 Demo index data loaded! Creates Apple Stock index at $175.00");
+  };
+
+  const fillDemoOrderData = () => {
+    setNewOrderForm({
+      description: "Buy ETH when Apple > $180",
+      fromToken: CONTRACTS.USDC,
+      toToken: CONTRACTS.WETH,
+      fromAmount: "0.1", // 0.1 USDC - very small for testing
+      toAmount: "0.00003", // Proportionally small ETH amount
+      operator: OPERATORS.GT,
+      threshold: "18000", // $180.00 * 100
+      expiry: "2" // 2 hours
+    });
+    alert("🚀 Demo order data loaded! Buy ETH when Apple > $180 using 0.1 USDC");
   };
 
   const getOperatorName = (operator: number) => {
@@ -363,20 +386,31 @@ export default function CreateIndex() {
                   </div>
                 </div>
 
-                <Button 
-                  onClick={handleCreateIndex}
-                  disabled={!isConnected || isCreateLoading || !newIndexForm.name || !newIndexForm.description || !newIndexForm.initialValue}
-                  className="w-full"
-                >
-                  {isCreateLoading ? (
-                    <>Creating Index...</>
-                  ) : (
-                    <>
-                      <Plus className="w-4 h-4 mr-2" />
-                      Create Index
-                    </>
-                  )}
-                </Button>
+                <div className="space-y-3">
+                  <div className="flex space-x-3">
+                    <Button 
+                      onClick={handleCreateIndex}
+                      disabled={!isConnected || isCreateLoading || !newIndexForm.name || !newIndexForm.description || !newIndexForm.initialValue}
+                      className="flex-1"
+                    >
+                      {isCreateLoading ? (
+                        <>Creating Index...</>
+                      ) : (
+                        <>
+                          <Plus className="w-4 h-4 mr-2" />
+                          Create Index
+                        </>
+                      )}
+                    </Button>
+                    <Button 
+                      onClick={fillDemoIndexData}
+                      variant="outline"
+                      disabled={!isConnected}
+                    >
+                      Fill Demo
+                    </Button>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -505,6 +539,24 @@ export default function CreateIndex() {
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Condition Operator
+                        </label>
+                        <select 
+                          className="w-full p-2 border border-gray-300 rounded-md"
+                          value={newOrderForm.operator}
+                          onChange={(e) => setNewOrderForm({...newOrderForm, operator: parseInt(e.target.value)})}
+                          disabled={!isConnected}
+                        >
+                          <option value={OPERATORS.GT}>Greater than (&gt;)</option>
+                          <option value={OPERATORS.LT}>Less than (&lt;)</option>
+                          <option value={OPERATORS.GTE}>Greater than or equal (≥)</option>
+                          <option value={OPERATORS.LTE}>Less than or equal (≤)</option>
+                          <option value={OPERATORS.EQ}>Equal to (=)</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
                           Condition Threshold
                         </label>
                         <Input
@@ -520,24 +572,29 @@ export default function CreateIndex() {
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           From Token
                         </label>
-                        <Input
-                          placeholder="Token contract address"
+                        <select 
+                          className="w-full p-2 border border-gray-300 rounded-md"
                           value={newOrderForm.fromToken}
                           onChange={(e) => setNewOrderForm({...newOrderForm, fromToken: e.target.value})}
                           disabled={!isConnected}
-                        />
+                        >
+                          <option value={CONTRACTS.USDC}>USDC ({CONTRACTS.USDC.slice(0,6)}...)</option>
+                          <option value={CONTRACTS.TestUSDC}>TestUSDC ({CONTRACTS.TestUSDC.slice(0,6)}...)</option>
+                        </select>
                       </div>
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           To Token
                         </label>
-                        <Input
-                          placeholder="Token contract address"
+                        <select 
+                          className="w-full p-2 border border-gray-300 rounded-md"
                           value={newOrderForm.toToken}
                           onChange={(e) => setNewOrderForm({...newOrderForm, toToken: e.target.value})}
                           disabled={!isConnected}
-                        />
+                        >
+                          <option value={CONTRACTS.WETH}>WETH ({CONTRACTS.WETH.slice(0,6)}...)</option>
+                        </select>
                       </div>
 
                       <div>
@@ -565,20 +622,29 @@ export default function CreateIndex() {
                       </div>
                     </div>
 
-                    <Button 
-                      onClick={handleCreateOrder}
-                      disabled={!isConnected || isCreatingOrder || !newOrderForm.description || !newOrderForm.threshold}
-                      className="w-full"
-                    >
-                      {isCreatingOrder ? (
-                        <>Creating Order...</>
-                      ) : (
-                        <>
-                          <Plus className="w-4 h-4 mr-2" />
-                          Create Order
-                        </>
-                      )}
-                    </Button>
+                    <div className="flex space-x-3">
+                      <Button 
+                        onClick={handleCreateOrder}
+                        disabled={!isConnected || isCreatingOrder || !newOrderForm.description || !newOrderForm.threshold}
+                        className="flex-1"
+                      >
+                        {isCreatingOrder ? (
+                          <>Creating Order...</>
+                        ) : (
+                          <>
+                            <Plus className="w-4 h-4 mr-2" />
+                            Create Order
+                          </>
+                        )}
+                      </Button>
+                      <Button 
+                        onClick={fillDemoOrderData}
+                        variant="outline"
+                        disabled={!isConnected}
+                      >
+                        Fill Demo
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               </>
