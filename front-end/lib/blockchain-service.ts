@@ -1561,9 +1561,115 @@ export class BlockchainService {
   }
 
   /**
-   * Get all orders for a specific index
+   * Get all indices (predefined + custom) following get_all_indices.js approach
+   */
+  async getAllIndices(): Promise<CustomIndex[]> {
+    try {
+      console.log('📊 Fetching all indices...');
+      const allIndices: CustomIndex[] = [];
+
+      // Predefined indices (0-5)
+      const predefinedIndices = [
+        { id: 0, type: 'INFLATION_RATE' },
+        { id: 1, type: 'ELON_FOLLOWERS' },
+        { id: 2, type: 'BTC_PRICE' },
+        { id: 3, type: 'VIX_INDEX' },
+        { id: 4, type: 'UNEMPLOYMENT_RATE' },
+        { id: 5, type: 'TESLA_STOCK' }
+      ];
+
+      console.log('📊 Fetching predefined indices...');
+      for (const predefined of predefinedIndices) {
+        const details = await this.getIndexDetails(predefined.id);
+        if (details) {
+          allIndices.push(details);
+        }
+      }
+
+      // Custom indices from oracle
+      console.log('🔧 Fetching custom indices...');
+      try {
+        if (!this.oracle) {
+          console.error('Oracle contract not initialized');
+          return allIndices;
+        }
+
+        // Get all custom indices in batch from oracle
+        const result = await this.oracle.methods.getAllCustomIndices().call();
+        const { 0: indexIds, 1: values, 2: timestamps, 3: activeStates } = result;
+        
+        console.log(`Found ${indexIds.length} custom indices`);
+        
+        // Get detailed info for each custom index
+        for (let i = 0; i < indexIds.length; i++) {
+          const indexId = Number(indexIds[i]);
+          const details = await this.getIndexDetails(indexId);
+          
+          if (details) {
+            // Add oracle data (sometimes more current than preInteraction)
+            details.value = Number(values[i]);
+            details.timestamp = Number(timestamps[i]);
+            details.active = activeStates[i];
+            allIndices.push(details);
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error fetching custom indices:', error);
+      }
+
+      // Sort by ID
+      allIndices.sort((a, b) => a.id - b.id);
+      
+      console.log(`✅ Loaded ${allIndices.length} total indices`);
+      return allIndices;
+      
+    } catch (error) {
+      console.error('❌ Error fetching all indices:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get complete information for a single index
+   */
+  private async getIndexDetails(indexId: number): Promise<CustomIndex | null> {
+    try {
+      if (!this.preInteraction) {
+        console.error('PreInteraction contract not initialized');
+        return null;
+      }
+
+      // Get metadata from PreInteraction contract
+      const info = await this.preInteraction.methods.getIndexInfo(indexId).call();
+      
+      // Get current value from oracle  
+      const valueData = await this.preInteraction.methods.getIndexValue(indexId).call();
+      
+      return {
+        id: indexId,
+        name: info.name || `Index ${indexId}`,
+        description: info.description || `Index ${indexId} description`,
+        creator: info.creator,
+        active: info.isActive,
+        createdAt: Number(info.createdAt),
+        value: Number(valueData.value),
+        timestamp: Number(valueData.timestamp)
+      };
+    } catch (error) {
+      console.error(`❌ Error fetching details for index ${indexId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Get all orders for a specific index (TEMPORARILY DISABLED)
+   * TODO: Re-enable once RPC circuit breaker issues are resolved
    */
   async getOrdersByIndex(indexId: number): Promise<any[]> {
+    console.log(`⚠️ Order loading temporarily disabled for index ${indexId} to avoid RPC circuit breaker`);
+    return []; // Return empty array for now
+    
+    /* COMMENTED OUT - UNCOMMENT WHEN RPC IS MORE STABLE
     try {
       const events = await this.factory.getPastEvents("IndexOrderCreated", {
         filter: { indexId },
@@ -1588,6 +1694,7 @@ export class BlockchainService {
       console.error("Error fetching orders by index:", error);
       return [];
     }
+    */
   }
 }
 
