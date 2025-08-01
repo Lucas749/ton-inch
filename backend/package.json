@@ -1,0 +1,29 @@
+{
+  "name": "index-preinteraction-workflow",
+  "version": "1.0.0",
+  "description": "Complete Web3.js workflow for IndexPreInteraction system",
+  "main": "web3_workflow.js",
+  "scripts": {
+    "workflow": "node web3_workflow.js",
+    "deploy": "forge script script/DeployAndTest.s.sol --fork-url https://sepolia.base.org --broadcast",
+    "test": "forge test --fork-url https://sepolia.base.org",
+    "compile": "forge build"
+  },
+  "dependencies": {
+    "dotenv": "^16.6.1",
+    "web3": "^4.16.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0"
+  },
+  "keywords": [
+    "web3",
+    "defi",
+    "1inch",
+    "limit-orders",
+    "oracles",
+    "conditional-trading"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
+}

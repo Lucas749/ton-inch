@@ -1,0 +1,8 @@
+1inch_contracts/
+cache/
+.local/
+out/
+lib/
+.env/
+.env
+node_modules/
