@@ -4,15 +4,21 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { Search, Bell, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useRouter } from 'next/navigation';
 
 export function Navbar() {
+  const router = useRouter();
+  
   return (
     <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
+            <div 
+              className="flex items-center space-x-2 cursor-pointer"
+              onClick={() => router.push('/')}
+            >
               <div className="w-8 h-8 gradient-primary rounded-lg flex items-center justify-center">
                 <TrendingUp className="w-5 h-5 text-white" />
               </div>
@@ -23,15 +29,24 @@ export function Navbar() {
 
           {/* Navigation */}
           <div className="hidden md:flex items-center space-x-8">
-            <a href="#" className="text-sm font-medium text-gray-900 hover:text-blue-600 transition-colors">
-              Social <span className="ml-1 text-xs bg-green-100 text-green-800 px-1 rounded">New</span>
-            </a>
-            <a href="#" className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors">
-              Strategies
-            </a>
-            <a href="#" className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors">
-              Events
-            </a>
+            <button 
+              onClick={() => router.push('/')}
+              className="text-sm font-medium text-gray-900 hover:text-blue-600 transition-colors"
+            >
+              Home
+            </button>
+            <button 
+              onClick={() => router.push('/dashboard')}
+              className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors"
+            >
+              Dashboard
+            </button>
+            <button 
+              onClick={() => router.push('/create-strategy')}
+              className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors"
+            >
+              Create Strategy
+            </button>
           </div>
 
           {/* Search and Actions */}

@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { TrendingUp, Clock, Target, Zap } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 const strategies = [
   {
@@ -45,6 +46,8 @@ const strategies = [
 ];
 
 export function StrategiesGrid() {
+  const router = useRouter();
+  
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'bg-green-100 text-green-800';
@@ -53,6 +56,14 @@ export function StrategiesGrid() {
       case 'cancelled': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const handleCreateStrategy = () => {
+    router.push('/create-strategy');
+  };
+
+  const handleViewStrategy = (id: number) => {
+    router.push(`/strategy/${id}`);
   };
 
   return (
@@ -112,7 +123,12 @@ export function StrategiesGrid() {
             </div>
             
             <div className="pt-2 border-t border-gray-100">
-              <Button variant="outline" size="sm" className="w-full">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="w-full"
+                onClick={() => handleViewStrategy(strategy.id)}
+              >
                 View Details
               </Button>
             </div>
@@ -121,7 +137,10 @@ export function StrategiesGrid() {
       ))}
       
       {/* Create New Strategy Card */}
-      <Card className="bg-gradient-to-br from-emerald-50 to-blue-50 border-2 border-dashed border-gray-300 hover:border-blue-400 transition-all duration-200 cursor-pointer">
+      <Card 
+        className="bg-gradient-to-br from-emerald-50 to-blue-50 border-2 border-dashed border-gray-300 hover:border-blue-400 transition-all duration-200 cursor-pointer"
+        onClick={handleCreateStrategy}
+      >
         <CardContent className="flex flex-col items-center justify-center h-full py-12">
           <div className="w-12 h-12 gradient-primary rounded-full flex items-center justify-center mb-4">
             <TrendingUp className="w-6 h-6 text-white" />
@@ -130,7 +149,10 @@ export function StrategiesGrid() {
           <p className="text-sm text-gray-600 text-center mb-4">
             Set up limit orders triggered by real-world events
           </p>
-          <Button className="gradient-primary text-white hover:opacity-90">
+          <Button 
+            className="gradient-primary text-white hover:opacity-90"
+            onClick={handleCreateStrategy}
+          >
             Get Started
           </Button>
         </CardContent>
