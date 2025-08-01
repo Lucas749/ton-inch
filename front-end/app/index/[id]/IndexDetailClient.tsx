@@ -75,7 +75,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
   // Load real Alpha Vantage data for this index
   const loadRealIndexData = async () => {
     try {
-      const apiKey = process.env.NEXT_PUBLIC_ALPHAVANTAGE_API_KEY || "demo";
+      const apiKey = process.env.NEXT_PUBLIC_ALPHAVANTAGE_API_KEY || "123";
       const realIndicesService = new RealIndicesService(apiKey);
       const realIndices = await realIndicesService.getAllRealIndices();
       
@@ -95,7 +95,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
       setIsLoadingChart(true);
       setChartError(null);
       
-      const apiKey = process.env.NEXT_PUBLIC_ALPHAVANTAGE_API_KEY || "demo";
+      const apiKey = process.env.NEXT_PUBLIC_ALPHAVANTAGE_API_KEY || "123";
       const alphaVantageService = new AlphaVantageService({ apiKey });
       const symbol = getAlphaVantageSymbol(index.id);
       
