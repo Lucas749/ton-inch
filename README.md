@@ -5,6 +5,7 @@ Revolutionary DeFi platform that executes token swaps based on **real-world even
 ## 🏗️ **Architecture**
 
 ### **🎨 Frontend Application** (`/front-end/`)
+
 **Main application with wallet integration**
 
 - ✅ **Next.js 13** with App Router
@@ -15,6 +16,7 @@ Revolutionary DeFi platform that executes token swaps based on **real-world even
 - ✅ **Real-time UI** - React hooks for blockchain state
 
 **Key Features:**
+
 - 🔗 Connect MetaMask wallet
 - 📊 Create strategies with Alpha Vantage triggers
 - 💱 Configure 1inch swaps (Classic/Intent modes)
@@ -23,6 +25,7 @@ Revolutionary DeFi platform that executes token swaps based on **real-world even
 - 🗃️ Blockchain index management
 
 ### **🧪 Backend Demos** (`/backend/`)
+
 **Smart contracts and testing scripts**
 
 - ✅ **Foundry Smart Contracts** - Solidity contracts
@@ -31,6 +34,7 @@ Revolutionary DeFi platform that executes token swaps based on **real-world even
 - ✅ **Base Sepolia Testnet** - Deployed contracts
 
 **Key Components:**
+
 - 📜 Smart contracts for index-based orders
 - 🧪 Comprehensive demo scripts
 - 🔧 Foundry testing suite
@@ -39,6 +43,7 @@ Revolutionary DeFi platform that executes token swaps based on **real-world even
 ## 🚀 **Quick Start**
 
 ### **Frontend (Main Application)**
+
 ```bash
 cd front-end
 npm install
@@ -46,6 +51,7 @@ npm run dev
 ```
 
 **Environment Setup:**
+
 ```bash
 # Create front-end/.env.local
 NEXT_PUBLIC_ONEINCH_API_KEY=your_1inch_api_key
@@ -53,6 +59,7 @@ NEXT_PUBLIC_ALPHAVANTAGE_API_KEY=your_alphavantage_api_key
 ```
 
 ### **Backend (Demo Scripts)**
+
 ```bash
 cd backend
 npm install
@@ -60,6 +67,7 @@ npm run demo
 ```
 
 **Environment Setup (Demos Only):**
+
 ```bash
 # Create backend/.env (for demo scripts only)
 PRIVATE_KEY=your_private_key_for_testing_only
@@ -68,12 +76,14 @@ PRIVATE_KEY=your_private_key_for_testing_only
 ## 🔒 **Security Model**
 
 ### **Production (Frontend)**
+
 - 🔐 **MetaMask Wallet** - User controls private keys
 - ✅ **No Server Private Keys** - Maximum security
 - 🔗 **Direct Blockchain Calls** - No API intermediary
 - 🛡️ **Environment Variables** - Only API keys, no secrets
 
 ### **Development (Backend)**
+
 - 🧪 **Demo Scripts Only** - Private keys for testing
 - ⚠️ **Not Production** - Backend demos are for development
 - 📝 **Educational** - Shows smart contract interaction
@@ -89,6 +99,7 @@ PRIVATE_KEY=your_private_key_for_testing_only
 ## 🛠️ **Technology Stack**
 
 ### **Frontend**
+
 - **Next.js 13** - React framework with App Router
 - **TypeScript** - Type-safe development
 - **Tailwind CSS** - Utility-first styling
@@ -97,17 +108,20 @@ PRIVATE_KEY=your_private_key_for_testing_only
 - **Recharts** - Data visualization
 
 ### **Backend**
+
 - **Foundry** - Smart contract development
 - **Solidity** - Smart contract language
 - **Web3.js** - Blockchain interaction
 - **Node.js** - Demo script runtime
 
 ### **Blockchain**
+
 - **Base Sepolia** - Ethereum L2 testnet
 - **1inch Protocol** - DEX aggregation
 - **Smart Contracts** - Custom index logic
 
 ### **External APIs**
+
 - **1inch Swap API** - Token swapping
 - **Alpha Vantage API** - Financial data
 

@@ -20,6 +20,7 @@ import {
   ExternalLink,
   AlertCircle,
   CheckCircle,
+  RefreshCw,
 } from "lucide-react";
 import {
   OneInchService,
@@ -29,24 +30,8 @@ import {
   SwapMode,
   OrderStatus,
 } from "@/lib/1inch-service";
-
-interface Token {
-  address: string;
-  symbol: string;
-  name: string;
-  decimals: number;
-}
-
-const AVAILABLE_TOKENS: Token[] = [
-  { address: TOKENS.ETH, symbol: "ETH", name: "Ethereum", decimals: 18 },
-  { address: TOKENS.USDC, symbol: "USDC", name: "USD Coin", decimals: 6 },
-  {
-    address: TOKENS.WETH,
-    symbol: "WETH",
-    name: "Wrapped Ethereum",
-    decimals: 18,
-  },
-];
+import { TokenSelector } from "@/components/TokenSelector";
+import { Token, tokenService } from "@/lib/token-service";
 
 interface SwapInterfaceProps {
   walletAddress?: string;
@@ -59,8 +44,8 @@ export function SwapInterface({
   apiKey,
   rpcUrl,
 }: SwapInterfaceProps) {
-  const [fromToken, setFromToken] = useState<Token>(AVAILABLE_TOKENS[0]);
-  const [toToken, setToToken] = useState<Token>(AVAILABLE_TOKENS[1]);
+  const [fromToken, setFromToken] = useState<Token | null>(null);
+  const [toToken, setToToken] = useState<Token | null>(null);
   const [fromAmount, setFromAmount] = useState<string>("");
   const [toAmount, setToAmount] = useState<string>("");
   const [slippage, setSlippage] = useState<number>(1);
@@ -88,9 +73,18 @@ export function SwapInterface({
 
   const isConfigured = !!oneInchService;
 
+  // Initialize with popular tokens
+  useEffect(() => {
+    const popularTokens = tokenService.getPopularTokens();
+    if (popularTokens.length >= 2 && !fromToken && !toToken) {
+      setFromToken(popularTokens[0]); // WETH
+      setToToken(popularTokens[1]); // USDC
+    }
+  }, [fromToken, toToken]);
+
   // Get quote when amount or tokens change
   useEffect(() => {
-    if (fromAmount && parseFloat(fromAmount) > 0 && isConfigured) {
+    if (fromAmount && parseFloat(fromAmount) > 0 && isConfigured && fromToken && toToken) {
       if (swapMode === "classic") {
         getQuote();
       } else {
@@ -112,7 +106,7 @@ export function SwapInterface({
   ]);
 
   const getQuote = async () => {
-    if (!oneInchService || !fromAmount || parseFloat(fromAmount) <= 0) return;
+    if (!oneInchService || !fromAmount || parseFloat(fromAmount) <= 0 || !fromToken || !toToken) return;
 
     setIsLoadingQuote(true);
     setError("");
@@ -147,7 +141,7 @@ export function SwapInterface({
   };
 
   const getIntentQuote = async () => {
-    if (!oneInchService || !fromAmount || parseFloat(fromAmount) <= 0) return;
+    if (!oneInchService || !fromAmount || parseFloat(fromAmount) <= 0 || !fromToken || !toToken) return;
 
     setIsLoadingQuote(true);
     setError("");
@@ -200,7 +194,7 @@ export function SwapInterface({
   };
 
   const handleClassicSwap = async () => {
-    if (!oneInchService || !fromAmount || !quote) return;
+    if (!oneInchService || !fromAmount || !quote || !fromToken || !toToken) return;
 
     setIsSwapping(true);
     setError("");
@@ -239,7 +233,7 @@ export function SwapInterface({
   };
 
   const handleIntentSwap = async () => {
-    if (!oneInchService || !fromAmount || !intentQuote) return;
+    if (!oneInchService || !fromAmount || !intentQuote || !fromToken || !toToken) return;
 
     setIsSwapping(true);
     setError("");
@@ -398,24 +392,16 @@ export function SwapInterface({
                 disabled={isSwapping}
               />
             </div>
-            <Select
-              value={fromToken.address}
-              onValueChange={(value) => {
-                const token = AVAILABLE_TOKENS.find((t) => t.address === value);
-                if (token) setFromToken(token);
-              }}
-            >
-              <SelectTrigger className="w-24">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {AVAILABLE_TOKENS.map((token) => (
-                  <SelectItem key={token.address} value={token.address}>
-                    {token.symbol}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="w-32">
+              <TokenSelector
+                selectedToken={fromToken}
+                onTokenSelect={setFromToken}
+                placeholder="From"
+                disabled={isSwapping}
+                excludeTokens={toToken ? [toToken.address] : []}
+                className="w-full"
+              />
+            </div>
           </div>
         </div>
 
@@ -444,24 +430,16 @@ export function SwapInterface({
                 disabled
               />
             </div>
-            <Select
-              value={toToken.address}
-              onValueChange={(value) => {
-                const token = AVAILABLE_TOKENS.find((t) => t.address === value);
-                if (token) setToToken(token);
-              }}
-            >
-              <SelectTrigger className="w-24">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {AVAILABLE_TOKENS.map((token) => (
-                  <SelectItem key={token.address} value={token.address}>
-                    {token.symbol}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="w-32">
+              <TokenSelector
+                selectedToken={toToken}
+                onTokenSelect={setToToken}
+                placeholder="To"
+                disabled={isSwapping}
+                excludeTokens={fromToken ? [fromToken.address] : []}
+                className="w-full"
+              />
+            </div>
           </div>
         </div>
 
@@ -642,6 +620,8 @@ export function SwapInterface({
         <Button
           onClick={handleSwap}
           disabled={
+            !fromToken ||
+            !toToken ||
             !fromAmount ||
             !toAmount ||
             parseFloat(fromAmount) <= 0 ||
