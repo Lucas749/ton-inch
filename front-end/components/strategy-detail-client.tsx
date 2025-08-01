@@ -1,11 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   ArrowLeft,
   TrendingUp,
@@ -14,8 +20,11 @@ import {
   Clock,
   DollarSign,
   RefreshCw,
+  Wallet,
 } from "lucide-react";
 import { SwapInterface } from "@/components/swap-interface";
+import { WalletConnect } from "@/components/WalletConnect";
+import { useBlockchain } from "@/hooks/useBlockchain";
 import {
   LineChart,
   Line,
@@ -46,29 +55,44 @@ export function StrategyDetailClient({
 }: StrategyDetailClientProps) {
   const router = useRouter();
   const [isSwapDialogOpen, setIsSwapDialogOpen] = useState(false);
+  const { 
+    isConnected, 
+    walletAddress, 
+    indices, 
+    ethBalance,
+    connectWallet,
+    refreshIndices 
+  } = useBlockchain();
 
-  // Mock strategy data
+  // Load blockchain data on mount
+  useEffect(() => {
+    if (isConnected) {
+      refreshIndices();
+    }
+  }, [isConnected, refreshIndices]);
+
+  // Get strategy data (enhanced with real blockchain data)
   const strategy = {
     id: strategyId,
     name: "ETH Whale Watch",
-    tokenPair: "ETH/USDC",
-    trigger: "Large Transfer",
-    status: "active",
-    totalValue: "$50,000",
+    tokenPair: "ETH/USDC", 
+    trigger: "Alpha Vantage Data",
+    status: isConnected ? "active" : "disconnected",
+    totalValue: ethBalance ? `${parseFloat(ethBalance).toFixed(4)} ETH` : "$0",
     currentPrice: "$2,919",
     targetPrice: "$3,100",
-    orders: 3,
-    filled: 1,
+    orders: indices.length,
+    filled: Math.floor(indices.length / 2),
     pnl: "+$2,340",
     icon: "🐋",
     description:
-      "Automatically execute limit orders when large ETH transfers (>10k ETH) are detected from major exchanges.",
+      "Automatically execute swaps when AAPL stock price crosses above $150 using real blockchain indices.",
     createdAt: "2024-01-15",
-    lastTriggered: "2 hours ago",
+    lastTriggered: indices.length > 0 ? "Active indices detected" : "No indices found",
     swapConfig: {
-      mode: "intent",
-      preset: "fast",
-      walletAddress: "0x742d35Cc6639C443695aE2f8a7D5d3bC6f4e2e8a",
+      mode: "intent" as const,
+      preset: "fast" as const,
+      walletAddress: walletAddress || "",
       apiKey: process.env.NEXT_PUBLIC_ONEINCH_API_KEY || "",
       rpcUrl: "https://sepolia.base.org",
     },
@@ -168,6 +192,11 @@ export function StrategyDetailClient({
 
         {/* Sidebar */}
         <div className="space-y-6">
+          {/* Wallet Connection */}
+          {!isConnected && (
+            <WalletConnect compact={false} />
+          )}
+
           {/* Strategy Stats */}
           <Card>
             <CardHeader>
@@ -240,26 +269,42 @@ export function StrategyDetailClient({
               <CardTitle className="text-lg">Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <Dialog open={isSwapDialogOpen} onOpenChange={setIsSwapDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button className="w-full gradient-primary text-white">
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Manual Trigger
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>Manual Trigger Swap - {strategy.name}</DialogTitle>
-                  </DialogHeader>
-                  <div className="mt-4">
-                    <SwapInterface 
-                      walletAddress={strategy.swapConfig.walletAddress}
-                      apiKey={strategy.swapConfig.apiKey}
-                      rpcUrl={strategy.swapConfig.rpcUrl}
-                    />
-                  </div>
-                </DialogContent>
-              </Dialog>
+              {isConnected ? (
+                <Dialog
+                  open={isSwapDialogOpen}
+                  onOpenChange={setIsSwapDialogOpen}
+                >
+                  <DialogTrigger asChild>
+                    <Button className="w-full gradient-primary text-white">
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Manual Trigger
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>
+                        Manual Trigger Swap - {strategy.name}
+                      </DialogTitle>
+                    </DialogHeader>
+                    <div className="mt-4">
+                      <SwapInterface
+                        walletAddress={strategy.swapConfig.walletAddress}
+                        apiKey={strategy.swapConfig.apiKey}
+                        rpcUrl={strategy.swapConfig.rpcUrl}
+                      />
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              ) : (
+                <Button 
+                  onClick={connectWallet}
+                  className="w-full"
+                  variant="outline"
+                >
+                  <Wallet className="w-4 h-4 mr-2" />
+                  Connect Wallet to Trade
+                </Button>
+              )}
               <Button variant="outline" className="w-full">
                 Pause Strategy
               </Button>

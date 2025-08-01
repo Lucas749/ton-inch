@@ -704,7 +704,9 @@ export default function CreateStrategy() {
                     {/* 1inch Swap Configuration */}
                     <Card className="bg-gray-50 border-gray-200">
                       <CardHeader>
-                        <CardTitle className="text-lg">1inch Swap Configuration</CardTitle>
+                        <CardTitle className="text-lg">
+                          1inch Swap Configuration
+                        </CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -712,14 +714,20 @@ export default function CreateStrategy() {
                             <Label htmlFor="swap-mode">Swap Mode</Label>
                             <Select
                               value={strategyData.swapConfig.mode}
-                              onValueChange={(value) => updateSwapConfig("mode", value)}
+                              onValueChange={(value) =>
+                                updateSwapConfig("mode", value)
+                              }
                             >
                               <SelectTrigger>
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="classic">Classic Swap</SelectItem>
-                                <SelectItem value="intent">Intent Swap (Gasless)</SelectItem>
+                                <SelectItem value="classic">
+                                  Classic Swap
+                                </SelectItem>
+                                <SelectItem value="intent">
+                                  Intent Swap (Gasless)
+                                </SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
@@ -729,7 +737,9 @@ export default function CreateStrategy() {
                               <Label htmlFor="swap-preset">Swap Preset</Label>
                               <Select
                                 value={strategyData.swapConfig.preset}
-                                onValueChange={(value) => updateSwapConfig("preset", value)}
+                                onValueChange={(value) =>
+                                  updateSwapConfig("preset", value)
+                                }
                               >
                                 <SelectTrigger>
                                   <SelectValue />
@@ -737,7 +747,9 @@ export default function CreateStrategy() {
                                 <SelectContent>
                                   <SelectItem value="fast">Fast</SelectItem>
                                   <SelectItem value="fair">Fair</SelectItem>
-                                  <SelectItem value="auction">Auction</SelectItem>
+                                  <SelectItem value="auction">
+                                    Auction
+                                  </SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>
@@ -750,14 +762,18 @@ export default function CreateStrategy() {
                             id="wallet-address"
                             placeholder="0x742d35Cc6639C443695aE2f8a7D5d3bC6f4e2e8a"
                             value={strategyData.swapConfig.walletAddress}
-                            onChange={(e) => updateSwapConfig("walletAddress", e.target.value)}
+                            onChange={(e) =>
+                              updateSwapConfig("walletAddress", e.target.value)
+                            }
                           />
                         </div>
 
                         <div className="bg-yellow-50 p-3 rounded-lg">
                           <p className="text-sm text-yellow-700">
-                            <strong>Note:</strong> Your 1inch API key will be loaded from environment variables. 
-                            Make sure to set <code>NEXT_PUBLIC_ONEINCH_API_KEY</code> in your .env.local file.
+                            <strong>Note:</strong> Your 1inch API key will be
+                            loaded from environment variables. Make sure to set{" "}
+                            <code>NEXT_PUBLIC_ONEINCH_API_KEY</code> in your
+                            .env.local file.
                           </p>
                         </div>
                       </CardContent>
@@ -774,9 +790,12 @@ export default function CreateStrategy() {
                             <p className="text-sm text-blue-700 mt-1">
                               When triggered, swap{" "}
                               {strategyData.orderAmount || "0"} tokens using{" "}
-                              {strategyData.swapConfig.mode === "intent" ? "gasless Intent" : "Classic"} mode
-                              with {strategyData.slippage}% slippage tolerance,
-                              expiring in {strategyData.expiry} hours.
+                              {strategyData.swapConfig.mode === "intent"
+                                ? "gasless Intent"
+                                : "Classic"}{" "}
+                              mode with {strategyData.slippage}% slippage
+                              tolerance, expiring in {strategyData.expiry}{" "}
+                              hours.
                             </p>
                           </div>
                         </div>
@@ -883,20 +902,31 @@ export default function CreateStrategy() {
                         <CardContent className="space-y-3">
                           <div className="flex justify-between">
                             <span className="text-gray-600">Swap Mode:</span>
-                            <Badge variant={strategyData.swapConfig.mode === "intent" ? "default" : "secondary"}>
-                              {strategyData.swapConfig.mode === "intent" ? "Intent (Gasless)" : "Classic"}
+                            <Badge
+                              variant={
+                                strategyData.swapConfig.mode === "intent"
+                                  ? "default"
+                                  : "secondary"
+                              }
+                            >
+                              {strategyData.swapConfig.mode === "intent"
+                                ? "Intent (Gasless)"
+                                : "Classic"}
                             </Badge>
                           </div>
                           {strategyData.swapConfig.mode === "intent" && (
                             <div className="flex justify-between">
                               <span className="text-gray-600">Preset:</span>
-                              <span className="font-medium">{strategyData.swapConfig.preset}</span>
+                              <span className="font-medium">
+                                {strategyData.swapConfig.preset}
+                              </span>
                             </div>
                           )}
                           <div className="flex justify-between">
                             <span className="text-gray-600">Wallet:</span>
                             <span className="font-medium font-mono text-xs">
-                              {strategyData.swapConfig.walletAddress || "Not set"}
+                              {strategyData.swapConfig.walletAddress ||
+                                "Not set"}
                             </span>
                           </div>
                           <div className="flex justify-between">
@@ -918,7 +948,11 @@ export default function CreateStrategy() {
                           <div className="flex justify-between">
                             <span className="text-gray-600">Protocol:</span>
                             <span className="font-medium">
-                              1inch {strategyData.swapConfig.mode === "intent" ? "Fusion" : "Classic"} API
+                              1inch{" "}
+                              {strategyData.swapConfig.mode === "intent"
+                                ? "Fusion"
+                                : "Classic"}{" "}
+                              API
                             </span>
                           </div>
                         </CardContent>
