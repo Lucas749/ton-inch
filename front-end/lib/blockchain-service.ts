@@ -234,6 +234,63 @@ const ABIS = {
       ],
     },
   ],
+  IndexLimitOrderFactory: [
+    {
+      inputs: [
+        { name: "salt", type: "uint256" },
+        { name: "maker", type: "address" },
+        { name: "receiver", type: "address" },
+        { name: "makerAsset", type: "address" },
+        { name: "takerAsset", type: "address" },
+        { name: "makingAmount", type: "uint256" },
+        { name: "takingAmount", type: "uint256" },
+        { name: "indexId", type: "uint256" },
+        { name: "operator", type: "uint8" },
+        { name: "thresholdValue", type: "uint256" },
+        { name: "expiry", type: "uint40" }
+      ],
+      name: "createIndexOrder",
+      outputs: [
+        {
+          components: [
+            { name: "salt", type: "uint256" },
+            { name: "maker", type: "address" },
+            { name: "receiver", type: "address" },
+            { name: "makerAsset", type: "address" },
+            { name: "takerAsset", type: "address" },
+            { name: "makingAmount", type: "uint256" },
+            { name: "takingAmount", type: "uint256" },
+            { name: "makerTraits", type: "bytes32" }
+          ],
+          name: "",
+          type: "tuple"
+        },
+        { name: "", type: "bytes" }
+      ],
+      type: "function"
+    },
+    {
+      inputs: [
+        {
+          components: [
+            { name: "salt", type: "uint256" },
+            { name: "maker", type: "address" },
+            { name: "receiver", type: "address" },
+            { name: "makerAsset", type: "address" },
+            { name: "takerAsset", type: "address" },
+            { name: "makingAmount", type: "uint256" },
+            { name: "takingAmount", type: "uint256" },
+            { name: "makerTraits", type: "bytes32" }
+          ],
+          name: "order",
+          type: "tuple"
+        }
+      ],
+      name: "getOrderHash",
+      outputs: [{ name: "", type: "bytes32" }],
+      type: "function"
+    }
+  ]
 };
 
 // Operator types for conditions (defined above)
@@ -1160,6 +1217,97 @@ export class BlockchainService {
     } catch (error) {
       console.error("Error searching indices:", error);
       return [];
+    }
+  }
+
+  /**
+   * Create a new index order using the factory contract
+   */
+  async createOrder(params: OrderParams): Promise<Order | null> {
+    try {
+      console.log("🔄 Creating order with params:", params);
+      
+      if (!this.isWalletConnected()) {
+        throw new Error("Wallet not connected. Please connect your wallet first.");
+      }
+
+      if (!this.factory) {
+        throw new Error("Factory contract not initialized");
+      }
+
+      // Generate a random salt for order uniqueness
+      const salt = Math.floor(Math.random() * 1000000);
+      const maker = this.account;
+      const receiver = this.account; // Same as maker for now
+      const makerAsset = params.fromToken;
+      const takerAsset = params.toToken;
+      
+      // Convert amounts to wei/smallest unit
+      const makingAmount = this.parseTokenAmount(params.fromAmount, 6); // Assuming USDC (6 decimals)
+      const takingAmount = this.parseTokenAmount(params.toAmount, 18); // Assuming WETH (18 decimals)
+      
+      const indexId = params.indexId;
+      const operator = params.operator;
+      const threshold = params.threshold;
+      const expiry = Math.floor(Date.now() / 1000) + (params.expiry || 3600); // Default 1 hour
+
+      console.log("🔄 Order parameters:", {
+        salt, maker, receiver, makerAsset, takerAsset,
+        makingAmount, takingAmount, indexId, operator, threshold, expiry
+      });
+
+      // First, approve the factory to spend the maker asset
+      const fromTokenContract = new this.web3.eth.Contract(
+        ABIS.ERC20,
+        params.fromToken
+      );
+
+      console.log("🔄 Approving factory to spend tokens...");
+      await fromTokenContract.methods
+        .approve(CONTRACTS.IndexLimitOrderFactory, makingAmount)
+        .send({
+          from: this.account,
+          gas: 100000,
+        });
+
+      console.log("✅ Token approval successful");
+
+      // Now create the order
+      console.log("🔄 Creating index order...");
+      const tx = await this.factory.methods
+        .createIndexOrder(
+          salt, maker, receiver, makerAsset, takerAsset,
+          makingAmount, takingAmount, indexId, operator, threshold, expiry
+        )
+        .send({
+          from: this.account,
+          gas: 500000,
+        });
+
+      console.log("✅ Order created!", tx.transactionHash);
+
+      // Return order object
+      return {
+        hash: tx.transactionHash,
+        indexId: params.indexId,
+        operator: params.operator,
+        threshold: params.threshold,
+        description: params.description,
+        fromToken: params.fromToken,
+        toToken: params.toToken,
+        fromAmount: params.fromAmount,
+        toAmount: params.toAmount,
+        maker: this.account,
+        receiver: this.account,
+        expiry,
+        status: "active",
+        createdAt: Date.now(),
+        transactionHash: tx.transactionHash,
+      };
+
+    } catch (error) {
+      console.error("❌ Error creating order:", error);
+      throw error;
     }
   }
 
