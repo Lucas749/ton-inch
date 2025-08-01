@@ -289,6 +289,38 @@ const ABIS = {
       name: "getOrderHash",
       outputs: [{ name: "", type: "bytes32" }],
       type: "function"
+    },
+    {
+      anonymous: false,
+      inputs: [
+        {
+          indexed: true,
+          name: "orderHash",
+          type: "bytes32"
+        },
+        {
+          indexed: true,
+          name: "maker",
+          type: "address"
+        },
+        {
+          indexed: true,
+          name: "indexId",
+          type: "uint256"
+        },
+        {
+          indexed: false,
+          name: "operator",
+          type: "uint8"
+        },
+        {
+          indexed: false,
+          name: "thresholdValue",
+          type: "uint256"
+        }
+      ],
+      name: "IndexOrderCreated",
+      type: "event"
     }
   ]
 };
@@ -1267,6 +1299,55 @@ export class BlockchainService {
     } catch (error) {
       console.error("❌ Error creating index:", error);
       throw error;
+    }
+  }
+
+  /**
+   * Get all orders for a specific index
+   */
+  async getOrdersByIndex(indexId: number): Promise<Order[]> {
+    try {
+      if (!this.factory) {
+        throw new Error("Factory contract not initialized");
+      }
+
+      console.log(`🔍 Loading orders for index ${indexId}...`);
+
+      const events = await this.factory.getPastEvents("IndexOrderCreated", {
+        filter: { indexId: indexId },
+        fromBlock: "earliest",
+        toBlock: "latest",
+      });
+
+      console.log(`📋 Found ${events.length} orders for index ${indexId}`);
+
+      const orders: Order[] = events.map((event: any) => {
+        const { orderHash, maker, operator, thresholdValue } = event.returnValues;
+        
+        return {
+          hash: orderHash,
+          indexId: indexId,
+          operator: parseInt(operator),
+          threshold: parseInt(thresholdValue),
+          description: `Index ${indexId} order`,
+          fromToken: "",  // Would need to get from order details
+          toToken: "",    // Would need to get from order details
+          fromAmount: "", // Would need to get from order details
+          toAmount: "",   // Would need to get from order details
+          maker: maker,
+          receiver: maker, // Assume same for now
+          expiry: 0, // Would need to get from order details
+          status: "active" as const,
+          createdAt: Date.now(), // Would need to get from block timestamp
+          transactionHash: event.transactionHash,
+        };
+      });
+
+      return orders;
+
+    } catch (error) {
+      console.error("Error fetching orders by index:", error);
+      return [];
     }
   }
 
