@@ -6,7 +6,13 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useBlockchain } from "@/hooks/useBlockchain";
 import { useOrders, OPERATORS } from "@/hooks/useOrders";
-import { blockchainService, CONTRACTS } from "@/lib/blockchain-service";
+import { blockchainService } from "@/lib/blockchain-service";
+
+// Contract addresses - avoiding import issues
+const CONTRACTS = {
+  TestUSDC: "0x2026c63430A1B526638bEF55Fea7174220cD3965",
+  WETH: "0x4200000000000000000000000000000000000006",
+};
 
 import { StepNavigation, steps } from "@/components/create-strategy/StepNavigation";
 import { StrategyBasicsStep } from "@/components/create-strategy/StrategyBasicsStep";
@@ -161,6 +167,29 @@ export default function CreateStrategy() {
         return;
       }
 
+      // Check if user has test tokens first
+      try {
+        const testUSDCBalance = await blockchainService.getTestUSDCBalance();
+        console.log("🪙 TestUSDC Balance:", testUSDCBalance);
+        
+        if (parseFloat(testUSDCBalance) < parseFloat(strategyData.orderAmount)) {
+          alert(`❌ Insufficient TestUSDC balance! You have ${testUSDCBalance} but need ${strategyData.orderAmount}. Click "Get Test Tokens" first.`);
+          return;
+        }
+      } catch (error) {
+        console.warn("Could not check TestUSDC balance:", error);
+      }
+
+      // Check if the index exists first
+      try {
+        const indexValue = await blockchainService.getIndexValue(parseInt(strategyData.orderCondition.indexId));
+        console.log(`📊 Index ${strategyData.orderCondition.indexId} value:`, indexValue);
+      } catch (error) {
+        console.error("❌ Index does not exist:", error);
+        alert(`❌ Index ${strategyData.orderCondition.indexId} does not exist! Try creating an index first or use a different index ID.`);
+        return;
+      }
+
       const orderParams = {
         indexId: parseInt(strategyData.orderCondition.indexId),
         operator: strategyData.orderCondition.operator,
@@ -169,11 +198,11 @@ export default function CreateStrategy() {
         fromToken: strategyData.tokenIn || CONTRACTS.TestUSDC, // Default to TestUSDC
         toToken: strategyData.tokenOut || CONTRACTS.WETH,      // Default to WETH
         fromAmount: strategyData.orderAmount,
-        toAmount: strategyData.targetPrice || "0.1",
+        toAmount: strategyData.targetPrice || "0.003",
         expiry: Math.floor(Date.now() / 1000) + (parseInt(strategyData.expiry) * 3600),
       };
 
-      console.log("Creating order with params:", orderParams);
+      console.log("🚀 Creating order with params:", orderParams);
       
       const order = await createOrder(orderParams);
       
@@ -182,8 +211,24 @@ export default function CreateStrategy() {
         console.log("Order created:", order);
       }
     } catch (error) {
-      console.error("Error creating strategy:", error);
-      alert(`Failed to create strategy: ${error instanceof Error ? error.message : "Unknown error"}`);
+      console.error("❌ Error creating strategy:", error);
+      
+      // Provide more helpful error messages
+      let errorMessage = "Unknown error";
+      if (error instanceof Error) {
+        if (error.message.includes("revert")) {
+          errorMessage = "Transaction reverted by contract. This could be due to:\n" +
+            "• Index ID doesn't exist\n" +
+            "• Insufficient token balance\n" +
+            "• Token approval failed\n" +
+            "• Invalid parameters\n\n" +
+            "Try:\n1. Mint test tokens first\n2. Use a valid index ID\n3. Check console for details";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      alert(`❌ Failed to create strategy:\n\n${errorMessage}`);
     }
   };
 
