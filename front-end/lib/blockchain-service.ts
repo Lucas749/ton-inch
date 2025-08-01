@@ -28,42 +28,6 @@ const CONTRACTS = {
 
 // Simplified ABIs for frontend use
 const ABIS = {
-  TestToken: [
-    {
-      "inputs": [
-        {"name": "to", "type": "address"},
-        {"name": "value", "type": "uint256"}
-      ],
-      "name": "mint",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {"name": "spender", "type": "address"},
-        {"name": "value", "type": "uint256"}
-      ],
-      "name": "approve",
-      "outputs": [{"name": "", "type": "bool"}],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [{"name": "account", "type": "address"}],
-      "name": "balanceOf",
-      "outputs": [{"name": "", "type": "uint256"}],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "decimals",
-      "outputs": [{"name": "", "type": "uint8"}],
-      "stateMutability": "view",
-      "type": "function"
-    }
-  ],
   MockIndexOracle: [
     {
       type: "function",
@@ -234,95 +198,6 @@ const ABIS = {
       ],
     },
   ],
-  IndexLimitOrderFactory: [
-    {
-      inputs: [
-        { name: "salt", type: "uint256" },
-        { name: "maker", type: "address" },
-        { name: "receiver", type: "address" },
-        { name: "makerAsset", type: "address" },
-        { name: "takerAsset", type: "address" },
-        { name: "makingAmount", type: "uint256" },
-        { name: "takingAmount", type: "uint256" },
-        { name: "indexId", type: "uint256" },
-        { name: "operator", type: "uint8" },
-        { name: "thresholdValue", type: "uint256" },
-        { name: "expiry", type: "uint40" }
-      ],
-      name: "createIndexOrder",
-      outputs: [
-        {
-          components: [
-            { name: "salt", type: "uint256" },
-            { name: "maker", type: "address" },
-            { name: "receiver", type: "address" },
-            { name: "makerAsset", type: "address" },
-            { name: "takerAsset", type: "address" },
-            { name: "makingAmount", type: "uint256" },
-            { name: "takingAmount", type: "uint256" },
-            { name: "makerTraits", type: "bytes32" }
-          ],
-          name: "",
-          type: "tuple"
-        },
-        { name: "", type: "bytes" }
-      ],
-      type: "function"
-    },
-    {
-      inputs: [
-        {
-          components: [
-            { name: "salt", type: "uint256" },
-            { name: "maker", type: "address" },
-            { name: "receiver", type: "address" },
-            { name: "makerAsset", type: "address" },
-            { name: "takerAsset", type: "address" },
-            { name: "makingAmount", type: "uint256" },
-            { name: "takingAmount", type: "uint256" },
-            { name: "makerTraits", type: "bytes32" }
-          ],
-          name: "order",
-          type: "tuple"
-        }
-      ],
-      name: "getOrderHash",
-      outputs: [{ name: "", type: "bytes32" }],
-      type: "function"
-    },
-    {
-      anonymous: false,
-      inputs: [
-        {
-          indexed: true,
-          name: "orderHash",
-          type: "bytes32"
-        },
-        {
-          indexed: true,
-          name: "maker",
-          type: "address"
-        },
-        {
-          indexed: true,
-          name: "indexId",
-          type: "uint256"
-        },
-        {
-          indexed: false,
-          name: "operator",
-          type: "uint8"
-        },
-        {
-          indexed: false,
-          name: "thresholdValue",
-          type: "uint256"
-        }
-      ],
-      name: "IndexOrderCreated",
-      type: "event"
-    }
-  ]
 };
 
 // Operator types for conditions (defined above)
@@ -344,11 +219,6 @@ export interface Order {
   takerAsset: string;
   makingAmount: string;
   takingAmount: string;
-  // Aliases for UI compatibility
-  fromToken: string;
-  toToken: string;
-  fromAmount: string;
-  toAmount: string;
   maker: string;
   receiver: string;
   expiry: number;
@@ -401,46 +271,12 @@ export class BlockchainService {
   private preInteraction: any;
   private factory: any;
   private isInitialized = false;
-  private orderCache: Map<number, { orders: Order[], timestamp: number }> = new Map();
-  private indicesCache: { indices: CustomIndex[], timestamp: number } | null = null;
-  private readonly CACHE_DURATION = 30000; // 30 seconds
-  private readonly INDICES_CACHE_DURATION = 10000; // 10 seconds for indices cache
 
   constructor() {
-    // Initialize Web3 with Alchemy or fallback to Base Sepolia
-    const rpcUrl = this.getRpcUrl();
-    console.log(`🌐 Initializing Web3 with RPC: ${this.getRpcDescription(rpcUrl)}`);
-    this.web3 = new Web3(rpcUrl);
-    this.initializeContracts();
-  }
+    // Initialize Web3 with Base Sepolia
+    this.web3 = new Web3("https://sepolia.base.org");
 
-  /**
-   * Get the best available RPC URL
-   */
-  private getRpcUrl(): string {
-    // Check for Alchemy API key first (premium tier)
-    if (process.env.NEXT_PUBLIC_ALCHEMY_API_KEY) {
-      return `https://base-sepolia.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`;
-    }
-    
-    // Fallback to public Base Sepolia RPC
-    console.warn("⚠️ No Alchemy API key found, using public RPC (may have rate limits)");
-    return "https://sepolia.base.org";
-  }
-
-  /**
-   * Get a user-friendly description of the RPC being used
-   */
-  private getRpcDescription(url: string): string {
-    if (url.includes('alchemy')) return 'Alchemy (Premium - Recommended)';
-    if (url.includes('sepolia.base.org')) return 'Base Sepolia (Public - Limited)';
-    return 'Custom RPC';
-  }
-
-  /**
-   * Initialize contract instances with current web3 instance
-   */
-  private initializeContracts(): void {
+    // Initialize contracts
     this.oracle = new this.web3.eth.Contract(
       ABIS.MockIndexOracle,
       CONTRACTS.MockIndexOracle
@@ -510,9 +346,6 @@ export class BlockchainService {
             params: [{ chainId: baseSepoliaChain.chainId }],
           });
           
-                        // Re-initialize web3 with the new network
-          this.web3 = new Web3(window.ethereum);
-          this.initializeContracts();
           console.log("✅ Successfully switched to Base Sepolia");
           return true;
         } catch (switchError: any) {
@@ -524,9 +357,6 @@ export class BlockchainService {
                 params: [baseSepoliaChain],
               });
               
-              // Re-initialize web3 with the new network
-              this.web3 = new Web3(window.ethereum);
-              this.initializeContracts();
               console.log("✅ Successfully added and switched to Base Sepolia");
               return true;
             } catch (addError) {
@@ -548,49 +378,32 @@ export class BlockchainService {
   }
 
   /**
-   * Get all custom indices from the oracle with rate limiting and caching
+   * Get all custom indices from the oracle
    */
   async getAllIndices(): Promise<CustomIndex[]> {
     try {
-      // Check cache first
-      if (this.indicesCache && Date.now() - this.indicesCache.timestamp < this.INDICES_CACHE_DURATION) {
-        console.log('📋 Using cached indices (avoiding duplicate call)');
-        return this.indicesCache.indices;
-      }
-
-      console.log('📊 Fetching all indices with rate limiting...');
       const indices: CustomIndex[] = [];
 
-      // Get the actual list of created custom indices from the oracle
-      try {
-        const customIndicesArray = await this.oracle.methods.getAllCustomIndices().call();
-        console.log("📊 Found custom indices:", customIndicesArray);
-        
-        for (let i = 0; i < customIndicesArray.length; i++) {
-          const indexId = customIndicesArray[i];
-          try {
-            const id = Number(indexId);
-            
-            // Use retry logic for getIndexValue
-            const result = await this.retryWithBackoff(async () => {
-              return await this.oracle.methods.getIndexValue(id).call();
-            });
-            
+      // Query custom indices (starting from a reasonable range)
+      for (let i = 6; i <= 30; i++) {
+        try {
+          const result = await this.oracle.methods.getIndexValue(i).call();
+          if (result && result[0] && result[0] !== "0") {
             // Try to get additional info from PreInteraction contract
             let indexInfo = null;
             try {
-              indexInfo = await this.retryWithBackoff(async () => {
-                return await this.preInteraction.methods.getIndexInfo(id).call();
-              });
+              indexInfo = await this.preInteraction.methods
+                .getIndexInfo(i)
+                .call();
             } catch (e) {
               // Index not registered in PreInteraction, use default values
             }
 
             indices.push({
-              id,
-              name: indexInfo?.name || `Custom Index ${id}`,
+              id: i,
+              name: indexInfo?.name || `Custom Index ${i}`,
               description:
-                indexInfo?.description || `Custom index with ID ${id}`,
+                indexInfo?.description || `Custom index with ID ${i}`,
               value: Number(result[0]),
               timestamp: Number(result[1]),
               active: indexInfo?.isActive ?? true,
@@ -599,98 +412,16 @@ export class BlockchainService {
                 ? Number(indexInfo.createdAt)
                 : undefined,
             });
-            
-            // Add delay between requests to avoid overwhelming RPC
-            if (i < customIndicesArray.length - 1) {
-              await this.delay(200);
-            }
-          } catch (e) {
-            console.warn(`⚠️ Failed to load index ${indexId}:`, e);
-            continue;
           }
-        }
-      } catch (error) {
-        console.warn("Could not get custom indices list, falling back to range scan:", error);
-        
-        // Fallback: scan a wider range and validate more carefully
-        for (let i = 0; i <= 50; i++) { // Extended range to find more indices
-          try {
-            const result = await this.retryWithBackoff(async () => {
-              return await this.oracle.methods.getIndexValue(i).call();
-            });
-            
-            // More robust existence check: ensure we have valid data and timestamp
-            if (result && result[0] && Number(result[0]) > 0 && Number(result[1]) > 0) {
-              let indexInfo = null;
-              try {
-                indexInfo = await this.retryWithBackoff(async () => {
-                  return await this.preInteraction.methods.getIndexInfo(i).call();
-                });
-              } catch (e) {
-                // Index not registered in PreInteraction
-              }
-
-              indices.push({
-                id: i,
-                name: indexInfo?.name || `Custom Index ${i}`,
-                description:
-                  indexInfo?.description || `Custom index with ID ${i}`,
-                value: Number(result[0]),
-                timestamp: Number(result[1]),
-                active: indexInfo?.isActive ?? true,
-                creator: indexInfo?.creator,
-                createdAt: indexInfo?.createdAt
-                  ? Number(indexInfo.createdAt)
-                  : undefined,
-              });
-            }
-            
-            // Add delay between fallback requests
-            await this.delay(100);
-          } catch (e) {
-            // Index doesn't exist, continue
-            continue;
-          }
+        } catch (e) {
+          // Index doesn't exist or error querying, continue
+          continue;
         }
       }
 
-      console.log(`✅ Loaded ${indices.length} total indices`);
-      const sortedIndices = indices.sort((a, b) => a.id - b.id);
-      
-      // Cache the results to prevent duplicate calls
-      this.indicesCache = {
-        indices: sortedIndices,
-        timestamp: Date.now()
-      };
-      
-      return sortedIndices;
+      return indices;
     } catch (error) {
       console.error("❌ Error fetching indices:", error);
-      return []; // Return empty array instead of throwing
-    }
-  }
-
-  /**
-   * Get index value by ID
-   */
-  async getIndexValue(indexId: number): Promise<{value: number, timestamp: number}> {
-    try {
-      if (!this.oracle) {
-        throw new Error("Oracle contract not initialized");
-      }
-
-      const result = await this.oracle.methods.getIndexValue(indexId).call();
-      
-      if (!result || !result[0] || result[0] === "0") {
-        throw new Error(`Index ${indexId} does not exist or has no value`);
-      }
-
-      return {
-        value: Number(result[0]),
-        timestamp: Number(result[1])
-      };
-    } catch (error) {
-      console.error(`❌ Error getting index ${indexId} value:`, error);
       throw error;
     }
   }
@@ -735,9 +466,6 @@ export class BlockchainService {
         "✅ Index registered in PreInteraction:",
         preIntTx.transactionHash
       );
-
-      // Clear indices cache so new index appears immediately
-      this.clearIndicesCache();
 
       return Number(indexId);
     } catch (error) {
@@ -857,48 +585,14 @@ export class BlockchainService {
    * Check if wallet is connected
    */
   isWalletConnected(): boolean {
-    // First check our internal state
-    if (this.isInitialized && !!this.account) {
-      return true;
-    }
-    
-    // If not initialized but wallet exists, try to detect connection
-    if (typeof window !== "undefined" && window.ethereum) {
-      try {
-        // Check if we can get current accounts synchronously
-        const provider = window.ethereum;
-        if (provider.selectedAddress) {
-          // Auto-initialize if we detect a connected wallet
-          this.account = provider.selectedAddress;
-          this.web3.setProvider(window.ethereum);
-          this.isInitialized = true;
-          console.log("🔄 Auto-detected wallet connection:", this.account);
-          return true;
-        }
-      } catch (error) {
-        console.warn("⚠️ Could not detect wallet connection:", error);
-      }
-    }
-    
-    return false;
+    return this.isInitialized && !!this.account;
   }
 
   /**
    * Get connected wallet address
    */
   getWalletAddress(): string | null {
-    // First check our internal state
-    if (this.account) {
-      return this.account;
-    }
-    
-    // If not set but wallet exists, try to detect address
-    if (typeof window !== "undefined" && window.ethereum && window.ethereum.selectedAddress) {
-      this.account = window.ethereum.selectedAddress;
-      return this.account;
-    }
-    
-    return null;
+    return this.account || null;
   }
 
   /**
@@ -924,12 +618,7 @@ export class BlockchainService {
    */
   onNetworkChanged(callback: (chainId: string) => void): void {
     if (typeof window !== "undefined" && window.ethereum) {
-      window.ethereum.on("chainChanged", (chainId: string) => {
-        // Re-initialize web3 with new network
-        this.web3 = new Web3(window.ethereum);
-        this.initializeContracts();
-        callback(chainId);
-      });
+      window.ethereum.on("chainChanged", callback);
     }
   }
 
@@ -938,23 +627,11 @@ export class BlockchainService {
    */
   async createOrder(params: OrderParams): Promise<Order | null> {
     try {
-      console.log("🔍 createOrder called with params:", params);
-      console.log("🔍 Current wallet state:", {
-        isInitialized: this.isInitialized,
-        account: this.account,
-        hasEthereum: !!window.ethereum,
-        selectedAddress: window.ethereum?.selectedAddress
-      });
-      
-      // Auto-detect wallet connection if not already initialized
-      if (!this.isWalletConnected()) {
-        console.error("❌ Wallet connection check failed");
+      if (!this.isInitialized || !this.account) {
         throw new Error(
           "Wallet not connected. Please connect your wallet first."
         );
       }
-      
-      console.log("✅ Wallet connection confirmed:", this.account);
 
       const salt = Math.floor(Math.random() * 1000000);
       const maker = this.account;
@@ -974,20 +651,12 @@ export class BlockchainService {
       const fromDecimals = await fromTokenContract.methods.decimals().call();
       const toDecimals = await toTokenContract.methods.decimals().call();
 
-      // Convert amounts to wei using proper decimal handling
-      // Parse decimals properly - multiply by 10^decimals to convert to wei
-      const makingAmount = this.parseTokenAmount(params.fromAmount, Number(fromDecimals));
-      const takingAmount = this.parseTokenAmount(params.toAmount, Number(toDecimals));
-      
-      console.log("💰 Amount conversions:", {
-        fromAmount: params.fromAmount,
-        fromDecimals: Number(fromDecimals),
-        makingAmount,
-        
-        toAmount: params.toAmount,
-        toDecimals: Number(toDecimals),
-        takingAmount
-      });
+      const makingAmount = this.web3.utils
+        .toBN(params.fromAmount)
+        .mul(this.web3.utils.toBN(10).pow(this.web3.utils.toBN(fromDecimals)));
+      const takingAmount = this.web3.utils
+        .toBN(params.toAmount)
+        .mul(this.web3.utils.toBN(10).pow(this.web3.utils.toBN(toDecimals)));
 
       console.log(`📝 Creating order: ${params.description}`);
       console.log(
@@ -998,7 +667,7 @@ export class BlockchainService {
 
       // Approve token spending
       await fromTokenContract.methods
-        .approve(CONTRACTS.IndexLimitOrderFactory, makingAmount)
+        .approve(CONTRACTS.IndexLimitOrderFactory, makingAmount.toString())
         .send({
           from: this.account,
           gas: 100000,
@@ -1012,8 +681,8 @@ export class BlockchainService {
           receiver,
           params.fromToken,
           params.toToken,
-          makingAmount,
-          takingAmount,
+          makingAmount.toString(),
+          takingAmount.toString(),
           params.indexId,
           params.operator,
           params.threshold,
@@ -1045,8 +714,8 @@ export class BlockchainService {
           description: params.description,
           makerAsset: params.fromToken,
           takerAsset: params.toToken,
-          makingAmount: makingAmount,
-          takingAmount: takingAmount,
+          makingAmount: makingAmount.toString(),
+          takingAmount: takingAmount.toString(),
           maker,
           receiver,
           expiry,
@@ -1134,33 +803,27 @@ export class BlockchainService {
    * Parse token amount with proper decimals
    */
   parseTokenAmount(amount: string, decimals: number): string {
-    // Handle decimal amounts by using parseFloat and then converting to wei
-    const floatAmount = parseFloat(amount);
-    if (isNaN(floatAmount)) {
-      throw new Error(`Invalid amount: ${amount}`);
-    }
-    
-    // Multiply by 10^decimals to convert to smallest unit (wei)
-    const multiplier = Math.pow(10, decimals);
-    const amountInWei = Math.floor(floatAmount * multiplier);
-    
-    return amountInWei.toString();
+    return this.web3.utils
+      .toBN(amount)
+      .mul(this.web3.utils.toBN(10).pow(this.web3.utils.toBN(decimals)))
+      .toString();
   }
 
   /**
    * Format token amount from wei
    */
   formatTokenAmount(amount: string, decimals: number): string {
-    const amountNumber = parseFloat(amount);
-    if (isNaN(amountNumber)) {
-      return "0";
-    }
-    
-    // Convert from smallest unit back to human readable
-    const divisor = Math.pow(10, decimals);
-    const humanReadable = amountNumber / divisor;
-    
-    return humanReadable.toString();
+    return this.web3.utils.fromWei(
+      this.web3.utils
+        .toBN(amount)
+        .div(
+          this.web3.utils
+            .toBN(10)
+            .pow(this.web3.utils.toBN(Math.max(0, 18 - decimals)))
+        )
+        .toString(),
+      "ether"
+    );
   }
 
   /**
@@ -1188,63 +851,6 @@ export class BlockchainService {
     } catch (error) {
       console.error("Error fetching index history:", error);
       return [];
-    }
-  }
-
-  /**
-   * Mint test tokens for the user (Base Sepolia only)
-   */
-  async mintTestTokens(amount: number = 1000): Promise<boolean> {
-    try {
-      if (!this.isWalletConnected()) {
-        throw new Error("Wallet not connected");
-      }
-
-      const testUSDC = new this.web3.eth.Contract(
-        ABIS.TestToken,
-        CONTRACTS.TestUSDC
-      );
-
-      // Convert amount to proper decimals (USDC has 6 decimals)
-      const mintAmount = amount * Math.pow(10, 6);
-
-      console.log(`🪙 Minting ${amount} Test USDC...`);
-      
-      const tx = await testUSDC.methods
-        .mint(this.account, mintAmount.toString())
-        .send({
-          from: this.account,
-          gas: 100000,
-        });
-
-      console.log("✅ Test tokens minted!", tx.transactionHash);
-      return true;
-    } catch (error) {
-      console.error("❌ Error minting test tokens:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get test USDC balance
-   */
-  async getTestUSDCBalance(): Promise<string> {
-    try {
-      if (!this.isWalletConnected()) {
-        return "0";
-      }
-
-      const testUSDC = new this.web3.eth.Contract(
-        ABIS.TestToken,
-        CONTRACTS.TestUSDC
-      );
-
-      const balance = await testUSDC.methods.balanceOf(this.account).call();
-      // USDC has 6 decimals
-      return (parseInt(balance) / Math.pow(10, 6)).toString();
-    } catch (error) {
-      console.error("❌ Error getting test USDC balance:", error);
-      return "0";
     }
   }
 
@@ -1320,336 +926,17 @@ export class BlockchainService {
   }
 
   /**
-   * Create a new custom index (both in oracle and preInteraction)
-   */
-  async createIndex(name: string, description: string, initialValue: number): Promise<number> {
-    try {
-      console.log("🔄 Creating index:", { name, description, initialValue });
-      
-      if (!this.isWalletConnected()) {
-        throw new Error("Wallet not connected. Please connect your wallet first.");
-      }
-
-      if (!this.oracle || !this.preInteraction) {
-        throw new Error("Contracts not initialized");
-      }
-
-      // Step 1: Get next index ID
-      const indexId = await this.oracle.methods.getNextCustomIndexId().call();
-      console.log("📋 Next index ID:", indexId);
-
-      // Step 2: Create in oracle
-      console.log("🔄 Creating index in oracle...");
-      const oracleTx = await this.oracle.methods
-        .createCustomIndex(initialValue)
-        .send({
-          from: this.account,
-          gas: 150000,
-        });
-
-      console.log("✅ Index created in oracle:", oracleTx.transactionHash);
-
-      // Step 3: Register in PreInteraction
-      console.log("🔄 Registering index in PreInteraction...");
-      const preIntTx = await this.preInteraction.methods
-        .registerIndex(name, description, CONTRACTS.MockIndexOracle)
-        .send({
-          from: this.account,
-          gas: 300000,
-        });
-
-      console.log("✅ Index registered in PreInteraction:", preIntTx.transactionHash);
-      console.log(`🎉 Index "${name}" created with ID: ${indexId}`);
-
-      // Clear indices cache so new index appears immediately
-      this.clearIndicesCache();
-
-      return parseInt(indexId);
-
-    } catch (error) {
-      console.error("❌ Error creating index:", error);
-      throw error;
-    }
-  }
-
-
-
-
-
-  /**
-   * Retry function with exponential backoff
-   */
-  private async retryWithBackoff<T>(
-    fn: () => Promise<T>, 
-    maxRetries: number = 3, 
-    baseDelay: number = 1000
-  ): Promise<T> {
-    let lastError: any;
-    
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      try {
-        if (attempt > 0) {
-          const delay = baseDelay * Math.pow(2, attempt - 1);
-          console.log(`⏳ Retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries + 1})`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-        }
-        
-        return await fn();
-      } catch (error: any) {
-        lastError = error;
-        
-        // Don't retry if it's not a circuit breaker or rate limit error
-        if (!this.isRetryableError(error)) {
-          throw error;
-        }
-        
-        console.warn(`⚠️ Attempt ${attempt + 1} failed:`, error.message);
-      }
-    }
-    
-    throw lastError;
-  }
-
-  /**
-   * Check if an error is retryable (circuit breaker, rate limit, etc.)
-   */
-  private isRetryableError(error: any): boolean {
-    const message = error.message?.toLowerCase() || '';
-    return message.includes('circuit breaker') || 
-           message.includes('rate limit') || 
-           message.includes('too many requests') ||
-           message.includes('timeout') ||
-           message.includes('network error');
-  }
-
-  /**
-   * Clear order cache for a specific index (call after creating new orders)
-   */
-  public clearOrderCache(indexId?: number): void {
-    if (indexId !== undefined) {
-      this.orderCache.delete(indexId);
-      console.log(`🗑️ Cleared cache for index ${indexId}`);
-    } else {
-      this.orderCache.clear();
-      console.log(`🗑️ Cleared all order cache`);
-    }
-  }
-
-  /**
-   * Clear indices cache (call after creating new indices or when forcing refresh)
-   */
-  public clearIndicesCache(): void {
-    this.indicesCache = null;
-    console.log(`🗑️ Cleared indices cache`);
-  }
-
-  /**
-   * Create a new index order using the factory contract
-   */
-  async createOrder(params: OrderParams): Promise<Order | null> {
-    try {
-      console.log("🔄 Creating order with params:", params);
-      
-      if (!this.isWalletConnected()) {
-        throw new Error("Wallet not connected. Please connect your wallet first.");
-      }
-
-      if (!this.factory) {
-        throw new Error("Factory contract not initialized");
-      }
-
-      // Generate a random salt for order uniqueness
-      const salt = Math.floor(Math.random() * 1000000);
-      const maker = this.account;
-      const receiver = this.account; // Same as maker for now
-      const makerAsset = params.fromToken;
-      const takerAsset = params.toToken;
-      
-      // Convert amounts to wei/smallest unit
-      const makingAmount = this.parseTokenAmount(params.fromAmount, 6); // Assuming USDC (6 decimals)
-      const takingAmount = this.parseTokenAmount(params.toAmount, 18); // Assuming WETH (18 decimals)
-      
-      const indexId = params.indexId;
-      const operator = params.operator;
-      const threshold = params.threshold;
-      const expiry = Math.floor(Date.now() / 1000) + (params.expiry || 3600); // Default 1 hour
-
-      console.log("🔄 Order parameters:", {
-        salt, maker, receiver, makerAsset, takerAsset,
-        makingAmount, takingAmount, indexId, operator, threshold, expiry
-      });
-
-      // First, approve the factory to spend the maker asset
-      const fromTokenContract = new this.web3.eth.Contract(
-        ABIS.ERC20,
-        params.fromToken
-      );
-
-      console.log("🔄 Approving factory to spend tokens with retry logic...");
-      await this.retryWithBackoff(async () => {
-        return await fromTokenContract.methods
-          .approve(CONTRACTS.IndexLimitOrderFactory, makingAmount)
-          .send({
-            from: this.account,
-            gas: 100000,
-          });
-      }, 3, 2000); // 3 retries, 2s base delay
-
-      console.log("✅ Token approval successful");
-
-      // Now create the order with retry logic
-      console.log("🔄 Creating index order with retry logic...");
-      const tx = await this.retryWithBackoff(async () => {
-        return await this.factory.methods
-          .createIndexOrder(
-            salt, maker, receiver, makerAsset, takerAsset,
-            makingAmount, takingAmount, indexId, operator, threshold, expiry
-          )
-          .send({
-            from: this.account,
-            gas: 500000,
-          });
-      }, 3, 3000); // 3 retries, 3s base delay for transaction
-
-      console.log("✅ Order created!", tx.transactionHash);
-
-      // Clear cache for this index so new order appears immediately
-      this.clearOrderCache(params.indexId);
-
-      // Return order object
-      return {
-        hash: tx.transactionHash,
-        indexId: params.indexId,
-        operator: params.operator,
-        threshold: params.threshold,
-        description: params.description,
-        makerAsset: params.fromToken,
-        takerAsset: params.toToken,
-        makingAmount: makingAmount,
-        takingAmount: takingAmount,
-        fromToken: params.fromToken,
-        toToken: params.toToken,
-        fromAmount: params.fromAmount,
-        toAmount: params.toAmount,
-        maker: this.account,
-        receiver: this.account,
-        expiry,
-        status: "active",
-        createdAt: Date.now(),
-        transactionHash: tx.transactionHash,
-      };
-
-    } catch (error: any) {
-      console.error("❌ Error creating order:", error);
-      
-      // Provide user-friendly error messages for common issues
-      if (error.message?.includes('circuit breaker')) {
-        throw new Error(
-          "🔄 Network is temporarily overloaded. Please wait 30 seconds and try again. " +
-          "The RPC service is protecting itself from too many requests."
-        );
-      } else if (error.message?.includes('rate limit')) {
-        throw new Error(
-          "⏰ Too many requests. Please wait a moment and try again."
-        );
-      } else if (error.message?.includes('insufficient funds')) {
-        throw new Error(
-          "💰 Insufficient funds for gas or token amount. Please check your balance."
-        );
-      } else if (error.message?.includes('user rejected')) {
-        throw new Error(
-          "❌ Transaction was cancelled by user."
-        );
-      }
-      
-      // For other errors, provide a generic helpful message
-      throw new Error(
-        `Transaction failed: ${error.message || 'Unknown error'}. ` +
-        "Please try again or check your wallet connection."
-      );
-    }
-  }
-
-
-
-  /**
-   * Delay helper function
-   */
-  private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-  /**
-   * Get index details with retry logic
-   */
-  private async getIndexDetailsWithRetry(indexId: number): Promise<CustomIndex | null> {
-    return await this.retryWithBackoff(
-      () => this.getIndexDetails(indexId),
-      3, // max 3 retries
-      1000 // 1 second base delay
-    );
-  }
-
-  /**
-   * Get complete information for a single index
-   */
-  private async getIndexDetails(indexId: number): Promise<CustomIndex | null> {
-    try {
-      if (!this.preInteraction || !this.oracle) {
-        console.error('Contracts not initialized');
-        return null;
-      }
-
-      // Get metadata from PreInteraction contract
-      const info = await this.preInteraction.methods.getIndexInfo(indexId).call();
-      
-      // Get current value from oracle (correct contract)
-      const valueData = await this.oracle.methods.getIndexValue(indexId).call();
-      
-      return {
-        id: indexId,
-        name: info.name || `Index ${indexId}`,
-        description: info.description || `Index ${indexId} description`,
-        creator: info.creator,
-        active: info.isActive,
-        createdAt: Number(info.createdAt),
-        value: Number(valueData[0]), // getIndexValue returns [value, timestamp]
-        timestamp: Number(valueData[1])
-      };
-    } catch (error) {
-      console.error(`❌ Error fetching details for index ${indexId}:`, error);
-      return null;
-    }
-  }
-
-  /**
-   * Get all orders for a specific index with retry logic and rate limiting
+   * Get all orders for a specific index
    */
   async getOrdersByIndex(indexId: number): Promise<any[]> {
     try {
-      // Check cache first
-      const cached = this.orderCache.get(indexId);
-      if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
-        console.log(`📋 Using cached orders for index ${indexId}`);
-        return cached.orders;
-      }
-
-      if (!this.factory) {
-        throw new Error("Factory contract not initialized");
-      }
-
-      console.log(`🔍 Loading orders for index ${indexId} with retry logic...`);
-
-      // Use retry with backoff for robustness
-      const events = await this.retryWithBackoff(async () => {
-        return await this.factory.getPastEvents("IndexOrderCreated", {
-          filter: { indexId },
-          fromBlock: "earliest",
-          toBlock: "latest",
-        });
+      const events = await this.factory.getPastEvents("IndexOrderCreated", {
+        filter: { indexId },
+        fromBlock: "earliest",
+        toBlock: "latest",
       });
 
-      const orders = events.map((event: any) => ({
+      return events.map((event: any) => ({
         hash: event.returnValues.orderHash,
         indexId: event.returnValues.indexId,
         operator: parseInt(event.returnValues.operator),
@@ -1662,22 +949,8 @@ export class BlockchainService {
         blockNumber: event.blockNumber,
         transactionHash: event.transactionHash,
       }));
-
-      // Cache the results
-      this.orderCache.set(indexId, { orders, timestamp: Date.now() });
-      console.log(`✅ Loaded ${orders.length} orders for index ${indexId}`);
-
-      return orders;
     } catch (error) {
-      console.error(`❌ Error fetching orders for index ${indexId}:`, error);
-
-      // Return cached data if available, even if stale
-      const cached = this.orderCache.get(indexId);
-      if (cached) {
-        console.log(`⚠️ Using stale cached orders for index ${indexId} due to error`);
-        return cached.orders;
-      }
-
+      console.error("Error fetching orders by index:", error);
       return [];
     }
   }
@@ -1685,9 +958,6 @@ export class BlockchainService {
 
 // Singleton instance
 export const blockchainService = new BlockchainService();
-
-// Export contracts for use in other components
-export { CONTRACTS };
 
 // Type declarations for window.ethereum
 declare global {

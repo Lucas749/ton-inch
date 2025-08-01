@@ -72,13 +72,12 @@ export function StrategyDetailClient({
     cancelOrder,
   } = useOrders();
 
-  // Load blockchain data on mount
+  // Load blockchain data on mount (indices loaded from main dashboard)
   useEffect(() => {
     if (isConnected) {
-      refreshIndices();
       refreshOrders();
     }
-  }, [isConnected, refreshIndices, refreshOrders]);
+  }, [isConnected, refreshOrders]);
 
   // Get strategy data (enhanced with real blockchain data)
   const strategy = {

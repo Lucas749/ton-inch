@@ -77,12 +77,9 @@ export function useBlockchain(): UseBlockchainReturn {
         setChainId(networkInfo.chainId);
         setNetworkName(networkInfo.networkName);
 
-        // Get ETH balance
+        // Get ETH balance (indices loaded explicitly by pages)
         const balance = await blockchainService.getETHBalance();
         setEthBalance(balance);
-
-        // Load indices
-        await refreshIndices();
       }
     } catch (err) {
       const errorMessage =
@@ -157,8 +154,6 @@ export function useBlockchain(): UseBlockchainReturn {
   // Refresh indices
   const refreshIndices = useCallback(async () => {
     try {
-      // Clear cache to force fresh data on explicit refresh
-      blockchainService.clearIndicesCache();
       const allIndices = await blockchainService.getAllIndices();
       setIndices(allIndices);
     } catch (err) {
@@ -248,9 +243,8 @@ export function useBlockchain(): UseBlockchainReturn {
         setWalletAddress(account);
         setIsConnected(true);
 
-        // Refresh balances and data for new account
+        // Refresh balances for new account (indices loaded on-demand)
         blockchainService.getETHBalance().then(setEthBalance);
-        refreshIndices();
       } else {
         setWalletAddress(null);
         setIsConnected(false);
@@ -273,13 +267,12 @@ export function useBlockchain(): UseBlockchainReturn {
           setChainId(networkInfo.chainId);
           setNetworkName(networkInfo.networkName);
           
-          // Refresh balance and indices for new network
+          // Refresh balance for new network (indices loaded on-demand)
           try {
             const balance = await blockchainService.getETHBalance();
             setEthBalance(balance);
-            await refreshIndices();
           } catch (err) {
-            console.warn("Warning: Failed to refresh data after network switch:", err);
+            console.warn("Warning: Failed to refresh balance after network switch:", err);
           }
         } else {
           // Wallet disconnected
@@ -292,7 +285,7 @@ export function useBlockchain(): UseBlockchainReturn {
         console.error("Error handling network change:", err);
       }
     });
-  }, [refreshIndices]);
+  }, []); // No dependencies - event listeners set once
 
   return {
     // State
