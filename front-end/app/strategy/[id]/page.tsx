@@ -34,6 +34,17 @@ const priceData = [
   { time: "24:00", price: 2919, sentiment: 78 },
 ];
 
+// Generate static params for the dynamic route
+export async function generateStaticParams() {
+  // Return the strategy IDs that should be pre-generated
+  // For now, we'll generate pages for strategies 1, 2, and 3
+  return [
+    { id: '1' },
+    { id: '2' },
+    { id: '3' },
+  ];
+}
+
 export default function StrategyDetail() {
   const params = useParams();
   const router = useRouter();
