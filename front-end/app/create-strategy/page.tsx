@@ -174,7 +174,7 @@ export default function CreateStrategy() {
       }
     } catch (error) {
       console.error("Error creating strategy:", error);
-      alert(`Failed to create strategy: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      alert(`Failed to create strategy: ${error instanceof Error ? error.message : "Unknown error"}`);
     }
   };
 

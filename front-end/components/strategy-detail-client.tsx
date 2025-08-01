@@ -64,7 +64,13 @@ export function StrategyDetailClient({
     connectWallet,
     refreshIndices,
   } = useBlockchain();
-  const { orders, isLoading: ordersLoading, error: ordersError, refreshOrders, cancelOrder } = useOrders();
+  const {
+    orders,
+    isLoading: ordersLoading,
+    error: ordersError,
+    refreshOrders,
+    cancelOrder,
+  } = useOrders();
 
   // Load blockchain data on mount
   useEffect(() => {
@@ -276,7 +282,11 @@ export function StrategyDetailClient({
                   onClick={refreshOrders}
                   disabled={ordersLoading}
                 >
-                  <RefreshCw className={`w-4 h-4 mr-2 ${ordersLoading ? 'animate-spin' : ''}`} />
+                  <RefreshCw
+                    className={`w-4 h-4 mr-2 ${
+                      ordersLoading ? "animate-spin" : ""
+                    }`}
+                  />
                   Refresh
                 </Button>
               </div>
@@ -287,7 +297,7 @@ export function StrategyDetailClient({
                   Error loading orders: {ordersError}
                 </div>
               )}
-              
+
               {ordersLoading ? (
                 <div className="text-center py-4 text-gray-500">
                   Loading orders...
@@ -307,29 +317,39 @@ export function StrategyDetailClient({
                         <div className="flex items-center space-x-2">
                           <Badge
                             variant={
-                              order.status === 'active' ? 'default' :
-                              order.status === 'filled' ? 'secondary' :
-                              'outline'
+                              order.status === "active"
+                                ? "default"
+                                : order.status === "filled"
+                                ? "secondary"
+                                : "outline"
                             }
                           >
                             {order.status}
                           </Badge>
                           <span className="text-sm font-medium">
-                            {order.description || 'Order'}
+                            {order.description || "Order"}
                           </span>
                         </div>
                         <div className="text-xs text-gray-500 mt-1">
-                          Hash: {order.hash.slice(0, 10)}...{order.hash.slice(-8)}
+                          Hash: {order.hash.slice(0, 10)}...
+                          {order.hash.slice(-8)}
                         </div>
                         <div className="text-xs text-gray-500">
-                          Condition: Index {order.indexId} {order.operator === 0 ? '>' : 
-                                     order.operator === 1 ? '<' : 
-                                     order.operator === 2 ? '>=' : 
-                                     order.operator === 3 ? '<=' : '=='} {order.threshold}
+                          Condition: Index {order.indexId}{" "}
+                          {order.operator === 0
+                            ? ">"
+                            : order.operator === 1
+                            ? "<"
+                            : order.operator === 2
+                            ? ">="
+                            : order.operator === 3
+                            ? "<="
+                            : "=="}{" "}
+                          {order.threshold}
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
-                        {order.status === 'active' && (
+                        {order.status === "active" && (
                           <Button
                             variant="outline"
                             size="sm"
@@ -342,7 +362,7 @@ export function StrategyDetailClient({
                       </div>
                     </div>
                   ))}
-                  
+
                   {orders.length > 5 && (
                     <div className="text-center py-2">
                       <span className="text-sm text-gray-500">
@@ -404,26 +424,32 @@ export function StrategyDetailClient({
                 variant="outline"
                 className="w-full text-red-600 border-red-200 hover:bg-red-50"
                 onClick={async () => {
-                  const activeOrders = orders.filter(order => order.status === 'active');
+                  const activeOrders = orders.filter(
+                    (order) => order.status === "active"
+                  );
                   if (activeOrders.length === 0) {
-                    alert('No active orders to cancel');
+                    alert("No active orders to cancel");
                     return;
                   }
-                  
+
                   if (confirm(`Cancel ${activeOrders.length} active orders?`)) {
                     for (const order of activeOrders) {
                       try {
                         await cancelOrder(order.hash);
                       } catch (error) {
-                        console.error(`Failed to cancel order ${order.hash}:`, error);
+                        console.error(
+                          `Failed to cancel order ${order.hash}:`,
+                          error
+                        );
                       }
                     }
-                    alert('Cancel requests sent for all active orders');
+                    alert("Cancel requests sent for all active orders");
                   }
                 }}
                 disabled={ordersLoading}
               >
-                Cancel All Orders ({orders.filter(order => order.status === 'active').length})
+                Cancel All Orders (
+                {orders.filter((order) => order.status === "active").length})
               </Button>
             </CardContent>
           </Card>

@@ -33,7 +33,12 @@ import {
   Loader2,
 } from "lucide-react";
 import { useBlockchain } from "@/hooks/useBlockchain";
-import { PREDEFINED_INDICES, INDEX_CATEGORIES, getIndicesByCategory, searchPredefinedIndices } from "@/lib/predefined-indices";
+import {
+  PREDEFINED_INDICES,
+  INDEX_CATEGORIES,
+  getIndicesByCategory,
+  searchPredefinedIndices,
+} from "@/lib/predefined-indices";
 import { WalletConnect } from "@/components/WalletConnect";
 
 interface IndexManagerProps {
@@ -262,125 +267,152 @@ export function IndexManager({
 
           <TabsContent value="custom" className="space-y-4">
             {indices.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <TrendingUp className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-            <p>No indices found</p>
-            <p className="text-sm">Create your first index to get started</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {indices.map((index) => (
-              <Card
-                key={index.id}
-                className={`cursor-pointer transition-all hover:shadow-md ${
-                  onIndexSelect ? "hover:border-blue-300" : ""
-                }`}
-                onClick={() => onIndexSelect?.(index.id)}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2 mb-1">
-                        <h4 className="font-medium text-sm">
-                          {index.name || `Index ${index.id}`}
-                        </h4>
-                        <Badge variant="outline" className="text-xs">
-                          ID: {index.id}
-                        </Badge>
-                        {index.active && (
-                          <Badge
-                            variant="default"
-                            className="text-xs bg-green-100 text-green-800"
-                          >
-                            <CheckCircle className="w-3 h-3 mr-1" />
-                            Active
+              <div className="text-center py-8 text-gray-500">
+                <TrendingUp className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                <p>No indices found</p>
+                <p className="text-sm">
+                  Create your first index to get started
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {indices.map((index) => (
+                  <Card
+                    key={index.id}
+                    className={`cursor-pointer transition-all hover:shadow-md ${
+                      onIndexSelect ? "hover:border-blue-300" : ""
+                    }`}
+                    onClick={() => onIndexSelect?.(index.id)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-1">
+                            <h4 className="font-medium text-sm">
+                              {index.name || `Index ${index.id}`}
+                            </h4>
+                            <Badge variant="outline" className="text-xs">
+                              ID: {index.id}
+                            </Badge>
+                            {index.active && (
+                              <Badge
+                                variant="default"
+                                className="text-xs bg-green-100 text-green-800"
+                              >
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                Active
+                              </Badge>
+                            )}
+                          </div>
+                          {index.description && (
+                            <p className="text-xs text-gray-600 mb-2">
+                              {index.description}
+                            </p>
+                          )}
+                          <div className="flex items-center space-x-4 text-xs text-gray-500">
+                            <span>Value: {formatValue(index.value)}</span>
+                            <span>
+                              Updated: {formatTimestamp(index.timestamp)}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Badge variant="outline" className="font-mono">
+                            {formatValue(index.value)}
                           </Badge>
-                        )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openUpdateDialog(index.id, index.value);
+                            }}
+                          >
+                            <Edit className="w-3 h-3" />
+                          </Button>
+                        </div>
                       </div>
-                      {index.description && (
-                        <p className="text-xs text-gray-600 mb-2">
-                          {index.description}
-                        </p>
-                      )}
-                      <div className="flex items-center space-x-4 text-xs text-gray-500">
-                        <span>Value: {formatValue(index.value)}</span>
-                        <span>Updated: {formatTimestamp(index.timestamp)}</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Badge variant="outline" className="font-mono">
-                        {formatValue(index.value)}
-                      </Badge>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openUpdateDialog(index.id, index.value);
-                        }}
-                      >
-                        <Edit className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="predefined" className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {INDEX_CATEGORIES.map(category => (
+              {INDEX_CATEGORIES.map((category) => (
                 <div key={category.id} className="space-y-2">
                   <h4 className="font-medium text-sm flex items-center space-x-2">
                     <span>{category.icon}</span>
                     <span>{category.name}</span>
                   </h4>
                   <div className="space-y-2">
-                    {getIndicesByCategory(category.id).slice(0, 3).map(predefined => (
-                      <Card key={predefined.id} className="p-3 hover:shadow-sm cursor-pointer">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-2">
-                              <span className="text-lg">{predefined.icon}</span>
-                              <div>
-                                <p className="font-medium text-sm">{predefined.name}</p>
-                                <p className="text-xs text-gray-500">{predefined.symbol}</p>
+                    {getIndicesByCategory(category.id)
+                      .slice(0, 3)
+                      .map((predefined) => (
+                        <Card
+                          key={predefined.id}
+                          className="p-3 hover:shadow-sm cursor-pointer"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-2">
+                                <span className="text-lg">
+                                  {predefined.icon}
+                                </span>
+                                <div>
+                                  <p className="font-medium text-sm">
+                                    {predefined.name}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    {predefined.symbol}
+                                  </p>
+                                </div>
+                              </div>
+                              <p className="text-xs text-gray-600 mt-1">
+                                {predefined.description}
+                              </p>
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {predefined.tags.slice(0, 2).map((tag) => (
+                                  <Badge
+                                    key={tag}
+                                    variant="secondary"
+                                    className="text-xs"
+                                  >
+                                    {tag}
+                                  </Badge>
+                                ))}
                               </div>
                             </div>
-                            <p className="text-xs text-gray-600 mt-1">{predefined.description}</p>
-                            <div className="flex flex-wrap gap-1 mt-2">
-                              {predefined.tags.slice(0, 2).map(tag => (
-                                <Badge key={tag} variant="secondary" className="text-xs">
-                                  {tag}
-                                </Badge>
-                              ))}
-                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                // In a real implementation, this would create an index based on the template
+                                console.log(
+                                  "Creating index from template:",
+                                  predefined
+                                );
+                                alert(
+                                  `Template: ${predefined.name}\nThis would create an index with data from ${predefined.dataSource}`
+                                );
+                              }}
+                            >
+                              Use Template
+                            </Button>
                           </div>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => {
-                              // In a real implementation, this would create an index based on the template
-                              console.log('Creating index from template:', predefined);
-                              alert(`Template: ${predefined.name}\nThis would create an index with data from ${predefined.dataSource}`);
-                            }}
-                          >
-                            Use Template
-                          </Button>
-                        </div>
-                      </Card>
-                    ))}
+                        </Card>
+                      ))}
                   </div>
                 </div>
               ))}
             </div>
-            
+
             <div className="text-center py-4">
               <p className="text-sm text-gray-500">
-                Predefined templates help you quickly set up common indices with real-world data sources.
+                Predefined templates help you quickly set up common indices with
+                real-world data sources.
               </p>
             </div>
           </TabsContent>
