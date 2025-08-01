@@ -405,9 +405,34 @@ export class BlockchainService {
   private readonly CACHE_DURATION = 30000; // 30 seconds
 
   constructor() {
-    // Initialize Web3 with Base Sepolia
-    this.web3 = new Web3("https://sepolia.base.org");
+    // Initialize Web3 with Alchemy or fallback to Base Sepolia
+    const rpcUrl = this.getRpcUrl();
+    console.log(`🌐 Initializing Web3 with RPC: ${this.getRpcDescription(rpcUrl)}`);
+    this.web3 = new Web3(rpcUrl);
     this.initializeContracts();
+  }
+
+  /**
+   * Get the best available RPC URL
+   */
+  private getRpcUrl(): string {
+    // Check for Alchemy API key first (premium tier)
+    if (process.env.NEXT_PUBLIC_ALCHEMY_API_KEY) {
+      return `https://base-sepolia.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`;
+    }
+    
+    // Fallback to public Base Sepolia RPC
+    console.warn("⚠️ No Alchemy API key found, using public RPC (may have rate limits)");
+    return "https://sepolia.base.org";
+  }
+
+  /**
+   * Get a user-friendly description of the RPC being used
+   */
+  private getRpcDescription(url: string): string {
+    if (url.includes('alchemy')) return 'Alchemy (Premium - Recommended)';
+    if (url.includes('sepolia.base.org')) return 'Base Sepolia (Public - Limited)';
+    return 'Custom RPC';
   }
 
   /**
@@ -582,25 +607,25 @@ export class BlockchainService {
                   .call();
               } catch (e) {
                 // Index not registered in PreInteraction
-              }
-
-              indices.push({
-                id: i,
-                name: indexInfo?.name || `Custom Index ${i}`,
-                description:
-                  indexInfo?.description || `Custom index with ID ${i}`,
-                value: Number(result[0]),
-                timestamp: Number(result[1]),
-                active: indexInfo?.isActive ?? true,
-                creator: indexInfo?.creator,
-                createdAt: indexInfo?.createdAt
-                  ? Number(indexInfo.createdAt)
-                  : undefined,
-              });
             }
-          } catch (e) {
+
+            indices.push({
+              id: i,
+              name: indexInfo?.name || `Custom Index ${i}`,
+              description:
+                indexInfo?.description || `Custom index with ID ${i}`,
+              value: Number(result[0]),
+              timestamp: Number(result[1]),
+              active: indexInfo?.isActive ?? true,
+              creator: indexInfo?.creator,
+              createdAt: indexInfo?.createdAt
+                ? Number(indexInfo.createdAt)
+                : undefined,
+            });
+          }
+        } catch (e) {
             // Index doesn't exist, continue
-            continue;
+          continue;
           }
         }
       }
