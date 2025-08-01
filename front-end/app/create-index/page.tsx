@@ -80,34 +80,12 @@ export default function CreateIndex() {
       setIsLoading(true);
       const allIndices = await blockchainService.getAllIndices();
       
-      // Load orders sequentially with delays to avoid overwhelming the RPC
-      const indicesWithOrders: IndexWithOrders[] = [];
-      
-      for (let i = 0; i < allIndices.length; i++) {
-        const index = allIndices[i];
-        
-        try {
-          const orders = await blockchainService.getOrdersByIndex(index.id);
-          indicesWithOrders.push({
-            ...index,
-            orders,
-            orderCount: orders.length
-          });
-        } catch (error) {
-          console.warn(`Failed to load orders for index ${index.id}:`, error);
-          // Add index without orders if request fails
-          indicesWithOrders.push({
-            ...index,
-            orders: [],
-            orderCount: 0
-          });
-        }
-        
-        // Add small delay between requests to prevent overwhelming RPC
-        if (i < allIndices.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-      }
+      // Convert to IndexWithOrders without loading orders automatically
+      const indicesWithOrders: IndexWithOrders[] = allIndices.map(index => ({
+        ...index,
+        orders: [],
+        orderCount: 0 // Will be loaded on-demand if needed
+      }));
 
       setIndices(indicesWithOrders);
     } catch (error) {
