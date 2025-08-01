@@ -283,7 +283,7 @@ export default function Dashboard() {
                               </div>
                               <div className="flex items-center space-x-2">
                                 <Badge variant="outline" className="text-xs">
-                                  {index.orderCount} orders
+                                  Orders: {index.orderCount === 0 ? "N/A" : index.orderCount}
                                 </Badge>
                                 <ArrowRight className="w-4 h-4 text-gray-400" />
                               </div>
@@ -491,12 +491,18 @@ export default function Dashboard() {
                     ))}
                   </div>
                 ) : allOrders.length === 0 ? (
-                  <Card>
+                  <Card className="border-orange-200 bg-orange-50">
                     <CardContent className="text-center py-12">
-                      <TrendingUp className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">No Orders Yet</h3>
-                      <p className="text-gray-600 mb-4">Create an index and add conditional orders to start trading</p>
-                      <Button onClick={handleCreateIndex}>
+                      <AlertCircle className="w-12 h-12 text-orange-600 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold text-orange-900 mb-2">Order History Temporarily Unavailable</h3>
+                      <p className="text-orange-700 mb-4">
+                        Order loading is temporarily disabled to prevent RPC circuit breaker issues. 
+                        This will be re-enabled once the infrastructure is more stable.
+                      </p>
+                      <p className="text-orange-600 text-sm mb-4">
+                        You can still create new indices and orders - they just won&apos;t be displayed in history yet.
+                      </p>
+                      <Button onClick={handleCreateIndex} variant="outline" className="border-orange-200 text-orange-700 hover:bg-orange-100">
                         <Plus className="w-4 h-4 mr-2" />
                         Create Index
                       </Button>

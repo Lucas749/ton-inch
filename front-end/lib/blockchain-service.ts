@@ -344,6 +344,11 @@ export interface Order {
   takerAsset: string;
   makingAmount: string;
   takingAmount: string;
+  // Aliases for UI compatibility
+  fromToken: string;
+  toToken: string;
+  fromAmount: string;
+  toAmount: string;
   maker: string;
   receiver: string;
   expiry: number;
@@ -1542,6 +1547,10 @@ export class BlockchainService {
         operator: params.operator,
         threshold: params.threshold,
         description: params.description,
+        makerAsset: params.fromToken,
+        takerAsset: params.toToken,
+        makingAmount: makingAmount,
+        takingAmount: takingAmount,
         fromToken: params.fromToken,
         toToken: params.toToken,
         fromAmount: params.fromAmount,
