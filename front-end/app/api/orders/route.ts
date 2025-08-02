@@ -841,20 +841,20 @@ export async function POST(request: NextRequest) {
       }
 
     } else if (action === 'create-order') {
-      const { 
+            const {
         fromToken,
-        toToken, 
+        toToken,
         amount,
         expectedAmount,
         condition,
         expirationHours,
-        privateKey,
+        walletAddress,
         oneInchApiKey
       } = body;
 
-      if (!fromToken || !toToken || !amount || !expectedAmount || !condition || !privateKey || !oneInchApiKey) {
+      if (!fromToken || !toToken || !amount || !expectedAmount || !condition || !walletAddress || !oneInchApiKey) {
         return NextResponse.json({ 
-          error: 'Missing required parameters: fromToken, toToken, amount, expectedAmount, condition, privateKey, oneInchApiKey' 
+          error: 'Missing required parameters: fromToken, toToken, amount, expectedAmount, condition, walletAddress, oneInchApiKey' 
         }, { status: 400 });
       }
 
@@ -869,7 +869,7 @@ export async function POST(request: NextRequest) {
           expectedAmount,
           condition,
           expirationHours: expirationHours || 24,
-          privateKey,
+          walletAddress,
           oneInchApiKey
         });
 
