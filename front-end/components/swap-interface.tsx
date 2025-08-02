@@ -32,6 +32,7 @@ import {
 } from "@/lib/1inch-service";
 import { TokenSelector } from "@/components/TokenSelector";
 import { Token, tokenService } from "@/lib/token-service";
+import { useBlockchain } from "@/hooks/useBlockchain";
 
 interface SwapInterfaceProps {
   walletAddress?: string;
@@ -61,6 +62,9 @@ export function SwapInterface({
   const [orderHash, setOrderHash] = useState<string>("");
   const [orderStatus, setOrderStatus] = useState<OrderStatus | null>(null);
   const [preset, setPreset] = useState<"fast" | "fair" | "auction">("fast");
+  
+  // Get blockchain data for real balances
+  const { ethBalance } = useBlockchain();
 
   const oneInchService =
     apiKey && rpcUrl && walletAddress
