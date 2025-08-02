@@ -966,7 +966,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
       return;
     }
 
-    if (!blockchainIndexId) {
+    if (blockchainIndexId === null || blockchainIndexId === undefined) {
       alert("This index is not available on the blockchain yet. Please request it to be added first.");
       return;
     }
