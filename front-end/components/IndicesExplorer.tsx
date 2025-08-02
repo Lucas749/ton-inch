@@ -539,10 +539,6 @@ export function IndicesExplorer() {
                     <div>
                       <div className="flex items-center space-x-2">
                         <div className="font-semibold text-gray-900">{index.name}</div>
-                        {/* Available badge */}
-                        <div className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-                          Available
-                        </div>
                         {/* Owner badge */}
                         {(index as ExtendedRealIndexData).blockchainId && isConnected && isIndexOwned((index as ExtendedRealIndexData).blockchainId!) && (
                           <Badge variant="default" className="text-xs bg-orange-500 hover:bg-orange-600">
