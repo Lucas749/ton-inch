@@ -39,6 +39,9 @@ export async function POST(request: NextRequest) {
         // Create wallet from private key
         const wallet = web3.eth.accounts.privateKeyToAccount(privateKey);
         
+        console.log(`👤 Using wallet address: ${wallet.address}`);
+        console.log(`💰 You need to send Base ETH to this address: ${wallet.address}`);
+        
         // Create contract instance  
         const contract = new web3.eth.Contract(ABIS.IndexOracle, CONTRACTS.IndexOracle);
 
