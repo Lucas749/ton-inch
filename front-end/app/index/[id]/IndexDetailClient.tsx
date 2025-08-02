@@ -775,24 +775,31 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
       );
       
       if (validTokens.length >= 2) {
-        // Set tokens: ETH -> WETH
-        const ethToken = validTokens.find(t => t.symbol === 'ETH') || validTokens[0];
+        // Set tokens: USDC -> WETH (matching backend test)
+        const usdcToken = validTokens.find(t => t.symbol === 'USDC') || validTokens.find(t => t.symbol.includes('USD'));
         const wethToken = validTokens.find(t => t.symbol === 'WETH') || validTokens[1];
         
-        setFromToken(ethToken);
+        // If USDC not found, fallback to a stablecoin or first token
+        setFromToken(usdcToken || validTokens[0]);
         setToToken(wethToken);
       }
 
       setOrderForm({
-        description: `Buy ${toToken?.symbol || 'WETH'} when ${realIndexData.name} > threshold`,
-        fromAmount: "0.0001", // 0.0001 ETH - minimal amount for testing (~$0.25-0.40)
-        toAmount: "0.0001", // Same amount in WETH (1:1 ratio)
+        description: `Buy WETH when ${realIndexData.name} > $180 (Apple Stock demo)`,
+        fromAmount: "0.1", // 0.1 USDC - matching backend test exactly
+        toAmount: "0.00003", // 0.00003 WETH - matching backend test exactly
         operator: OPERATORS.GT,
-        threshold: "18000", // Demo threshold
-        expiry: "2" // 2 hours
+        threshold: "18000", // $180.00 in basis points (Apple Stock threshold)
+        expiry: "2" // 2 hours - matching backend test
       });
       
-      alert(`🚀 Demo order data loaded! Buy ${toToken?.symbol || 'WETH'} when ${realIndexData.name} > threshold using 0.0001 ${fromToken?.symbol || 'ETH'} (expires in 2 hours)`);
+      alert(`🚀 Demo order data loaded! 
+📱 Apple Stock conditional order
+💰 Sell 0.1 USDC → Buy 0.00003 WETH
+🎯 When ${realIndexData.name} > $180
+⏰ Expires in 2 hours
+
+This matches the backend test-index-order-creator.js values exactly!`);
     } catch (error) {
       console.error('❌ Error setting demo data:', error);
       alert('Failed to load demo data');
