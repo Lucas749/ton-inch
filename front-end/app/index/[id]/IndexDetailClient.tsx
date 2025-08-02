@@ -168,7 +168,6 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
   // Update realIndexData with blockchain parsed names when available
   useEffect(() => {
     if (blockchainIndex && blockchainIndex.name && !blockchainIndex.name.startsWith('Custom Index')) {
-      console.log(`🔗 Updating index detail page with blockchain data: "${blockchainIndex.name}"`);
       setRealIndexData(prev => ({
         ...prev,
         name: blockchainIndex.name,
@@ -223,7 +222,6 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
           symbol = alphaVantageFunction;
         }
         
-        console.log(`📊 Using real Alpha Vantage data: function=${alphaVantageFunction}, symbol=${alphaVantageSymbol}`);
       } catch (error) {
         console.warn('Could not parse blockchain index sourceUrl:', error);
       }

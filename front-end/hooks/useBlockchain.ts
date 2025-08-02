@@ -174,8 +174,6 @@ export function useBlockchain(): UseBlockchainReturn {
       // Clear cache first to force fresh data
       blockchainService.clearIndicesCache();
       const allIndices = await blockchainService.getAllIndices();
-      console.log(`🪝 useBlockchain: Setting ${allIndices.length} indices in state`);
-      console.log(`🪝 Sample index names being set:`, allIndices.slice(0, 3).map(i => `${i.id}:"${i.name}"`));
       setIndices(allIndices);
       
       // Also check ownership when refreshing

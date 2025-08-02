@@ -189,8 +189,6 @@ export function IndicesExplorer() {
     
     // For each blockchain index with an Alpha Vantage symbol, create an integrated index
     blockchainIndices.forEach(blockchainIndex => {
-      console.log(`🔗 Processing blockchain index ${blockchainIndex.id}: name="${blockchainIndex.name}", symbol="${blockchainIndex.alphaVantageSymbol}"`);
-      
       if (blockchainIndex.alphaVantageSymbol) {
         // Find matching Alpha Vantage data
         const alphaVantageData = indices.find(index => 
@@ -219,7 +217,6 @@ export function IndicesExplorer() {
     blockchainIndices.forEach(blockchainIndex => {
       if (!blockchainIndex.alphaVantageSymbol) {
         // No Alpha Vantage symbol, create standalone entry
-        console.log(`📋 Creating standalone entry for ${blockchainIndex.id}: name="${blockchainIndex.name}"`);
         integratedIndices.push({
           id: `blockchain_${blockchainIndex.id}`,
           name: blockchainIndex.name || `Index ${blockchainIndex.id}`,
@@ -329,21 +326,11 @@ export function IndicesExplorer() {
     setRequestSuccess(null);
 
     try {
-      console.log('🏗️ Requesting blockchain index creation:', {
-        name: index.name,
-        symbol: index.symbol,
-        price: index.price,
-        currentValue: index.currentValue,
-        description: index.description
-      });
-
       // Use the current Alpha Vantage price as initial value
       const initialValue = Math.floor(index.price || 0);
       
       // Create proper Alpha Vantage URL based on index category
       const sourceUrl = createAlphaVantageUrl(index);
-      
-      console.log('📊 Created Alpha Vantage URL for oracle:', sourceUrl);
 
       // Use the blockchain service directly instead of API route
       const { ORACLE_TYPES } = await import('@/lib/blockchain-constants');
@@ -358,12 +345,10 @@ export function IndicesExplorer() {
 
       if (result.success) {
         setRequestSuccess(`✅ Successfully created blockchain index "${index.name}" with ID ${result.indexId}! Transaction: ${result.transactionHash}`);
-        console.log('✅ Index created successfully:', result);
         
         // Track ownership of the newly created index
         if (result.indexId) {
           addOwnedIndex(result.indexId);
-          console.log('👑 Added index', result.indexId, 'to owned indices for', walletAddress);
         }
         
         // Refresh blockchain indices

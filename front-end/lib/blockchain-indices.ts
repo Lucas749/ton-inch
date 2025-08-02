@@ -47,26 +47,19 @@ export class BlockchainIndices {
       // Check global cache first
       const now = Date.now();
       if (globalIndicesCache && (now - globalCacheTimestamp) < GLOBAL_CACHE_DURATION) {
-        console.log(`📊 Using global cached indices data (${globalIndicesCache.length} indices, cached ${Math.round((now - globalCacheTimestamp) / 1000)}s ago)`);
-        console.log(`📊 Sample cached index names:`, globalIndicesCache.slice(0, 3).map(i => `${i.id}:"${i.name}"`));
         return globalIndicesCache;
       }
 
       // If there's already a global pending request, return it to avoid duplicate calls
       if (globalPendingRequest) {
-        console.log('📊 Waiting for existing global indices request... (preventing duplicate call)');
         return globalPendingRequest;
       }
-
-      console.log('📊 Fetching all indices with rate limiting... (global request)');
       
       // Create and store the global promise
       globalPendingRequest = this.fetchAllIndices();
       
       try {
         const indices = await globalPendingRequest;
-        console.log(`📊 Fresh indices fetched! Count: ${indices.length}`);
-        console.log(`📊 Fresh index names:`, indices.slice(0, 5).map(i => `${i.id}:"${i.name}"`));
         
         // Cache the results globally
         globalIndicesCache = indices;
@@ -159,12 +152,7 @@ export class BlockchainIndices {
           try {
             // Get custom index details
             indexDetails = await this.oracle.methods.customIndexData(id).call();
-            console.log(`📄 Custom index ${id} details:`, indexDetails);
-            console.log(`📄 Index details length: ${indexDetails ? (indexDetails.length || indexDetails.__length__) : 'null'}`);
-            console.log(`📄 Index details keys:`, indexDetails ? Object.keys(indexDetails) : 'null');
-            if (indexDetails && (indexDetails.length >= 3 || indexDetails.__length__ >= 3 || indexDetails[2] !== undefined)) {
-              console.log(`📄 SourceUrl at index 2: "${indexDetails[2]}"`);
-            }
+            // Get custom index details for URL parsing
           } catch (error) {
             console.warn(`⚠️ Could not get details for custom index ${id}:`, error);
           }
@@ -173,24 +161,16 @@ export class BlockchainIndices {
           let name = `Custom Index ${id}`;
           let description = `User-created index #${id}`;
           
-          console.log(`🔍 Checking indexDetails for index ${id}: exists=${!!indexDetails}, length=${indexDetails ? (indexDetails.length || indexDetails.__length__) : 'N/A'}`);
-          
           if (indexDetails && (indexDetails.length >= 3 || indexDetails.__length__ >= 3 || indexDetails[2] !== undefined)) {
-            console.log(`🔍 IndexDetails has sufficient length for index ${id}`);
             const sourceUrl = indexDetails[2]; // sourceUrl is typically the 3rd element
-            console.log(`🔍 Processing sourceUrl for index ${id}: "${sourceUrl}"`);
-            console.log(`🔍 SourceUrl exists and trimmed: ${!!(sourceUrl && sourceUrl.trim())}`);
             if (sourceUrl && sourceUrl.trim()) {
-              console.log(`🔍 Entering URL parsing logic for index ${id}`);
               
               // Simple and direct Alpha Vantage URL parsing
               if (sourceUrl.includes('alphavantage.co')) {
-                console.log(`🔍 Detected Alpha Vantage URL for index ${id}`);
                 try {
                   const url = new URL(sourceUrl);
                   const functionParam = url.searchParams.get('function');
                   const symbolParam = url.searchParams.get('symbol');
-                  console.log(`🔍 Extracted from URL - function: "${functionParam}", symbol: "${symbolParam}"`);
                   
                   // Direct name extraction - no complex logic
                   if (symbolParam) {
@@ -198,31 +178,20 @@ export class BlockchainIndices {
                     if (functionParam && functionParam.toLowerCase().includes('earnings')) {
                       name = `${symbolParam.toUpperCase()} EPS`;
                     }
-                    console.log(`✅ Using symbol-based name: "${name}"`);
                   } else if (functionParam) {
                     // For CORN, GOLD, etc. - just capitalize the function name
                     name = functionParam.charAt(0).toUpperCase() + functionParam.slice(1).toLowerCase();
-                    console.log(`✅ Using function-based name: "${name}"`);
                   }
                   
                   description = `${name} tracked via Alpha Vantage`;
-                  console.log(`✅ Final result for index ${id}: name="${name}", desc="${description}"`);
                   
                 } catch (urlError) {
                   console.warn(`Could not parse sourceUrl for index ${id}:`, urlError);
                   // Keep the default name and description
                 }
-              } else {
-                console.log(`🔍 Not an Alpha Vantage URL for index ${id}`);
               }
-            } else {
-              console.log(`🔍 SourceUrl for index ${id} is empty or whitespace only`);
             }
-          } else {
-            console.log(`🔍 IndexDetails for index ${id} doesn't have sufficient length or is null`);
           }
-          
-          console.log(`🔍 Final name for index ${id} after URL processing: "${name}"`);
           
           // Extract additional market data from Alpha Vantage URL - simplified
           let alphaVantageSymbol = null;
@@ -280,14 +249,11 @@ export class BlockchainIndices {
                   }
                 }
                 
-                console.log(`🎨 Set category for index ${id}: ${category} (${avatar})`);
               } catch (urlError) {
                 console.warn(`Could not parse sourceUrl for market data for index ${id}:`, urlError);
               }
             }
           }
-
-          console.log(`🔍 Index ${id} final name: "${name}", symbol: "${alphaVantageSymbol || `IDX${id}`}", category: "${category}"`);
           
           // Extract sourceUrl for external link
           const sourceUrl = indexDetails && indexDetails[2] ? indexDetails[2] : null;
@@ -308,8 +274,6 @@ export class BlockchainIndices {
             symbol: alphaVantageSymbol || `IDX${id}`,
             sourceUrl: sourceUrl
           });
-          
-          console.log(`✅ Loaded custom ${name}: ${value} basis points (active: ${active})`);
           
           // Add delay between requests
           await delay(100);
