@@ -729,6 +729,32 @@ export class AlphaVantageService {
   }
 
   /**
+   * Parse commodity data into chart format (commodities only have a single value, not OHLCV)
+   */
+  static parseCommodityData(response: CommodityResponse): Array<{
+    date: string;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume: number;
+  }> {
+    if (!response.data) return [];
+    
+    return response.data.map((item) => {
+      const value = parseFloat(item.value);
+      return {
+        date: item.date,
+        open: value,
+        high: value,
+        low: value,
+        close: value, // Use the single commodity value as the close price
+        volume: 0, // Commodities don't have volume data
+      };
+    }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }
+
+  /**
    * Parse technical indicator data
    */
   static parseTechnicalIndicatorData(response: TechnicalIndicatorResponse): Array<{

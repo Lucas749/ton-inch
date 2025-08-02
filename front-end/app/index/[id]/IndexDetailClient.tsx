@@ -30,7 +30,7 @@ import {
 import { useBlockchain } from "@/hooks/useBlockchain";
 import { useOrders, OPERATORS } from "@/hooks/useOrders";
 import { blockchainService, CONTRACTS } from "@/lib/blockchain-service";
-import AlphaVantageService, { TimeSeriesResponse } from "@/lib/alphavantage-service";
+import AlphaVantageService, { TimeSeriesResponse, CommodityResponse } from "@/lib/alphavantage-service";
 import { RealIndicesService } from "@/lib/real-indices-service";
 import { SwapBox } from "@/components/SwapBox";
 import { AdminBox } from "@/components/AdminBox";
@@ -398,7 +398,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
         } else if (['CORN', 'WHEAT', 'WTI', 'BRENT', 'NATURAL_GAS', 'COPPER', 'ALUMINUM', 'ZINC', 'NICKEL', 'GOLD', 'SILVER'].includes(alphaVantageFunction)) {
           // Commodity functions
           console.log(`📈 Fetching commodity data for: ${alphaVantageFunction}`);
-          let commodityResponse: any;
+          let commodityResponse: CommodityResponse | undefined;
           
           switch (alphaVantageFunction) {
             case 'WTI':
@@ -420,7 +420,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
           }
           
           if (commodityResponse) {
-            parsedData = AlphaVantageService.parseTimeSeriesData(commodityResponse);
+            parsedData = AlphaVantageService.parseCommodityData(commodityResponse);
           }
         } else {
           // Fallback to stock data
