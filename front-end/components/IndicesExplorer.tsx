@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -12,7 +13,9 @@ import {
   Eye,
   RefreshCw,
   AlertCircle,
-  Plus
+  Plus,
+  CheckCircle,
+  Loader2
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useBlockchain } from "@/hooks/useBlockchain";
@@ -35,9 +38,12 @@ export function IndicesExplorer() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [requestingIndexId, setRequestingIndexId] = useState<string | null>(null);
+  const [requestSuccess, setRequestSuccess] = useState<string | null>(null);
+  const [requestError, setRequestError] = useState<string | null>(null);
   
   const router = useRouter();
-  const { isConnected, indices: blockchainIndices, isOwner } = useBlockchain();
+  const { isConnected, indices: blockchainIndices, isOwner, walletAddress } = useBlockchain();
 
   // Load real data from Alpha Vantage
   const loadIndicesData = async (isRefresh = false) => {
@@ -160,6 +166,77 @@ export function IndicesExplorer() {
     router.push(`/index/${index.id.toLowerCase()}`);
   };
 
+  const handleRequestIndex = async (index: RealIndexData) => {
+    if (!isConnected || !walletAddress) {
+      setRequestError("Please connect your wallet first");
+      return;
+    }
+
+    if (!window.ethereum) {
+      setRequestError("MetaMask or compatible wallet required");
+      return;
+    }
+
+    setRequestingIndexId(index.id);
+    setRequestError(null);
+    setRequestSuccess(null);
+
+    try {
+      // Get the private key from the user (in production, this would be handled securely)
+      const privateKey = prompt("Enter your private key to create the blockchain index (DEMO ONLY - DO NOT USE REAL PRIVATE KEYS):");
+      
+      if (!privateKey) {
+        setRequestError("Private key required to create blockchain index");
+        return;
+      }
+
+      console.log('🏗️ Requesting blockchain index creation:', {
+        name: index.name,
+        symbol: index.symbol,
+        value: index.value,
+        description: index.description
+      });
+
+      // Use the current Alpha Vantage value as initial value
+      const initialValue = Math.floor(index.value || 0);
+      const sourceUrl = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${index.symbol}`;
+
+      const response = await fetch('/api/oracle', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'create-index',
+          name: index.name,
+          initialValue: initialValue,
+          sourceUrl: sourceUrl,
+          privateKey: privateKey
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setRequestSuccess(`✅ Successfully created blockchain index "${index.name}" with ID ${result.indexId}! Transaction: ${result.transactionHash}`);
+        console.log('✅ Index created successfully:', result);
+        
+        // Refresh blockchain indices
+        setTimeout(() => {
+          window.location.reload(); // Simple refresh to show new index
+        }, 2000);
+      } else {
+        throw new Error(result.message || result.error || 'Failed to create index');
+      }
+
+    } catch (error) {
+      console.error('❌ Error requesting index:', error);
+      setRequestError(`Failed to create blockchain index: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setRequestingIndexId(null);
+    }
+  };
+
   const handleRefresh = () => {
     loadIndicesData(true);
   };
@@ -234,6 +311,25 @@ export function IndicesExplorer() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Request Success/Error Messages */}
+      {requestSuccess && (
+        <Alert className="border-green-200 bg-green-50">
+          <CheckCircle className="h-4 w-4 text-green-600" />
+          <AlertDescription className="text-green-800">
+            {requestSuccess}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {requestError && (
+        <Alert className="border-red-200 bg-red-50">
+          <AlertCircle className="h-4 w-4 text-red-600" />
+          <AlertDescription className="text-red-800">
+            {requestError}
+          </AlertDescription>
+        </Alert>
       )}
 
       {/* Loading State */}
@@ -410,13 +506,23 @@ export function IndicesExplorer() {
                     size="sm" 
                     variant="outline" 
                     className="ml-4"
+                    disabled={requestingIndexId === index.id || !isConnected}
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleViewIndex(index);
+                      handleRequestIndex(index);
                     }}
                   >
-                    <Plus className="w-4 h-4 mr-1" />
-                    Request
+                    {requestingIndexId === index.id ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4 mr-1" />
+                        Request
+                      </>
+                    )}
                   </Button>
                 </div>
               </CardContent>

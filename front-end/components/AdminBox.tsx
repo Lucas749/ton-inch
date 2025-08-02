@@ -12,7 +12,10 @@ import {
   CheckCircle,
   Settings,
   Database,
-  TrendingUp
+  TrendingUp,
+  TrendingDown,
+  BarChart3,
+  Zap
 } from "lucide-react";
 import { useBlockchain } from "@/hooks/useBlockchain";
 import { blockchainService } from "@/lib/blockchain-service";
@@ -31,6 +34,7 @@ export function AdminBox({ indexId, indexName, className = "" }: AdminBoxProps) 
   const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isSimulating, setIsSimulating] = useState(false);
 
   const { isConnected, walletAddress, refreshIndices } = useBlockchain();
 
@@ -83,6 +87,42 @@ export function AdminBox({ indexId, indexName, className = "" }: AdminBoxProps) 
     } finally {
       setIsUpdating(false);
     }
+  };
+
+  // Simulate price movement by percentage
+  const simulatePriceMovement = async (percentage: number) => {
+    if (!currentValue) return;
+    
+    try {
+      setIsSimulating(true);
+      setError(null);
+      setSuccessMessage(null);
+      
+      const newSimulatedValue = Math.floor(currentValue * (1 + percentage / 100));
+      
+      await blockchainService.updateIndex(indexId, newSimulatedValue);
+      
+      const direction = percentage > 0 ? "increased" : "decreased";
+      setSuccessMessage(`🎯 Simulated ${Math.abs(percentage)}% price ${direction}: ${currentValue.toLocaleString()} → ${newSimulatedValue.toLocaleString()}`);
+      
+      // Refresh indices to show updated values everywhere
+      await refreshIndices();
+      
+      // Reload the current value
+      await loadIndexValue();
+      
+    } catch (err: any) {
+      setError(`Failed to simulate price movement: ${err.message}`);
+    } finally {
+      setIsSimulating(false);
+    }
+  };
+
+  // Simulate random price movement
+  const simulateRandomMovement = async () => {
+    // Random percentage between -10% and +10%
+    const randomPercentage = (Math.random() - 0.5) * 20;
+    await simulatePriceMovement(randomPercentage);
   };
 
   // Load data on mount and when wallet connects
@@ -187,6 +227,81 @@ export function AdminBox({ indexId, indexName, className = "" }: AdminBoxProps) 
               Refresh
             </Button>
           </div>
+        </div>
+
+        {/* Price Simulation Section */}
+        <div className="space-y-3 pt-4 border-t border-orange-200">
+          <div className="flex items-center space-x-2 mb-3">
+            <Zap className="w-4 h-4 text-orange-600" />
+            <span className="font-medium text-orange-900">Price Simulation</span>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-2">
+            {/* Quick percentage buttons */}
+            <Button
+              onClick={() => simulatePriceMovement(5)}
+              disabled={isSimulating || isLoading || !currentValue}
+              variant="outline"
+              size="sm"
+              className="border-green-200 text-green-700 hover:bg-green-50"
+            >
+              <TrendingUp className="w-3 h-3 mr-1" />
+              +5%
+            </Button>
+            
+            <Button
+              onClick={() => simulatePriceMovement(-5)}
+              disabled={isSimulating || isLoading || !currentValue}
+              variant="outline"
+              size="sm"
+              className="border-red-200 text-red-700 hover:bg-red-50"
+            >
+              <TrendingDown className="w-3 h-3 mr-1" />
+              -5%
+            </Button>
+            
+            <Button
+              onClick={() => simulatePriceMovement(10)}
+              disabled={isSimulating || isLoading || !currentValue}
+              variant="outline"
+              size="sm"
+              className="border-green-200 text-green-700 hover:bg-green-50"
+            >
+              <TrendingUp className="w-3 h-3 mr-1" />
+              +10%
+            </Button>
+            
+            <Button
+              onClick={() => simulatePriceMovement(-10)}
+              disabled={isSimulating || isLoading || !currentValue}
+              variant="outline"
+              size="sm"
+              className="border-red-200 text-red-700 hover:bg-red-50"
+            >
+              <TrendingDown className="w-3 h-3 mr-1" />
+              -10%
+            </Button>
+          </div>
+          
+          <Button
+            onClick={simulateRandomMovement}
+            disabled={isSimulating || isLoading || !currentValue}
+            variant="outline"
+            size="sm"
+            className="w-full border-orange-200 text-orange-700 hover:bg-orange-50"
+          >
+            {isSimulating ? (
+              <>
+                <RefreshCw className="w-3 h-3 mr-2 animate-spin" />
+                Simulating...
+              </>
+            ) : (
+              <>
+                <BarChart3 className="w-3 h-3 mr-2" />
+                Random Movement
+              </>
+            )}
+          </Button>
         </div>
 
         {/* Error/Success Messages */}

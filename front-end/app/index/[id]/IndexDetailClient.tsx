@@ -17,7 +17,8 @@ import {
   Repeat2,
   Eye,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  ArrowUpDown
 } from "lucide-react";
 import {
   LineChart,
@@ -36,6 +37,8 @@ import AlphaVantageService, { TimeSeriesResponse } from "@/lib/alphavantage-serv
 import { RealIndicesService } from "@/lib/real-indices-service";
 import { SwapBox } from "@/components/SwapBox";
 import { AdminBox } from "@/components/AdminBox";
+import { TokenSelector } from "@/components/TokenSelector";
+import { Token, tokenService } from "@/lib/token-service";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -98,10 +101,10 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
   const [realIndexData, setRealIndexData] = useState(index);
   
   // Order creation form
+  const [fromToken, setFromToken] = useState<Token | null>(null);
+  const [toToken, setToToken] = useState<Token | null>(null);
   const [orderForm, setOrderForm] = useState({
     description: "",
-    fromToken: CONTRACTS.USDC,
-    toToken: CONTRACTS.WETH,
     fromAmount: "",
     toAmount: "",
     operator: OPERATORS.GT,
@@ -111,6 +114,33 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
   
   const { isConnected, walletAddress, indices: blockchainIndices } = useBlockchain();
   const { createOrder, isLoading: isCreatingOrder } = useOrders();
+
+  // Initialize with popular tokens (crash-safe)
+  useEffect(() => {
+    try {
+      const popularTokens = tokenService.getPopularTokensSync() || [];
+      if (popularTokens.length >= 2 && !fromToken && !toToken) {
+        // Safety check - ensure tokens have required properties
+        const validTokens = popularTokens.filter(token => 
+          token && token.address && token.symbol
+        );
+        
+        if (validTokens.length >= 2) {
+          setFromToken(validTokens[1]); // WETH
+          setToToken(validTokens[0]); // ETH/USDC
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error initializing order form tokens:', error);
+    }
+  }, [fromToken, toToken]);
+
+  // Handle token swap
+  const handleSwapTokens = () => {
+    const tempToken = fromToken;
+    setFromToken(toToken);
+    setToToken(tempToken);
+  };
   
   // Check if this index exists on blockchain
   const blockchainIndexId = index.isBlockchainIndex 
@@ -233,14 +263,19 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
       return;
     }
 
+    if (!fromToken || !toToken) {
+      alert("Please select both from and to tokens");
+      return;
+    }
+
     try {
       await createOrder({
         indexId: blockchainIndexId,
         operator: orderForm.operator,
         threshold: parseInt(orderForm.threshold),
         description: orderForm.description,
-        fromToken: orderForm.fromToken,
-        toToken: orderForm.toToken,
+        fromToken: fromToken.address,
+        toToken: toToken.address,
         fromAmount: orderForm.fromAmount,
         toAmount: orderForm.toAmount,
         expiry: parseInt(orderForm.expiry) * 3600 // Convert hours to seconds
@@ -249,8 +284,6 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
       // Reset form
       setOrderForm({
         description: "",
-        fromToken: CONTRACTS.USDC,
-        toToken: CONTRACTS.WETH,
         fromAmount: "",
         toAmount: "",
         operator: OPERATORS.GT,
@@ -266,18 +299,36 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
     }
   };
 
-  const fillDemoOrderData = () => {
-    setOrderForm({
-      description: `Buy USDC when ${realIndexData.name} > threshold`,
-      fromToken: CONTRACTS.WETH,
-      toToken: CONTRACTS.USDC,
-      fromAmount: "0.0001", // 0.0001 WETH - minimal amount for testing (~$0.25-0.40)
-      toAmount: "0.25", // Proportionally small USDC amount
-      operator: OPERATORS.GT,
-      threshold: "18000", // Demo threshold
-      expiry: "2" // 2 hours
-    });
-    alert(`🚀 Demo order data loaded! Buy USDC when ${realIndexData.name} > threshold using 0.0001 WETH`);
+  const fillDemoOrderData = async () => {
+    try {
+      const popularTokens = tokenService.getPopularTokensSync() || [];
+      const validTokens = popularTokens.filter(token => 
+        token && token.address && token.symbol
+      );
+      
+      if (validTokens.length >= 2) {
+        // Set tokens: WETH -> USDC
+        const wethToken = validTokens.find(t => t.symbol === 'WETH') || validTokens[1];
+        const usdcToken = validTokens.find(t => t.symbol === 'USDC') || validTokens[0];
+        
+        setFromToken(wethToken);
+        setToToken(usdcToken);
+      }
+
+      setOrderForm({
+        description: `Buy ${toToken?.symbol || 'tokens'} when ${realIndexData.name} > threshold`,
+        fromAmount: "0.0001", // 0.0001 WETH - minimal amount for testing (~$0.25-0.40)
+        toAmount: "0.25", // Proportionally small USDC amount
+        operator: OPERATORS.GT,
+        threshold: "18000", // Demo threshold
+        expiry: "2" // 2 hours
+      });
+      
+      alert(`🚀 Demo order data loaded! Buy ${toToken?.symbol || 'tokens'} when ${realIndexData.name} > threshold using 0.0001 ${fromToken?.symbol || 'tokens'}`);
+    } catch (error) {
+      console.error('❌ Error setting demo data:', error);
+      alert('Failed to load demo data');
+    }
   };
 
   const getOperatorSymbol = (operator: number) => {
@@ -546,22 +597,67 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-sm font-medium">From Amount</label>
-                      <Input
-                        placeholder="0.1"
-                        value={orderForm.fromAmount}
-                        onChange={(e) => setOrderForm(prev => ({ ...prev, fromAmount: e.target.value }))}
-                      />
+                  {/* From Token */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">From</label>
+                    <div className="flex space-x-2">
+                      <div className="flex-1">
+                        <Input
+                          type="number"
+                          placeholder="0.0001"
+                          value={orderForm.fromAmount}
+                          onChange={(e) => setOrderForm(prev => ({ ...prev, fromAmount: e.target.value }))}
+                          disabled={isCreatingOrder}
+                        />
+                      </div>
+                      <div className="w-32">
+                        <TokenSelector
+                          selectedToken={fromToken}
+                          onTokenSelect={setFromToken}
+                          placeholder="From"
+                          disabled={isCreatingOrder}
+                          excludeTokens={toToken ? [toToken.address] : []}
+                          className="w-full"
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <label className="text-sm font-medium">To Amount</label>
-                      <Input
-                        placeholder="0.0001"
-                        value={orderForm.toAmount}
-                        onChange={(e) => setOrderForm(prev => ({ ...prev, toAmount: e.target.value }))}
-                      />
+                  </div>
+
+                  {/* Swap Button */}
+                  <div className="flex justify-center">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSwapTokens}
+                      disabled={isCreatingOrder}
+                    >
+                      <ArrowUpDown className="w-4 h-4" />
+                    </Button>
+                  </div>
+
+                  {/* To Token */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">To</label>
+                    <div className="flex space-x-2">
+                      <div className="flex-1">
+                        <Input
+                          type="number"
+                          placeholder="0.25"
+                          value={orderForm.toAmount}
+                          onChange={(e) => setOrderForm(prev => ({ ...prev, toAmount: e.target.value }))}
+                          disabled={isCreatingOrder}
+                        />
+                      </div>
+                      <div className="w-32">
+                        <TokenSelector
+                          selectedToken={toToken}
+                          onTokenSelect={setToToken}
+                          placeholder="To"
+                          disabled={isCreatingOrder}
+                          excludeTokens={fromToken ? [fromToken.address] : []}
+                          className="w-full"
+                        />
+                      </div>
                     </div>
                   </div>
 
@@ -593,7 +689,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                   <div className="flex space-x-3">
                     <Button 
                       onClick={handleCreateOrder}
-                      disabled={!isConnected || isCreatingOrder || !orderForm.threshold || !orderForm.fromAmount}
+                      disabled={!isConnected || isCreatingOrder || !orderForm.threshold || !orderForm.fromAmount || !fromToken || !toToken}
                       className="flex-1"
                     >
                       {isCreatingOrder ? "Creating Order..." : "Create Order"}

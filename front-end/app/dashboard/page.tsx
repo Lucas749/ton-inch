@@ -16,7 +16,10 @@ import {
   Activity,
   Eye,
   AlertCircle,
-  ArrowRight
+  ArrowRight,
+  X,
+  Loader2,
+  CheckCircle
 } from "lucide-react";
 import { useBlockchain } from "@/hooks/useBlockchain";
 import { useOrders, OPERATORS } from "@/hooks/useOrders";
@@ -33,6 +36,9 @@ export default function Dashboard() {
   const [allOrders, setAllOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTab, setSelectedTab] = useState("overview");
+  const [cancellingOrderHash, setCancellingOrderHash] = useState<string | null>(null);
+  const [cancelSuccess, setCancelSuccess] = useState<string | null>(null);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   const handleTabChange = (value: string) => {
     setSelectedTab(value);
@@ -43,7 +49,7 @@ export default function Dashboard() {
     }
   };
   
-  const { isConnected, indices: blockchainIndices, refreshIndices, isOwner } = useBlockchain();
+  const { isConnected, indices: blockchainIndices, refreshIndices, isOwner, walletAddress } = useBlockchain();
   const { orders } = useOrders();
   const router = useRouter();
 
@@ -67,6 +73,21 @@ export default function Dashboard() {
     setAllOrders([]); // Don't load orders automatically
     setIsLoading(false);
   }, [isConnected, blockchainIndices]);
+
+  // Auto-clear success/error messages
+  useEffect(() => {
+    if (cancelSuccess) {
+      const timer = setTimeout(() => setCancelSuccess(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [cancelSuccess]);
+
+  useEffect(() => {
+    if (cancelError) {
+      const timer = setTimeout(() => setCancelError(null), 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [cancelError]);
 
   const handleCreateIndex = () => {
     router.push("/");
@@ -119,6 +140,76 @@ export default function Dashboard() {
       console.error("Error loading orders:", error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleCancelOrder = async (orderHash: string) => {
+    if (!isConnected || !walletAddress) {
+      setCancelError("Please connect your wallet first");
+      return;
+    }
+
+    if (!window.ethereum) {
+      setCancelError("MetaMask or compatible wallet required");
+      return;
+    }
+
+    const confirmed = confirm(`Are you sure you want to cancel order ${orderHash.slice(0, 8)}...${orderHash.slice(-6)}?`);
+    if (!confirmed) return;
+
+    setCancellingOrderHash(orderHash);
+    setCancelError(null);
+    setCancelSuccess(null);
+
+    try {
+      // Get the private key from the user (in production, this would be handled securely)
+      const privateKey = prompt("Enter your private key to cancel the order (DEMO ONLY - DO NOT USE REAL PRIVATE KEYS):");
+      
+      if (!privateKey) {
+        setCancelError("Private key required to cancel order");
+        return;
+      }
+
+      console.log('🚫 Cancelling order:', orderHash);
+
+      const response = await fetch('/api/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'cancel-order',
+          orderHash: orderHash,
+          privateKey: privateKey,
+          apiKey: process.env.NEXT_PUBLIC_ONEINCH_API_KEY
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setCancelSuccess(`✅ Order cancelled successfully! Transaction: ${result.transactionHash}`);
+        console.log('✅ Order cancelled successfully:', result);
+        
+        // Remove the cancelled order from the local state
+        setAllOrders(prev => prev.filter(order => order.hash !== orderHash));
+        
+        // Update indices with orders
+        setIndices(prev => prev.map(index => ({
+          ...index,
+          orders: index.orders.filter(order => order.hash !== orderHash),
+          orderCount: index.orders.filter(order => order.hash !== orderHash).length
+        })));
+        
+      } else {
+        throw new Error(result.message || result.error || 'Failed to cancel order');
+      }
+
+    } catch (error) {
+      console.error('❌ Error cancelling order:', error);
+      setCancelError(`Failed to cancel order: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setCancellingOrderHash(null);
     }
   };
 
@@ -491,6 +582,21 @@ export default function Dashboard() {
                   </Button>
                 </div>
 
+                {/* Cancel Success/Error Messages */}
+                {cancelSuccess && (
+                  <div className="flex items-center space-x-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                    <span className="text-green-800 text-sm">{cancelSuccess}</span>
+                  </div>
+                )}
+
+                {cancelError && (
+                  <div className="flex items-center space-x-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                    <span className="text-red-800 text-sm">{cancelError}</span>
+                  </div>
+                )}
+
                 {isLoading ? (
                   <div className="space-y-4">
                     {[1, 2, 3, 4].map((i) => (
@@ -526,11 +632,34 @@ export default function Dashboard() {
                                 When Index {order.indexId} {getOperatorName(order.operator)} {order.threshold}
                               </p>
                             </div>
-                            <Badge 
-                              variant={order.status === "active" ? "default" : "secondary"}
-                            >
-                              {order.status}
-                            </Badge>
+                            <div className="flex items-center space-x-2">
+                              <Badge 
+                                variant={order.status === "active" ? "default" : "secondary"}
+                              >
+                                {order.status}
+                              </Badge>
+                              {order.status === "active" && order.hash && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={cancellingOrderHash === order.hash}
+                                  onClick={() => handleCancelOrder(order.hash!)}
+                                  className="border-red-200 text-red-700 hover:bg-red-50"
+                                >
+                                  {cancellingOrderHash === order.hash ? (
+                                    <>
+                                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                      Cancelling...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <X className="w-3 h-3 mr-1" />
+                                      Cancel
+                                    </>
+                                  )}
+                                </Button>
+                              )}
+                            </div>
                           </div>
                           
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -553,6 +682,15 @@ export default function Dashboard() {
                               </span>
                             </div>
                           </div>
+                          
+                          {order.hash && (
+                            <div className="mt-3 pt-3 border-t">
+                              <div className="text-xs text-gray-500">
+                                <span className="font-medium">Order Hash: </span>
+                                <span className="font-mono">{order.hash.slice(0, 8)}...{order.hash.slice(-6)}</span>
+                              </div>
+                            </div>
+                          )}
                         </CardContent>
                       </Card>
                     ))}
