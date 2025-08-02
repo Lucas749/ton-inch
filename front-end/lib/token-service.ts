@@ -197,6 +197,7 @@ class TokenService {
   /**
    * Get ALL supported tokens for current chain - SINGLE API REQUEST
    * Endpoint: GET /token/v1.3/{chainId} (1inch multi-chain endpoint)
+   * Note: 1inch API returns tokens as object with addresses as keys, not array
    */
   async getSupportedTokens(): Promise<TokenList> {
     try {
@@ -212,8 +213,22 @@ class TokenService {
         };
       }
 
-      const tokenList = await this.callTokenAPI<TokenList>(`/${this.chainId}`);
-      return tokenList;
+      // 1inch API returns tokens as object: {"0xaddress": {tokenData}, ...}
+      const tokensObject = await this.callTokenAPI<Record<string, Token>>(`/${this.chainId}`);
+      
+      // Convert object to array of tokens
+      const tokensArray = Object.values(tokensObject || {});
+      
+      console.log(`🎯 Converted ${tokensArray.length} tokens from object to array`);
+      
+      return {
+        name: 'Base Mainnet Token List (1inch API)',
+        logoURI: 'https://1inch.io/img/logo.svg', 
+        keywords: ['base', 'mainnet', '1inch'],
+        version: { major: 1, minor: 3, patch: 0 },
+        timestamp: new Date().toISOString(),
+        tokens: tokensArray
+      };
     } catch (error) {
       console.error('❌ Error fetching supported tokens:', error);
       // Fallback to popular tokens
