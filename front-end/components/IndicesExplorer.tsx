@@ -335,25 +335,6 @@ export function IndicesExplorer() {
                     <div className="text-sm font-medium text-gray-700">{index.mindshare}</div>
                     <div className="text-xs text-gray-500">Mindshare</div>
                   </div>
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    className="ml-4"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      // For blockchain indices, route to individual index page with blockchain prefix
-                      const extendedIndex = index as ExtendedRealIndexData;
-                      if (extendedIndex.onChain && extendedIndex.blockchainId !== undefined) {
-                        router.push(`/index/blockchain_${extendedIndex.blockchainId}`);
-                      } else {
-                        // Route to the index detail page for regular indices
-                        router.push(`/index/${index.id}`);
-                      }
-                    }}
-                  >
-                    <Plus className="w-4 h-4 mr-1" />
-                    Add
-                  </Button>
                 </div>
               </CardContent>
             </Card>
