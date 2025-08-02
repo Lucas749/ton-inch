@@ -44,7 +44,22 @@ export function generateStaticParams() {
     { id: 'treasury_yield' },
     
     // Intelligence
-    { id: 'top_gainers' }
+    { id: 'top_gainers' },
+    
+    // Blockchain Indices (for dynamic routing)
+    { id: 'blockchain_0' },
+    { id: 'blockchain_1' },
+    { id: 'blockchain_2' },
+    { id: 'blockchain_3' },
+    { id: 'blockchain_4' },
+    { id: 'blockchain_5' },
+    { id: 'blockchain_6' },
+    { id: 'blockchain_7' },
+    { id: 'blockchain_8' },
+    { id: 'blockchain_9' },
+    { id: 'blockchain_10' },
+    { id: 'blockchain_11' },
+    { id: 'blockchain_12' }
   ];
 }
 
@@ -426,13 +441,51 @@ function generateFallbackIndexData(indexId: string) {
 export default function IndexDetailPage({ params }: { params: { id: string } }) {
   let indexData = indexDetails[params.id];
   
-  // Handle blockchain indices - redirect to trading interface
+  // Handle blockchain indices - generate data for trading interface
   if (!indexData && params.id.startsWith('blockchain_')) {
     // Extract blockchain index ID from the URL parameter
     const blockchainId = params.id.replace('blockchain_', '');
     
-    // Redirect to create-index page with the blockchain index ID
-    redirect(`/create-index?selectedIndex=${blockchainId}`);
+    // Generate blockchain index data
+    indexData = {
+      id: `blockchain_${blockchainId}`,
+      name: `Blockchain Index ${blockchainId}`,
+      symbol: `IDX${blockchainId}`,
+      handle: `@blockchain_${blockchainId}`,
+      description: `Blockchain index ${blockchainId} with live oracle data`,
+      avatar: "⛓️",
+      color: "bg-purple-600",
+      currentValue: 10000,
+      price: "$100.00",
+      change: "+1.25%",
+      changeValue: "+1.23",
+      isPositive: true,
+      mindshare: "0.15%",
+      sentiment: "+52.3%",
+      volume24h: "1.2M",
+      marketCap: "N/A",
+      chartData: [95, 97, 100, 98, 102, 100, 105, 100, 108, 103, 100],
+      communityData: {
+        positivePercent: 52.3,
+        negativePercent: 47.7,
+        totalCalls: "125 calls"
+      },
+      socialFeed: [
+        {
+          id: 1,
+          user: "Blockchain Analyst",
+          handle: "@blockchainanalyst",
+          time: "Aug 02",
+          content: `Blockchain index ${blockchainId} showing strong fundamentals with live oracle data integration.`,
+          likes: "234",
+          replies: "45",
+          retweets: "12",
+          views: "5.6K"
+        }
+      ],
+      isBlockchainIndex: true,
+      blockchainIndexId: parseInt(blockchainId)
+    };
   }
   
   // Generate fallback data for indices not explicitly defined

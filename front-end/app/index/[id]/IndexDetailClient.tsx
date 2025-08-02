@@ -112,8 +112,10 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
   const { createOrder, isLoading: isCreatingOrder } = useOrders();
   
   // Check if this index exists on blockchain
-  const blockchainIndexId = getBlockchainIndexId(index.id);
-  const isAvailableOnBlockchain = blockchainIndexId !== null;
+  const blockchainIndexId = index.isBlockchainIndex 
+    ? index.blockchainIndexId 
+    : getBlockchainIndexId(index.id);
+  const isAvailableOnBlockchain = blockchainIndexId !== null || index.isBlockchainIndex;
   const blockchainIndex = blockchainIndices.find(idx => idx.id === blockchainIndexId);
 
   // Load real Alpha Vantage data for this index
@@ -263,6 +265,20 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
     }
   };
 
+  const fillDemoOrderData = () => {
+    setOrderForm({
+      description: `Buy ETH when ${realIndexData.name} > threshold`,
+      fromToken: CONTRACTS.USDC,
+      toToken: CONTRACTS.WETH,
+      fromAmount: "0.1", // 0.1 USDC - very small for testing
+      toAmount: "0.00003", // Proportionally small ETH amount
+      operator: OPERATORS.GT,
+      threshold: "18000", // Demo threshold
+      expiry: "2" // 2 hours
+    });
+    alert(`🚀 Demo order data loaded! Buy ETH when ${realIndexData.name} > threshold using 0.1 USDC`);
+  };
+
   const getOperatorSymbol = (operator: number) => {
     switch (operator) {
       case OPERATORS.GT: return ">";
@@ -332,8 +348,13 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                 {isAvailableOnBlockchain ? (
                   <div className="flex items-center space-x-2">
                     <div className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
-                      Available On-Chain
+                      ⛓️ Live On-Chain
                     </div>
+                    {blockchainIndex && (
+                      <div className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
+                        ID: {blockchainIndex.id}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <Button
@@ -605,13 +626,22 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                       </div>
                     </div>
 
-                    <Button 
-                      onClick={handleCreateOrder}
-                      disabled={!isConnected || isCreatingOrder || !orderForm.threshold || !orderForm.fromAmount}
-                      className="w-full"
-                    >
-                      {isCreatingOrder ? "Creating Order..." : "Create Order"}
-                    </Button>
+                    <div className="flex space-x-3">
+                      <Button 
+                        onClick={handleCreateOrder}
+                        disabled={!isConnected || isCreatingOrder || !orderForm.threshold || !orderForm.fromAmount}
+                        className="flex-1"
+                      >
+                        {isCreatingOrder ? "Creating Order..." : "Create Order"}
+                      </Button>
+                      <Button
+                        onClick={fillDemoOrderData}
+                        variant="outline"
+                        disabled={!isConnected}
+                      >
+                        Fill Demo
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               </>

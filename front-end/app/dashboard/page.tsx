@@ -68,11 +68,11 @@ export default function Dashboard() {
   }, [isConnected, blockchainIndices]);
 
   const handleCreateIndex = () => {
-    router.push("/create-index");
+    router.push("/");
   };
 
   const handleViewIndex = (index: IndexWithOrders) => {
-    router.push(`/create-index?selectedIndex=${index.id}`);
+    router.push(`/index/blockchain_${index.id}`);
   };
 
   const loadOrdersOnDemand = async () => {

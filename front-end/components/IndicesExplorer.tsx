@@ -269,10 +269,10 @@ export function IndicesExplorer() {
               key={index.id} 
               className="hover:shadow-lg transition-all duration-200 cursor-pointer border border-gray-200 rounded-xl"
               onClick={() => {
-                // For blockchain indices, route to create-index with the blockchain index ID
+                // For blockchain indices, route to individual index page with blockchain prefix
                 const extendedIndex = index as ExtendedRealIndexData;
                 if (extendedIndex.onChain && extendedIndex.blockchainId !== undefined) {
-                  router.push(`/create-index?selectedIndex=${extendedIndex.blockchainId}`);
+                  router.push(`/index/blockchain_${extendedIndex.blockchainId}`);
                 } else {
                   handleViewIndex(index);
                 }
@@ -330,10 +330,10 @@ export function IndicesExplorer() {
                     className="ml-4"
                     onClick={(e) => {
                       e.stopPropagation();
-                      // For blockchain indices, route to create-index with the blockchain index ID
+                      // For blockchain indices, route to individual index page with blockchain prefix
                       const extendedIndex = index as ExtendedRealIndexData;
                       if (extendedIndex.onChain && extendedIndex.blockchainId !== undefined) {
-                        router.push(`/create-index?selectedIndex=${extendedIndex.blockchainId}`);
+                        router.push(`/index/blockchain_${extendedIndex.blockchainId}`);
                       } else {
                         // Route to the index detail page for regular indices
                         router.push(`/index/${index.id}`);

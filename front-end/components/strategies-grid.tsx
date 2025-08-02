@@ -64,7 +64,7 @@ export function StrategiesGrid() {
   };
 
   const handleCreateStrategy = () => {
-    router.push("/create-index");
+    router.push("/dashboard");
   };
 
   const handleViewStrategy = (id: number) => {
