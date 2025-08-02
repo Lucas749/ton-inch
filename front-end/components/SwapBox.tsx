@@ -418,13 +418,28 @@ export function SwapBox({
               onTokenSelect={setFromToken}
               className="flex-shrink-0"
             />
-            <Input
-              type="number"
-              placeholder="0.0"
-              value={fromAmount}
-              onChange={(e) => setFromAmount(e.target.value)}
-              className="text-right"
-            />
+            <div className="relative">
+              <Input
+                type="number"
+                placeholder="0.0"
+                value={fromAmount}
+                onChange={(e) => setFromAmount(e.target.value)}
+                className="text-right pr-12"
+              />
+              {fromToken?.symbol === 'ETH' && ethBalance && parseFloat(ethBalance) > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    const maxAmount = Math.max(0, parseFloat(ethBalance) - 0.001); // Reserve for gas
+                    setFromAmount(maxAmount.toString());
+                  }}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-6 px-2 text-xs text-blue-600 hover:text-blue-800"
+                >
+                  MAX
+                </Button>
+              )}
+            </div>
           </div>
         </div>
 
