@@ -1,8 +1,12 @@
-// Alpha Vantage API Service
+// Enhanced Alpha Vantage API Service with Caching and Comprehensive Endpoints
 // Documentation: https://www.alphavantage.co/documentation/
+
+import AlphaVantageCacheService from './alphavantage-cache';
 
 export interface AlphaVantageConfig {
   apiKey: string;
+  enableCache?: boolean;
+  cacheDir?: string;
 }
 
 // Core Time Series Interfaces
@@ -239,6 +243,73 @@ export interface EconomicIndicatorResponse {
   }>;
 }
 
+// Market Status Interface
+export interface MarketStatusResponse {
+  endpoint: string;
+  markets: Array<{
+    market_type: string;
+    region: string;
+    primary_exchanges: string;
+    local_open: string;
+    local_close: string;
+    current_status: string;
+    notes: string;
+  }>;
+}
+
+// Top Gainers/Losers Interface
+export interface TopGainersLosersResponse {
+  metadata: string;
+  last_updated: string;
+  top_gainers: Array<{
+    ticker: string;
+    price: string;
+    change_amount: string;
+    change_percentage: string;
+    volume: string;
+  }>;
+  top_losers: Array<{
+    ticker: string;
+    price: string;
+    change_amount: string;
+    change_percentage: string;
+    volume: string;
+  }>;
+  most_actively_traded: Array<{
+    ticker: string;
+    price: string;
+    change_amount: string;
+    change_percentage: string;
+    volume: string;
+  }>;
+}
+
+// Insider Transactions Interface
+export interface InsiderTransactionsResponse {
+  data: Array<{
+    symbol: string;
+    name: string;
+    filing_date: string;
+    transaction_date: string;
+    transaction_code: string;
+    acquisition_or_disposition: string;
+    shares_traded: string;
+    price_per_share: string;
+    shares_owned_following_transaction: string;
+  }>;
+}
+
+// Commodities Interface
+export interface CommodityResponse {
+  name: string;
+  interval: string;
+  unit: string;
+  data: Array<{
+    date: string;
+    value: string;
+  }>;
+}
+
 // API Function Types
 export type TimeSeriesFunction = 
   | "TIME_SERIES_INTRADAY"
@@ -250,12 +321,21 @@ export type TimeSeriesFunction =
   | "TIME_SERIES_MONTHLY_ADJUSTED";
 
 export type TechnicalIndicatorFunction =
-  | "SMA" | "EMA" | "WMA" | "DEMA" | "TEMA" | "TRIMA" | "KAMA" | "MAMA" | "T3"
+  | "SMA" | "EMA" | "WMA" | "DEMA" | "TEMA" | "TRIMA" | "KAMA" | "MAMA" | "VWAP" | "T3"
   | "MACD" | "MACDEXT" | "STOCH" | "STOCHF" | "RSI" | "STOCHRSI" | "WILLR"
   | "ADX" | "ADXR" | "APO" | "PPO" | "MOM" | "BOP" | "CCI" | "CMO" | "ROC"
   | "ROCR" | "AROON" | "AROONOSC" | "MFI" | "TRIX" | "ULTOSC" | "DX"
   | "MINUS_DI" | "PLUS_DI" | "MINUS_DM" | "PLUS_DM" | "BBANDS" | "MIDPOINT"
-  | "MIDPRICE" | "SAR" | "TRANGE" | "ATR" | "NATR" | "AD" | "ADOSC" | "OBV";
+  | "MIDPRICE" | "SAR" | "TRANGE" | "ATR" | "NATR" | "AD" | "ADOSC" | "OBV"
+  | "HT_TRENDLINE" | "HT_SINE" | "HT_TRENDMODE" | "HT_DCPERIOD" | "HT_DCPHASE" | "HT_PHASOR";
+
+export type EconomicIndicatorFunction =
+  | "REAL_GDP" | "REAL_GDP_PER_CAPITA" | "TREASURY_YIELD" | "FEDERAL_FUNDS_RATE"
+  | "CPI" | "INFLATION" | "RETAIL_SALES" | "DURABLES" | "UNEMPLOYMENT" | "NONFARM_PAYROLL";
+
+export type CommodityFunction =
+  | "WTI" | "BRENT" | "NATURAL_GAS" | "COPPER" | "ALUMINUM" | "WHEAT"
+  | "CORN" | "COTTON" | "SUGAR" | "COFFEE" | "ALL_COMMODITIES";
 
 export type Interval = "1min" | "5min" | "15min" | "30min" | "60min" | "daily" | "weekly" | "monthly";
 export type SeriesType = "close" | "open" | "high" | "low";
@@ -264,12 +344,30 @@ export type OutputSize = "compact" | "full";
 export class AlphaVantageService {
   private config: AlphaVantageConfig;
   private baseUrl = "https://www.alphavantage.co/query";
+  private cache: AlphaVantageCacheService | null = null;
 
   constructor(config: AlphaVantageConfig) {
-    this.config = config;
+    this.config = { enableCache: true, ...config };
+    
+    if (this.config.enableCache) {
+      this.cache = new AlphaVantageCacheService(this.config.cacheDir);
+    }
   }
 
-  private async callAPI<T>(params: Record<string, string>): Promise<T> {
+  private async callAPI<T>(params: Record<string, string>, functionName?: string): Promise<T> {
+    const symbol = params.symbol || '';
+    const interval = params.interval;
+    const fn = functionName || params.function || '';
+
+    // Check cache first
+    if (this.cache && this.cache.shouldUseCache(symbol, fn, interval)) {
+      console.log(`🎯 Using cached data for ${fn} - ${symbol}${interval ? ` (${interval})` : ''}`);
+      const cachedData = await this.cache.getCachedData(symbol, fn, interval);
+      if (cachedData) {
+        return cachedData as T;
+      }
+    }
+
     // Use our proxy endpoint to avoid CORS issues
     const url = new URL('/api/alphavantage', window.location.origin);
     url.searchParams.set("apikey", this.config.apiKey);
@@ -278,24 +376,39 @@ export class AlphaVantageService {
       url.searchParams.set(key, value);
     });
 
-    const response = await fetch(url.toString());
-    
-    if (!response.ok) {
-      throw new Error(`Alpha Vantage API returned status ${response.status}`);
-    }
+    console.log(`🌐 Fetching fresh data for ${fn} - ${symbol}${interval ? ` (${interval})` : ''}`);
 
-    const data = await response.json();
-    
-    // Check for API error messages
-    if (data["Error Message"]) {
-      throw new Error(`Alpha Vantage API Error: ${data["Error Message"]}`);
-    }
-    
-    if (data["Note"]) {
-      throw new Error(`Alpha Vantage API Note: ${data["Note"]}`);
-    }
+    try {
+      const response = await fetch(url.toString());
+      
+      if (!response.ok) {
+        throw new Error(`Alpha Vantage API returned status ${response.status}`);
+      }
 
-    return data as T;
+      const data = await response.json();
+      
+      // Check for API error messages
+      if (data["Error Message"]) {
+        throw new Error(`Alpha Vantage API Error: ${data["Error Message"]}`);
+      }
+      
+      if (data["Note"]) {
+        throw new Error(`Alpha Vantage API Note: ${data["Note"]}`);
+      }
+
+      // Cache successful response
+      if (this.cache) {
+        await this.cache.cacheData(symbol, fn, interval, data);
+      }
+
+      return data as T;
+    } catch (error) {
+      // Mark failed request for retry logic
+      if (this.cache) {
+        this.cache.markFailedRequest(symbol, fn, interval);
+      }
+      throw error;
+    }
   }
 
   // ===== CORE STOCK APIS =====
@@ -324,7 +437,7 @@ export class AlphaVantageService {
     if (options.month) params.month = options.month;
     if (options.outputSize) params.outputsize = options.outputSize;
 
-    return this.callAPI<TimeSeriesResponse>(params);
+    return this.callAPI<TimeSeriesResponse>(params, "TIME_SERIES_INTRADAY");
   }
 
   /**
@@ -335,11 +448,12 @@ export class AlphaVantageService {
     adjusted: boolean = false,
     outputSize: OutputSize = "compact"
   ): Promise<TimeSeriesResponse> {
+    const functionName = adjusted ? "TIME_SERIES_DAILY_ADJUSTED" : "TIME_SERIES_DAILY";
     return this.callAPI<TimeSeriesResponse>({
-      function: adjusted ? "TIME_SERIES_DAILY_ADJUSTED" : "TIME_SERIES_DAILY",
+      function: functionName,
       symbol,
       outputsize: outputSize,
-    });
+    }, functionName);
   }
 
   /**
@@ -349,10 +463,11 @@ export class AlphaVantageService {
     symbol: string,
     adjusted: boolean = false
   ): Promise<TimeSeriesResponse> {
+    const functionName = adjusted ? "TIME_SERIES_WEEKLY_ADJUSTED" : "TIME_SERIES_WEEKLY";
     return this.callAPI<TimeSeriesResponse>({
-      function: adjusted ? "TIME_SERIES_WEEKLY_ADJUSTED" : "TIME_SERIES_WEEKLY",
+      function: functionName,
       symbol,
-    });
+    }, functionName);
   }
 
   /**
@@ -362,10 +477,11 @@ export class AlphaVantageService {
     symbol: string,
     adjusted: boolean = false
   ): Promise<TimeSeriesResponse> {
+    const functionName = adjusted ? "TIME_SERIES_MONTHLY_ADJUSTED" : "TIME_SERIES_MONTHLY";
     return this.callAPI<TimeSeriesResponse>({
-      function: adjusted ? "TIME_SERIES_MONTHLY_ADJUSTED" : "TIME_SERIES_MONTHLY",
+      function: functionName,
       symbol,
-    });
+    }, functionName);
   }
 
   /**
@@ -375,7 +491,7 @@ export class AlphaVantageService {
     return this.callAPI<QuoteResponse>({
       function: "GLOBAL_QUOTE",
       symbol,
-    });
+    }, "GLOBAL_QUOTE");
   }
 
   /**
@@ -385,7 +501,35 @@ export class AlphaVantageService {
     return this.callAPI<SearchResponse>({
       function: "SYMBOL_SEARCH",
       keywords,
-    });
+    }, "SYMBOL_SEARCH");
+  }
+
+  /**
+   * Get market status
+   */
+  async getMarketStatus(): Promise<MarketStatusResponse> {
+    return this.callAPI<MarketStatusResponse>({
+      function: "MARKET_STATUS",
+    }, "MARKET_STATUS");
+  }
+
+  /**
+   * Get top gainers, losers, and most actively traded
+   */
+  async getTopGainersLosers(): Promise<TopGainersLosersResponse> {
+    return this.callAPI<TopGainersLosersResponse>({
+      function: "TOP_GAINERS_LOSERS",
+    }, "TOP_GAINERS_LOSERS");
+  }
+
+  /**
+   * Get insider transactions
+   */
+  async getInsiderTransactions(symbol: string): Promise<InsiderTransactionsResponse> {
+    return this.callAPI<InsiderTransactionsResponse>({
+      function: "INSIDER_TRANSACTIONS",
+      symbol,
+    }, "INSIDER_TRANSACTIONS");
   }
 
   // ===== TECHNICAL INDICATORS =====
@@ -433,7 +577,7 @@ export class AlphaVantageService {
     if (options.nbdevdn) params.nbdevdn = options.nbdevdn.toString();
     if (options.month) params.month = options.month;
 
-    return this.callAPI<TechnicalIndicatorResponse>(params);
+    return this.callAPI<TechnicalIndicatorResponse>(params, indicator);
   }
 
   // ===== FUNDAMENTAL DATA =====
@@ -445,7 +589,7 @@ export class AlphaVantageService {
     return this.callAPI<CompanyOverview>({
       function: "OVERVIEW",
       symbol,
-    });
+    }, "OVERVIEW");
   }
 
   // ===== FOREX =====
@@ -458,7 +602,7 @@ export class AlphaVantageService {
       function: "CURRENCY_EXCHANGE_RATE",
       from_currency: fromCurrency,
       to_currency: toCurrency,
-    });
+    }, "CURRENCY_EXCHANGE_RATE");
   }
 
   /**
@@ -492,7 +636,7 @@ export class AlphaVantageService {
       params.interval = interval;
     }
 
-    return this.callAPI<ForexResponse>(params);
+    return this.callAPI<ForexResponse>(params, functionMap[interval]);
   }
 
   // ===== CRYPTOCURRENCIES =====
@@ -505,7 +649,7 @@ export class AlphaVantageService {
       function: "CURRENCY_EXCHANGE_RATE",
       from_currency: fromCurrency,
       to_currency: toCurrency,
-    });
+    }, "CURRENCY_EXCHANGE_RATE");
   }
 
   /**
@@ -516,17 +660,18 @@ export class AlphaVantageService {
     market: string = "USD",
     interval: "daily" | "weekly" | "monthly" = "daily"
   ): Promise<CryptoResponse> {
-    const functionMap = {
+    const functionMap: { [key: string]: string } = {
       daily: "DIGITAL_CURRENCY_DAILY",
       weekly: "DIGITAL_CURRENCY_WEEKLY", 
       monthly: "DIGITAL_CURRENCY_MONTHLY",
     };
 
+    const functionName = functionMap[interval];
     return this.callAPI<CryptoResponse>({
-      function: functionMap[interval],
+      function: functionName,
       symbol,
       market,
-    });
+    }, functionName);
   }
 
   // ===== NEWS & SENTIMENT =====
@@ -553,7 +698,7 @@ export class AlphaVantageService {
     if (sort) params.sort = sort;
     if (limit) params.limit = limit.toString();
 
-    return this.callAPI<NewsResponse>(params);
+    return this.callAPI<NewsResponse>(params, "NEWS_SENTIMENT");
   }
 
   // ===== ECONOMIC INDICATORS =====
@@ -562,17 +707,51 @@ export class AlphaVantageService {
    * Get economic indicator data
    */
   async getEconomicIndicator(
-    indicator: "REAL_GDP" | "REAL_GDP_PER_CAPITA" | "TREASURY_YIELD" | "FEDERAL_FUNDS_RATE" | 
-              "CPI" | "INFLATION" | "RETAIL_SALES" | "DURABLES" | "UNEMPLOYMENT" | "NONFARM_PAYROLL",
-    interval?: "annual" | "quarterly" | "monthly"
+    indicator: EconomicIndicatorFunction,
+    interval?: "annual" | "quarterly" | "monthly" | "weekly" | "daily",
+    maturity?: "3month" | "2year" | "5year" | "10year" | "30year"
   ): Promise<EconomicIndicatorResponse> {
     const params: Record<string, string> = {
       function: indicator,
     };
 
     if (interval) params.interval = interval;
+    if (maturity) params.maturity = maturity;
 
-    return this.callAPI<EconomicIndicatorResponse>(params);
+    return this.callAPI<EconomicIndicatorResponse>(params, indicator);
+  }
+
+  // ===== COMMODITIES =====
+
+  /**
+   * Get commodity data
+   */
+  async getCommodity(commodity: CommodityFunction, interval?: string): Promise<CommodityResponse> {
+    const params: Record<string, string> = {
+      function: commodity,
+    };
+
+    if (interval) params.interval = interval;
+
+    return this.callAPI<CommodityResponse>(params, commodity);
+  }
+
+  // ===== CACHE MANAGEMENT =====
+
+  /**
+   * Get cache statistics
+   */
+  getCacheStats() {
+    return this.cache ? this.cache.getCacheStats() : null;
+  }
+
+  /**
+   * Clean up old cache entries
+   */
+  cleanupCache(): void {
+    if (this.cache) {
+      this.cache.cleanupOldCache();
+    }
   }
 
   // ===== UTILITY METHODS =====

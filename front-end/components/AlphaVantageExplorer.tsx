@@ -79,64 +79,116 @@ const API_CATEGORIES = [
     id: "stocks",
     name: "Core Stock APIs",
     icon: TrendingUp,
-    description: "Time series data, quotes, and search",
+    description: "Time series data, quotes, search, and market status",
     color: "bg-blue-50 text-blue-700 border-blue-200",
+  },
+  {
+    id: "alpha_intelligence",
+    name: "Alpha Intelligence™",
+    icon: Activity,
+    description: "Top gainers/losers, insider transactions, earnings transcripts",
+    color: "bg-cyan-50 text-cyan-700 border-cyan-200",
   },
   {
     id: "technical",
     name: "Technical Indicators",
-    icon: Activity,
-    description: "SMA, EMA, RSI, MACD, Bollinger Bands",
+    icon: BarChart3,
+    description: "60+ indicators: SMA, EMA, RSI, MACD, BBANDS, VWAP, ATR",
     color: "bg-green-50 text-green-700 border-green-200",
   },
   {
     id: "fundamental",
     name: "Fundamental Data",
     icon: Building,
-    description: "Company overview, earnings, financials",
+    description: "Company overview, financials, earnings, dividends, ETF profiles",
     color: "bg-purple-50 text-purple-700 border-purple-200",
   },
   {
     id: "forex",
     name: "Forex (FX)",
     icon: Globe,
-    description: "Exchange rates and currency data",
+    description: "Exchange rates and currency time series data",
     color: "bg-orange-50 text-orange-700 border-orange-200",
   },
   {
     id: "crypto",
     name: "Cryptocurrencies",
     icon: Bitcoin,
-    description: "Digital currency exchange rates",
+    description: "Digital currency data with intraday and historical series",
     color: "bg-yellow-50 text-yellow-700 border-yellow-200",
+  },
+  {
+    id: "commodities",
+    name: "Commodities",
+    icon: DollarSign,
+    description: "Oil (WTI/Brent), metals, agriculture, natural gas",
+    color: "bg-amber-50 text-amber-700 border-amber-200",
   },
   {
     id: "news",
     name: "News & Sentiment",
     icon: Newspaper,
-    description: "Market news with sentiment analysis",
+    description: "Market news with AI-powered sentiment analysis",
     color: "bg-red-50 text-red-700 border-red-200",
   },
   {
     id: "economic",
     name: "Economic Indicators",
     icon: Calculator,
-    description: "GDP, inflation, unemployment data",
+    description: "GDP, inflation, unemployment, treasury yields, fed rates",
     color: "bg-indigo-50 text-indigo-700 border-indigo-200",
   },
 ];
 
 const TECHNICAL_INDICATORS = [
+  // Moving Averages
   { value: "SMA", label: "Simple Moving Average (SMA)" },
   { value: "EMA", label: "Exponential Moving Average (EMA)" },
+  { value: "WMA", label: "Weighted Moving Average (WMA)" },
+  { value: "DEMA", label: "Double Exponential Moving Average (DEMA)" },
+  { value: "TEMA", label: "Triple Exponential Moving Average (TEMA)" },
+  { value: "TRIMA", label: "Triangular Moving Average (TRIMA)" },
+  { value: "KAMA", label: "Kaufman Adaptive Moving Average (KAMA)" },
+  { value: "MAMA", label: "MESA Adaptive Moving Average (MAMA)" },
+  { value: "VWAP", label: "Volume Weighted Average Price (VWAP)" },
+  { value: "T3", label: "Triple Exponential Moving Average (T3)" },
+  
+  // Oscillators
   { value: "RSI", label: "Relative Strength Index (RSI)" },
-  { value: "MACD", label: "MACD" },
-  { value: "BBANDS", label: "Bollinger Bands" },
   { value: "STOCH", label: "Stochastic Oscillator" },
-  { value: "ADX", label: "Average Directional Index" },
+  { value: "STOCHF", label: "Stochastic Fast" },
+  { value: "STOCHRSI", label: "Stochastic RSI" },
   { value: "WILLR", label: "Williams %R" },
   { value: "CCI", label: "Commodity Channel Index" },
+  { value: "CMO", label: "Chande Momentum Oscillator (CMO)" },
+  { value: "MFI", label: "Money Flow Index (MFI)" },
+  { value: "ULTOSC", label: "Ultimate Oscillator" },
+  
+  // Trend Indicators
+  { value: "MACD", label: "MACD" },
+  { value: "MACDEXT", label: "MACD with controllable MA type" },
+  { value: "ADX", label: "Average Directional Index" },
+  { value: "ADXR", label: "Average Directional Index Rating (ADXR)" },
   { value: "AROON", label: "Aroon Indicator" },
+  { value: "AROONOSC", label: "Aroon Oscillator" },
+  { value: "DX", label: "Directional Movement Index (DX)" },
+  
+  // Volatility Indicators
+  { value: "BBANDS", label: "Bollinger Bands" },
+  { value: "ATR", label: "Average True Range (ATR)" },
+  { value: "NATR", label: "Normalized Average True Range" },
+  
+  // Volume Indicators
+  { value: "OBV", label: "On Balance Volume (OBV)" },
+  { value: "AD", label: "Chaikin A/D Line" },
+  { value: "ADOSC", label: "Chaikin A/D Oscillator" },
+  
+  // Price Transform & Others
+  { value: "SAR", label: "Parabolic SAR" },
+  { value: "MOM", label: "Momentum" },
+  { value: "ROC", label: "Rate of change" },
+  { value: "APO", label: "Absolute Price Oscillator" },
+  { value: "PPO", label: "Percentage Price Oscillator" },
 ];
 
 const POPULAR_SYMBOLS = [
@@ -167,6 +219,19 @@ export function AlphaVantageExplorer({ apiKey = "123" }: ExplorerProps) {
   const [chartData, setChartData] = useState<any[]>([]);
 
   const alphaVantageService = new AlphaVantageService({ apiKey });
+  const [cacheStats, setCacheStats] = useState<any>(null);
+
+  // Load cache statistics
+  const loadCacheStats = () => {
+    const stats = alphaVantageService.getCacheStats();
+    setCacheStats(stats);
+  };
+
+  // Clean up cache
+  const cleanupCache = () => {
+    alphaVantageService.cleanupCache();
+    loadCacheStats(); // Refresh stats after cleanup
+  };
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
@@ -241,6 +306,54 @@ export function AlphaVantageExplorer({ apiKey = "123" }: ExplorerProps) {
       setError(
         `Failed to fetch technical indicator: ${(err as Error).message}`
       );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchAlphaIntelligence = async () => {
+    setIsLoading(true);
+    setError("");
+
+    try {
+      if (selectedCategory === "alpha_intelligence") {
+        // Example: Get top gainers/losers
+        const response = await alphaVantageService.getTopGainersLosers();
+        setData(response);
+      }
+    } catch (err) {
+      setError(`Failed to fetch Alpha Intelligence data: ${(err as Error).message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchCommodities = async () => {
+    setIsLoading(true);
+    setError("");
+
+    try {
+      if (selectedCategory === "commodities") {
+        // Example: Get WTI oil prices
+        const response = await alphaVantageService.getCommodity("WTI");
+        setData(response);
+      }
+    } catch (err) {
+      setError(`Failed to fetch commodities data: ${(err as Error).message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchMarketStatus = async () => {
+    setIsLoading(true);
+    setError("");
+
+    try {
+      const response = await alphaVantageService.getMarketStatus();
+      setData(response);
+    } catch (err) {
+      setError(`Failed to fetch market status: ${(err as Error).message}`);
     } finally {
       setIsLoading(false);
     }
@@ -833,17 +946,106 @@ export function AlphaVantageExplorer({ apiKey = "123" }: ExplorerProps) {
             </Button>
 
             {selectedCategory === "stocks" && (
+              <>
+                <Button
+                  onClick={fetchQuote}
+                  disabled={isLoading}
+                  variant="outline"
+                >
+                  Get Quote
+                </Button>
+                <Button
+                  onClick={fetchMarketStatus}
+                  disabled={isLoading}
+                  variant="outline"
+                >
+                  Market Status
+                </Button>
+              </>
+            )}
+
+            {selectedCategory === "alpha_intelligence" && (
               <Button
-                onClick={fetchQuote}
+                onClick={fetchAlphaIntelligence}
                 disabled={isLoading}
                 variant="outline"
               >
-                Get Quote
+                Top Gainers/Losers
+              </Button>
+            )}
+
+            {selectedCategory === "commodities" && (
+              <Button
+                onClick={fetchCommodities}
+                disabled={isLoading}
+                variant="outline"
+              >
+                Get Commodities
+              </Button>
+            )}
+
+            <Button
+              onClick={loadCacheStats}
+              disabled={isLoading}
+              variant="secondary"
+              size="sm"
+            >
+              Cache Stats
+            </Button>
+
+            {cacheStats && (
+              <Button
+                onClick={cleanupCache}
+                disabled={isLoading}
+                variant="secondary"
+                size="sm"
+              >
+                Clean Cache
               </Button>
             )}
           </div>
         </CardContent>
       </Card>
+
+      {/* Cache Statistics */}
+      {cacheStats && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Activity className="w-5 h-5" />
+              <span>Cache Statistics</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+              <div className="space-y-1">
+                <div className="text-2xl font-bold text-blue-600">
+                  {cacheStats.totalEntries}
+                </div>
+                <div className="text-sm text-gray-500">Total Entries</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-2xl font-bold text-green-600">
+                  {cacheStats.successfulEntries}
+                </div>
+                <div className="text-sm text-gray-500">Successful</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-2xl font-bold text-red-600">
+                  {cacheStats.failedEntries}
+                </div>
+                <div className="text-sm text-gray-500">Failed</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-2xl font-bold text-yellow-600">
+                  {cacheStats.retryingEntries}
+                </div>
+                <div className="text-sm text-gray-500">Retrying</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Search Bar for Symbol Search */}
       <Card>
