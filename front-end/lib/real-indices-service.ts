@@ -49,10 +49,13 @@ export class RealIndicesService {
 
   private formatChange(change: number, changePercent: string): { change: string; changeValue: string; isPositive: boolean } {
     const isPositive = change >= 0;
-    const formattedChange = changePercent.replace('%', '');
+    // Remove % and any existing + or - signs, then parse to get clean number
+    const cleanPercent = changePercent.replace(/[+\-%]/g, '');
+    const percentNum = parseFloat(cleanPercent);
+    
     return {
-      change: `${isPositive ? '+' : ''}${formattedChange}%`,
-      changeValue: `${isPositive ? '+' : ''}${change.toFixed(2)}`,
+      change: `${isPositive ? '+' : ''}${percentNum.toFixed(2)}%`,
+      changeValue: `${change.toFixed(2)}`, // Remove + sign from changeValue since it's already shown with arrow
       isPositive
     };
   }
