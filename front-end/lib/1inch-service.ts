@@ -181,7 +181,21 @@ export class OneInchService {
   }
 
   private buildQueryURL(path: string, params: Record<string, string>): string {
-    const url = new URL(INCH_API_BASE_URL + path);
+    // Use proxy endpoints to avoid CORS issues
+    let proxyPath = '/api/oneinch';
+    if (path.includes('/quote')) {
+      proxyPath += '/quote';
+    } else if (path.includes('/swap')) {
+      proxyPath += '/swap';  
+    } else {
+      // Default to swap endpoint for other paths
+      proxyPath += '/swap';
+    }
+    
+    const url = new URL(proxyPath, window.location.origin);
+    
+    // Add chainId and other params
+    params.chainId = BASE_SEPOLIA_CHAIN_ID.toString();
     url.search = new URLSearchParams(params).toString();
     return url.toString();
   }
@@ -205,13 +219,13 @@ export class OneInchService {
       method: "GET",
       headers: {
         Accept: "application/json",
-        Authorization: `Bearer ${this.config.apiKey}`,
+        // API key is handled by the proxy endpoint
       },
     });
 
     if (!response.ok) {
       const body = await response.text();
-      throw new Error(`1inch API returned status ${response.status}: ${body}`);
+      throw new Error(`1inch API proxy returned status ${response.status}: ${body}`);
     }
 
     return (await response.json()) as T;

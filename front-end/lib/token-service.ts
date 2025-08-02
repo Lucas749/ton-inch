@@ -98,10 +98,11 @@ class TokenService {
   }
 
   /**
-   * Build query URL for Token API
+   * Build query URL for Token API (using proxy endpoint)
    */
   private buildTokenQueryURL(path: string, params: Record<string, string> = {}): string {
-    const url = new URL(`${TOKEN_API_BASE_URL}${path}`);
+    // Use our proxy endpoint to avoid CORS issues
+    const url = new URL('/api/oneinch/tokens', window.location.origin);
     
     // Add chainId to all requests
     params.chainId = this.chainId.toString();
@@ -114,7 +115,7 @@ class TokenService {
   }
 
   /**
-   * Make API call to 1inch Token API
+   * Make API call to 1inch Token API (using proxy endpoint)
    */
   private async callTokenAPI<T>(
     path: string,
@@ -126,13 +127,13 @@ class TokenService {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
-        'Authorization': `Bearer ${this.apiKey}`,
+        // API key is handled by the proxy endpoint
       },
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`1inch Token API error (${response.status}): ${errorText}`);
+      throw new Error(`1inch Token API proxy error (${response.status}): ${errorText}`);
     }
 
     return await response.json() as T;
