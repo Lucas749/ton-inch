@@ -391,7 +391,7 @@ export class BlockchainIndices {
   }
 
   /**
-   * Update an existing index value
+   * Update an existing index value (oracle-type aware)
    */
   async updateIndex(indexId: number, newValue: number): Promise<boolean> {
     try {
@@ -400,6 +400,21 @@ export class BlockchainIndices {
       }
 
       console.log(`📝 Updating Index ${indexId} to ${newValue}`);
+      
+      // Check current oracle type to provide better feedback
+      try {
+        const { oracleType, oracleTypeName } = await this.getIndexOracleType(indexId);
+        console.log(`🔍 Index ${indexId} uses ${oracleTypeName}`);
+        
+        if (oracleType === ORACLE_TYPES.CHAINLINK) {
+          console.log("📡 Note: This index uses Chainlink Functions - manual updates will override oracle data temporarily");
+          console.log("💡 Chainlink Functions will continue to update this index automatically based on its source URL");
+        } else {
+          console.log("🏭 Note: This index uses Mock Oracle - manual updates will persist until next manual update");
+        }
+      } catch (error) {
+        console.log("⚠️ Could not determine oracle type, proceeding with update...");
+      }
       
       // Determine if it's predefined or custom index (matches backend logic)
       let tx;
@@ -562,6 +577,15 @@ export class BlockchainIndices {
       }
 
       console.log(`✅ Oracle type updated to ${oracleTypeName}:`, tx.transactionHash);
+      
+      // Provide information about value updates based on oracle type
+      if (oracleType === ORACLE_TYPES.CHAINLINK) {
+        console.log("📡 Switched to Chainlink Functions - index will be updated automatically based on its source URL");
+        console.log("💡 Chainlink Functions will fetch real-time data and update the index value periodically");
+      } else {
+        console.log("🏭 Switched to Mock Oracle - index value updates are now manual only");
+        console.log("💡 Use the 'Update Value' feature to manually set index values");
+      }
       
       // Clear cache so next fetch gets fresh data
       this.clearCache();
@@ -829,6 +853,8 @@ export class BlockchainIndices {
       };
     }
   }
+
+
 
   /**
    * Reinitialize contracts (called when network changes)

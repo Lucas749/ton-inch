@@ -263,6 +263,44 @@ export const ABIS = {
       outputs: [{ name: "indexId", type: "uint256" }],
       stateMutability: "nonpayable",
     },
+    // Oracle Management Functions
+    {
+      type: "function",
+      name: "setIndexOracleType",
+      inputs: [
+        { name: "indexId", type: "uint256" },
+        { name: "oracleType", type: "uint8" }
+      ],
+      outputs: [],
+      stateMutability: "nonpayable",
+    },
+    {
+      type: "function",
+      name: "setCustomIndexOracleType",
+      inputs: [
+        { name: "indexId", type: "uint256" },
+        { name: "oracleType", type: "uint8" }
+      ],
+      outputs: [],
+      stateMutability: "nonpayable",
+    },
+    {
+      type: "function",
+      name: "getIndexOracleType",
+      inputs: [{ name: "indexId", type: "uint256" }],
+      outputs: [{ name: "oracleType", type: "uint8" }],
+      stateMutability: "view",
+    },
+    {
+      type: "function",
+      name: "setCustomIndexActive",
+      inputs: [
+        { name: "indexId", type: "uint256" },
+        { name: "isActive", type: "bool" }
+      ],
+      outputs: [],
+      stateMutability: "nonpayable",
+    },
   ],
   // Removed IndexPreInteraction - not needed in new architecture
   ERC20: [
