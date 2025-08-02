@@ -45,7 +45,7 @@ interface TokenSelectorProps {
 export function TokenSelector({
   selectedToken,
   onTokenSelect,
-  label = 'Select Token',
+  label = '',
   placeholder = 'Choose a token',
   disabled = false,
   className = '',
