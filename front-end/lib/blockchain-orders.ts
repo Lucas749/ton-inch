@@ -15,9 +15,10 @@ import {
   LimitOrder, 
   MakerTraits, 
   Address, 
-  Api, 
+  Sdk, 
   randBigInt, 
-  ExtensionBuilder 
+  ExtensionBuilder,
+  FetchProviderConnector
 } from '@1inch/limit-order-sdk';
 import { ethers } from 'ethers';
 
@@ -72,17 +73,18 @@ export class BlockchainOrders {
   }
 
   /**
-   * Initialize 1inch API
+   * Initialize 1inch SDK (matching backend pattern)
    */
   private initializeSDK(): void {
     try {
-      this.sdk = new Api({
+      this.sdk = new Sdk({
+        authKey: process.env.NEXT_PUBLIC_ONEINCH_API_KEY || '', // API key for production
         networkId: CONFIG.CHAIN_ID,
-        // authKey will be provided when needed for production
+        httpConnector: new FetchProviderConnector()
       });
-      console.log('✅ 1inch API initialized');
+      console.log('✅ 1inch SDK initialized');
     } catch (error) {
-      console.warn('⚠️ Failed to initialize 1inch API:', error);
+      console.warn('⚠️ Failed to initialize 1inch SDK:', error);
     }
   }
 
@@ -141,17 +143,15 @@ export class BlockchainOrders {
 
       console.log('🔧 Creating order...');
 
-      // Create order using 1inch SDK
-      const order = new LimitOrder({
-        salt: randBigInt(2n ** 256n - 1n),
-        maker: new Address(this.wallet.currentAccount),
-        receiver: new Address(this.wallet.currentAccount),
+      // Create order using 1inch SDK (matching backend pattern)
+      const order = await this.sdk.createOrder({
         makerAsset: new Address(fromToken.address),
         takerAsset: new Address(toToken.address),
         makingAmount: makingAmount,
         takingAmount: takingAmount,
-        makerTraits: makerTraits.build(),
-      }, extension);
+        maker: new Address(this.wallet.currentAccount),
+        extension: extension.encode()
+      }, makerTraits); // Pass makerTraits directly, no .build()
 
       const orderHash = order.getOrderHash();
       console.log(`✅ Order created: ${orderHash}`);
