@@ -196,8 +196,10 @@ export function useBlockchain(): UseBlockchainReturn {
       console.log('🔍 useBlockchain: Loaded indices from service:', allIndices);
       setIndices(allIndices);
       
-      // Also check ownership when refreshing
-      await checkOwnership();
+      // Only check ownership if wallet is connected
+      if (isConnected && walletAddress) {
+        await checkOwnership();
+      }
     } catch (err) {
       console.error("❌ Failed to refresh indices:", err);
       // Don't set error state for background refresh failures
@@ -269,9 +271,17 @@ export function useBlockchain(): UseBlockchainReturn {
     }
   }, []);
 
-  // Sync wagmi wallet state with blockchain service and load indices
+  // Load indices on component mount (regardless of wallet connection)
   useEffect(() => {
-    console.log('🔄 useBlockchain useEffect triggered');
+    console.log('🔄 useBlockchain: Loading indices on mount...');
+    refreshIndices().catch((err) => {
+      console.warn("Warning: Failed to load indices on mount:", err);
+    });
+  }, []); // Only run once on mount
+
+  // Sync wagmi wallet state with blockchain service
+  useEffect(() => {
+    console.log('🔄 useBlockchain wallet sync triggered');
     console.log('🔍 isConnected:', isConnected);
     console.log('🔍 walletAddress:', walletAddress);
     
@@ -279,14 +289,13 @@ export function useBlockchain(): UseBlockchainReturn {
     blockchainService.wallet.syncExternalWallet(walletAddress);
     
     if (isConnected && walletAddress) {
-      console.log('✅ Wallet connected, refreshing indices...');
+      console.log('✅ Wallet connected, refreshing indices and checking ownership...');
       refreshIndices().catch((err) => {
         console.warn("Warning: Failed to refresh indices after wallet connection:", err);
       });
     } else {
-      console.log('❌ Wallet not connected, resetting indices...');
-      // Reset indices when wallet disconnects
-      setIndices([]);
+      console.log('❌ Wallet not connected, clearing ownership status...');
+      // Only reset ownership status, keep indices visible
       setIsOwner(false);
       // Clear errors on disconnect to prevent stale error states
       setError(null);

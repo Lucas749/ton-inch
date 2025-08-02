@@ -232,7 +232,7 @@ export default function Home() {
               </Card>
             )) : (
               <div className="col-span-full text-center py-8">
-                <div className="text-gray-500">Connect wallet to view blockchain indices</div>
+                <div className="text-gray-500">Loading blockchain indices...</div>
               </div>
             )}
           </div>
@@ -301,8 +301,8 @@ export default function Home() {
               <Card className="min-w-[280px] border border-gray-200">
                 <CardContent className="p-4 text-center">
                   <div className="text-gray-500">
-                    <div className="text-lg mb-2">🔗</div>
-                    <div className="text-sm">Connect wallet to view custom indices</div>
+                    <div className="text-lg mb-2">📊</div>
+                    <div className="text-sm">Loading custom indices...</div>
                   </div>
                 </CardContent>
               </Card>
