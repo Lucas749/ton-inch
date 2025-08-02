@@ -1182,7 +1182,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                     <div>
                       <label className="text-sm font-medium">Condition</label>
                       <Select value={orderForm.operator.toString()} onValueChange={(value) => setOrderForm(prev => ({ ...prev, operator: parseInt(value) }))}>
-                        <SelectTrigger>
+                        <SelectTrigger className="h-12">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -1199,6 +1199,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                         placeholder="18000"
                         value={orderForm.threshold}
                         onChange={(e) => setOrderForm(prev => ({ ...prev, threshold: e.target.value }))}
+                        className="h-12"
                       />
                     </div>
                   </div>
