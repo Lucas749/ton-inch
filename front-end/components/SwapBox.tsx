@@ -397,18 +397,20 @@ export function SwapBox({
             )}
           </div>
           <div className="flex space-x-2">
-            <TokenSelector
-              selectedToken={fromToken}
-              onTokenSelect={setFromToken}
-              className="flex-shrink-0"
-            />
-            <div className="relative">
+            <div className="w-32">
+              <TokenSelector
+                selectedToken={fromToken}
+                onTokenSelect={setFromToken}
+                className="w-full"
+              />
+            </div>
+            <div className="flex-1 relative">
               <Input
                 type="number"
                 placeholder="0.0"
                 value={fromAmount}
                 onChange={(e) => setFromAmount(e.target.value)}
-                className="text-right pr-12"
+                className="text-right pr-12 h-12"
               />
               {fromToken?.symbol === 'ETH' && ethBalance && parseFloat(ethBalance) > 0 && (
                 <Button
@@ -454,18 +456,22 @@ export function SwapBox({
             )}
           </div>
           <div className="flex space-x-2">
-            <TokenSelector
-              selectedToken={toToken}
-              onTokenSelect={setToToken}
-              className="flex-shrink-0"
-            />
-            <Input
-              type="text"
-              placeholder="0.0"
-              value={isLoadingQuote ? "..." : toAmount}
-              readOnly
-              className="text-right bg-gray-50"
-            />
+            <div className="w-32">
+              <TokenSelector
+                selectedToken={toToken}
+                onTokenSelect={setToToken}
+                className="w-full"
+              />
+            </div>
+            <div className="flex-1">
+              <Input
+                type="text"
+                placeholder="0.0"
+                value={isLoadingQuote ? "..." : toAmount}
+                readOnly
+                className="text-right bg-gray-50 h-12"
+              />
+            </div>
           </div>
         </div>
 
