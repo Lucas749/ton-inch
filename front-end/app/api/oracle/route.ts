@@ -69,6 +69,7 @@ export async function POST(request: NextRequest) {
 
         const gasPrice = await web3.eth.getGasPrice();
         const txData = {
+          from: wallet.address,
           to: CONTRACTS.IndexOracle,
           data: tx.encodeABI(),
           gas: Math.floor(Number(gasEstimate) * 1.2), // Convert BigInt to Number

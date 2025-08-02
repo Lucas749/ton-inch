@@ -95,7 +95,16 @@ const getBlockchainIndexId = (indexId: string): number | null => {
 export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) {
   const router = useRouter();
   const [isRequestingIndex, setIsRequestingIndex] = useState(false);
-  const [chartData, setChartData] = useState<any[]>([]);
+  const [chartData, setChartData] = useState<Array<{
+    date: string;
+    price: number;
+    sentiment?: number;
+    close: number;
+    high: number;
+    low: number;
+    open: number;
+    volume: number;
+  }>>([]);
   const [isLoadingChart, setIsLoadingChart] = useState(true);
   const [chartError, setChartError] = useState<string | null>(null);
   const [realIndexData, setRealIndexData] = useState(index);
