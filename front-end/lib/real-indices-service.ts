@@ -747,6 +747,9 @@ export class RealIndicesService {
             return await this.getCryptoData("ETH", config);
           case "EUR_USD":
             return await this.getForexData("EUR", "USD", config);
+          case "VIX_INDEX":
+            // VIX is not available in AlphaVantage, use fallback data
+            return this.getFallbackData(config);
           default:
             // Stocks, ETFs, and indices
             return await this.getStockData(config.symbol, config);
