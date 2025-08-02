@@ -39,6 +39,7 @@ contract MockIndexOracle {
         string sourceUrl;     // URL where this index data comes from
         bool isActive;
         OracleType oracleType; // Which oracle to use for this index
+        address creator;      // Address that created this index
     }
     
     mapping(IndexType => IndexData) public indexData;
@@ -51,7 +52,7 @@ contract MockIndexOracle {
     address public defaultChainlinkOracleAddress;  // Fallback for backward compatibility
     
     event IndexUpdated(IndexType indexed indexType, uint256 value, uint256 timestamp, string sourceUrl);
-    event CustomIndexCreated(uint256 indexed indexId, uint256 value, uint256 timestamp, string sourceUrl);
+    event CustomIndexCreated(uint256 indexed indexId, uint256 value, uint256 timestamp, string sourceUrl, address indexed creator);
     event SourceUrlUpdated(uint256 indexed indexId, string oldUrl, string newUrl);
     event OracleTypeUpdated(uint256 indexed indexId, OracleType oldType, OracleType newType);
     event ChainlinkOracleUpdated(address oldAddress, address newAddress);
@@ -62,17 +63,37 @@ contract MockIndexOracle {
         _;
     }
     
+    modifier onlyOwnerOrCreator(uint256 indexId) {
+        if (indexId <= 5) {
+            // For predefined indices, check owner or predefined creator
+            IndexType indexType;
+            if (indexId == 0) indexType = IndexType.INFLATION_RATE;
+            else if (indexId == 1) indexType = IndexType.ELON_FOLLOWERS;
+            else if (indexId == 2) indexType = IndexType.BTC_PRICE;
+            else if (indexId == 3) indexType = IndexType.VIX_INDEX;
+            else if (indexId == 4) indexType = IndexType.UNEMPLOYMENT_RATE;
+            else if (indexId == 5) indexType = IndexType.TESLA_STOCK;
+            
+            require(msg.sender == owner || msg.sender == indexData[indexType].creator, "Not owner or creator");
+        } else {
+            // For custom indices
+            require(msg.sender == owner || msg.sender == customIndexData[indexId].creator, "Not owner or creator");
+        }
+        _;
+    }
+    
     constructor() {
         owner = msg.sender;
         
         // Initialize with mock data (scaled to avoid decimals)
-        // Default to MOCK oracle type for all indices
+        // Default to MOCK oracle type for all indices, deployer is creator
         indexData[IndexType.INFLATION_RATE] = IndexData({
             value: 320, // 3.20%
             timestamp: block.timestamp,
             sourceUrl: "https://api.bls.gov/publicAPI/v2/timeseries/CUUR0000SA0",
             isActive: true,
-            oracleType: OracleType.MOCK
+            oracleType: OracleType.MOCK,
+            creator: msg.sender
         });
         
         indexData[IndexType.ELON_FOLLOWERS] = IndexData({
@@ -80,7 +101,8 @@ contract MockIndexOracle {
             timestamp: block.timestamp,
             sourceUrl: "https://api.twitter.com/2/users/by/username/elonmusk",
             isActive: true,
-            oracleType: OracleType.MOCK
+            oracleType: OracleType.MOCK,
+            creator: msg.sender
         });
         
         indexData[IndexType.BTC_PRICE] = IndexData({
@@ -88,7 +110,8 @@ contract MockIndexOracle {
             timestamp: block.timestamp,
             sourceUrl: "https://api.coindesk.com/v1/bpi/currentprice.json",
             isActive: true,
-            oracleType: OracleType.MOCK
+            oracleType: OracleType.MOCK,
+            creator: msg.sender
         });
         
         indexData[IndexType.VIX_INDEX] = IndexData({
@@ -96,7 +119,8 @@ contract MockIndexOracle {
             timestamp: block.timestamp,
             sourceUrl: "https://api.cboe.com/data/historical/VIX",
             isActive: true,
-            oracleType: OracleType.MOCK
+            oracleType: OracleType.MOCK,
+            creator: msg.sender
         });
         
         indexData[IndexType.UNEMPLOYMENT_RATE] = IndexData({
@@ -104,7 +128,8 @@ contract MockIndexOracle {
             timestamp: block.timestamp,
             sourceUrl: "https://api.bls.gov/publicAPI/v2/timeseries/LNS14000000",
             isActive: true,
-            oracleType: OracleType.MOCK
+            oracleType: OracleType.MOCK,
+            creator: msg.sender
         });
         
         indexData[IndexType.TESLA_STOCK] = IndexData({
@@ -112,7 +137,8 @@ contract MockIndexOracle {
             timestamp: block.timestamp,
             sourceUrl: "https://api.polygon.io/v2/last/trade/TSLA",
             isActive: true,
-            oracleType: OracleType.MOCK
+            oracleType: OracleType.MOCK,
+            creator: msg.sender
         });
     }
     
@@ -368,7 +394,8 @@ contract MockIndexOracle {
             timestamp: block.timestamp,
             sourceUrl: sourceUrl,
             isActive: true,
-            oracleType: oracleType
+            oracleType: oracleType,
+            creator: msg.sender
         });
         
         // Set per-index Chainlink oracle address if provided
@@ -377,7 +404,7 @@ contract MockIndexOracle {
             emit IndexChainlinkOracleUpdated(indexId, address(0), chainlinkOracleAddress);
         }
         
-        emit CustomIndexCreated(indexId, initialValue, block.timestamp, sourceUrl);
+        emit CustomIndexCreated(indexId, initialValue, block.timestamp, sourceUrl, msg.sender);
     }
     
 
@@ -389,7 +416,7 @@ contract MockIndexOracle {
      * @param indexId ID of the custom index
      * @param newValue New value for the index
      */
-    function updateCustomIndex(uint256 indexId, uint256 newValue) external onlyOwner {
+    function updateCustomIndex(uint256 indexId, uint256 newValue) external onlyOwnerOrCreator(indexId) {
         if (indexId <= 5) {
             // Handle predefined indices
             IndexType indexType;
@@ -418,7 +445,7 @@ contract MockIndexOracle {
      * @param indexId ID of the custom index
      * @param isActive Whether the index should be active
      */
-    function setCustomIndexActive(uint256 indexId, bool isActive) external onlyOwner {
+    function setCustomIndexActive(uint256 indexId, bool isActive) external onlyOwnerOrCreator(indexId) {
         if (indexId <= 5) {
             // Handle predefined indices
             IndexType indexType;
@@ -452,7 +479,7 @@ contract MockIndexOracle {
      * @param indexId ID of the index
      * @param _chainlinkOracleAddress Address of the Chainlink oracle for this specific index
      */
-    function setIndexChainlinkOracle(uint256 indexId, address _chainlinkOracleAddress) external onlyOwner {
+    function setIndexChainlinkOracle(uint256 indexId, address _chainlinkOracleAddress) external onlyOwnerOrCreator(indexId) {
         address oldAddress = indexChainlinkOracles[indexId];
         indexChainlinkOracles[indexId] = _chainlinkOracleAddress;
         
@@ -520,7 +547,7 @@ contract MockIndexOracle {
      * @param indexId ID of the index (0-5 for predefined indices)
      * @param oracleType New oracle type (MOCK or CHAINLINK)
      */
-    function setIndexOracleType(uint256 indexId, OracleType oracleType) external onlyOwner {
+    function setIndexOracleType(uint256 indexId, OracleType oracleType) external onlyOwnerOrCreator(indexId) {
         require(indexId <= 5, "Use setCustomIndexOracleType for custom indices");
         
         IndexType indexType;
@@ -542,7 +569,7 @@ contract MockIndexOracle {
      * @param indexId ID of the custom index (>5)
      * @param oracleType New oracle type (MOCK or CHAINLINK)
      */
-    function setCustomIndexOracleType(uint256 indexId, OracleType oracleType) external onlyOwner {
+    function setCustomIndexOracleType(uint256 indexId, OracleType oracleType) external onlyOwnerOrCreator(indexId) {
         require(indexId > 5, "Use setIndexOracleType for predefined indices");
         require(customIndexData[indexId].isActive, "Index not found");
         
@@ -649,6 +676,121 @@ contract MockIndexOracle {
                     chainlinkIndicesCount++;
                 }
             }
+        }
+    }
+    
+    /**
+     * @notice Get the creator of an index
+     * @param indexId ID of the index
+     * @return creator Address of the index creator
+     */
+    function getIndexCreator(uint256 indexId) external view returns (address creator) {
+        if (indexId <= 5) {
+            IndexType indexType;
+            if (indexId == 0) indexType = IndexType.INFLATION_RATE;
+            else if (indexId == 1) indexType = IndexType.ELON_FOLLOWERS;
+            else if (indexId == 2) indexType = IndexType.BTC_PRICE;
+            else if (indexId == 3) indexType = IndexType.VIX_INDEX;
+            else if (indexId == 4) indexType = IndexType.UNEMPLOYMENT_RATE;
+            else if (indexId == 5) indexType = IndexType.TESLA_STOCK;
+            
+            return indexData[indexType].creator;
+        } else {
+            require(customIndexData[indexId].isActive, "Index not found");
+            return customIndexData[indexId].creator;
+        }
+    }
+    
+    /**
+     * @notice Check if caller is the creator of an index
+     * @param indexId ID of the index
+     * @return isCreator Whether the caller is the creator
+     */
+    function isIndexCreator(uint256 indexId) external view returns (bool isCreator) {
+        if (indexId <= 5) {
+            IndexType indexType;
+            if (indexId == 0) indexType = IndexType.INFLATION_RATE;
+            else if (indexId == 1) indexType = IndexType.ELON_FOLLOWERS;
+            else if (indexId == 2) indexType = IndexType.BTC_PRICE;
+            else if (indexId == 3) indexType = IndexType.VIX_INDEX;
+            else if (indexId == 4) indexType = IndexType.UNEMPLOYMENT_RATE;
+            else if (indexId == 5) indexType = IndexType.TESLA_STOCK;
+            
+            return msg.sender == indexData[indexType].creator;
+        } else {
+            if (!customIndexData[indexId].isActive) return false;
+            return msg.sender == customIndexData[indexId].creator;
+        }
+    }
+    
+    /**
+     * @notice Get detailed index information including creator
+     * @param indexId ID of the index
+     * @return value Current value
+     * @return timestamp Last update timestamp
+     * @return sourceUrl Data source URL
+     * @return isActive Whether index is active
+     * @return oracleType Oracle type (MOCK or CHAINLINK)
+     * @return creator Creator address
+     */
+    function getIndexDetails(uint256 indexId) external view returns (
+        uint256 value,
+        uint256 timestamp,
+        string memory sourceUrl,
+        bool isActive,
+        OracleType oracleType,
+        address creator
+    ) {
+        if (indexId <= 5) {
+            IndexType indexType;
+            if (indexId == 0) indexType = IndexType.INFLATION_RATE;
+            else if (indexId == 1) indexType = IndexType.ELON_FOLLOWERS;
+            else if (indexId == 2) indexType = IndexType.BTC_PRICE;
+            else if (indexId == 3) indexType = IndexType.VIX_INDEX;
+            else if (indexId == 4) indexType = IndexType.UNEMPLOYMENT_RATE;
+            else if (indexId == 5) indexType = IndexType.TESLA_STOCK;
+            
+            IndexData memory data = indexData[indexType];
+            return (data.value, data.timestamp, data.sourceUrl, data.isActive, data.oracleType, data.creator);
+        } else {
+            require(customIndexData[indexId].isActive, "Index not found");
+            IndexData memory data = customIndexData[indexId];
+            return (data.value, data.timestamp, data.sourceUrl, data.isActive, data.oracleType, data.creator);
+        }
+    }
+    
+    /**
+     * @notice Get all custom indices with their details including creators
+     * @return indexIds Array of all custom index IDs
+     * @return values Array of current values for each index
+     * @return timestamps Array of last update timestamps for each index
+     * @return activeStates Array of active states for each index
+     * @return creators Array of creator addresses for each index
+     */
+    function getAllCustomIndicesWithCreators() external view returns (
+        uint256[] memory indexIds,
+        uint256[] memory values,
+        uint256[] memory timestamps,
+        bool[] memory activeStates,
+        address[] memory creators
+    ) {
+        uint256 totalIndices = nextCustomIndexId - 6; // Number of custom indices created
+        
+        indexIds = new uint256[](totalIndices);
+        values = new uint256[](totalIndices);
+        timestamps = new uint256[](totalIndices);
+        activeStates = new bool[](totalIndices);
+        creators = new address[](totalIndices);
+        
+        for (uint256 i = 0; i < totalIndices; i++) {
+            uint256 indexId = 6 + i; // Custom indices start at ID 6
+            IndexData memory data = customIndexData[indexId];
+            
+            indexIds[i] = indexId;
+            values[i] = data.value;
+            timestamps[i] = data.timestamp;
+            activeStates[i] = data.isActive;
+            creators[i] = data.creator;
         }
     }
     
