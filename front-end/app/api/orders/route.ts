@@ -206,49 +206,83 @@ function getTokenInfo(tokenInput: string) {
 }
 
 /**
- * Check wallet balances before attempting transactions
+ * Check wallet balances and estimate gas costs using comprehensive gas estimator
  */
-async function checkWalletBalances(wallet: Wallet, token: any, amount: any) {
-  const provider = new ethers.providers.JsonRpcProvider(CONFIG.RPC_URL);
-  const connectedWallet = wallet.connect(provider);
+async function checkWalletBalancesAndGas(wallet: Wallet, token: any, amount: any) {
+  console.log('💰 Comprehensive balance and gas check...');
   
-  // Check ETH balance for gas
-  const ethBalance = await provider.getBalance(wallet.address);
-  const ethBalanceFormatted = ethers.utils.formatEther(ethBalance);
-  console.log(`💰 ETH Balance: ${ethBalanceFormatted} ETH`);
-  
-  // Estimate gas cost (rough estimate)
-  const gasPrice = await provider.getGasPrice();
-  const estimatedGasCost = gasPrice.mul(200000); // Rough estimate for approval + order
-  const estimatedCostEth = ethers.utils.formatEther(estimatedGasCost);
-  
-  console.log(`⛽ Estimated gas cost: ${estimatedCostEth} ETH`);
-  
-  if (ethBalance.lt(estimatedGasCost)) {
-    console.log(`⚠️  WARNING: Low ETH balance for gas fees. Need ~${estimatedCostEth} ETH, have ${ethBalanceFormatted} ETH`);
-    console.log(`💡 To fund wallet, send ETH to: ${wallet.address}`);
-    console.log(`📝 Order will be created but token approval and submission may fail`);
-  } else {
-    console.log(`✅ Sufficient ETH balance for gas fees`);
-  }
-  
-  // Check token balance
-  if (token.address.toLowerCase() !== '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee') {
-    const erc20Abi = ['function balanceOf(address account) view returns (uint256)'];
-    const tokenContract = new ethers.Contract(token.address, erc20Abi, provider);
-    const tokenBalance = await tokenContract.balanceOf(wallet.address);
-    const tokenBalanceFormatted = ethers.utils.formatUnits(tokenBalance, token.decimals);
-    const requiredAmount = ethers.utils.formatUnits(amount, token.decimals);
+  try {
+    // Calculate total gas cost for the entire operation (approval + order creation)
+    const operations = [
+      {
+        type: 'approval' as const,
+        tokenAddress: token.address,
+        walletAddress: wallet.address
+      },
+      {
+        type: 'order-create' as const,
+        walletAddress: wallet.address
+      }
+    ];
     
-    console.log(`🪙 ${token.symbol} Balance: ${tokenBalanceFormatted} ${token.symbol}`);
-    console.log(`🎯 Required Amount: ${requiredAmount} ${token.symbol}`);
+    const gasEstimate = await calculateTotalTransactionCost(operations);
     
-    if (tokenBalance.lt(amount)) {
-      console.log(`⚠️  WARNING: Insufficient ${token.symbol} balance. Need ${requiredAmount} ${token.symbol}, have ${tokenBalanceFormatted} ${token.symbol}`);
-      console.log(`📝 Order will be created but may fail during execution`);
-    } else {
-      console.log(`✅ Sufficient ${token.symbol} balance`);
+    console.log('📊 GAS ESTIMATION BREAKDOWN:');
+    console.log('============================');
+    gasEstimate.breakdown.forEach((estimate, index) => {
+      console.log(`${index + 1}. ${estimate.recommendation}: ${formatGasEstimate(estimate)}`);
+    });
+    console.log(`📊 Total: ${gasEstimate.totalCostEth} ETH`);
+    
+    // Check if wallet has enough ETH for gas
+    const balanceCheck = await checkGasBalance(wallet.address, gasEstimate.totalCostWei);
+    
+    console.log('💰 WALLET BALANCE CHECK:');
+    console.log('========================');
+    console.log(`Current Balance: ${balanceCheck.currentBalanceEth} ETH`);
+    console.log(`Required for Gas: ${balanceCheck.requiredBalanceEth} ETH`);
+    console.log(`Status: ${balanceCheck.hasEnoughGas ? '✅ Sufficient' : '⚠️  Insufficient'}`);
+    
+    if (!balanceCheck.hasEnoughGas && balanceCheck.shortfallEth) {
+      console.log(`Shortfall: ${balanceCheck.shortfallEth} ETH`);
+      console.log(getFundingInstructions(wallet.address, balanceCheck.shortfallEth));
     }
+    
+    // Check token balance
+    if (token.address.toLowerCase() !== '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee') {
+      const provider = new ethers.providers.JsonRpcProvider(CONFIG.RPC_URL);
+      const erc20Abi = ['function balanceOf(address account) view returns (uint256)'];
+      const tokenContract = new ethers.Contract(token.address, erc20Abi, provider);
+      const tokenBalance = await tokenContract.balanceOf(wallet.address);
+      const tokenBalanceFormatted = ethers.utils.formatUnits(tokenBalance, token.decimals);
+      const requiredAmount = ethers.utils.formatUnits(amount, token.decimals);
+      
+      console.log('🪙 TOKEN BALANCE CHECK:');
+      console.log('======================');
+      console.log(`${token.symbol} Balance: ${tokenBalanceFormatted} ${token.symbol}`);
+      console.log(`Required Amount: ${requiredAmount} ${token.symbol}`);
+      console.log(`Status: ${tokenBalance.gte(amount) ? '✅ Sufficient' : '⚠️  Insufficient'}`);
+      
+      if (tokenBalance.lt(amount)) {
+        console.log(`⚠️  Need ${requiredAmount} ${token.symbol}, have ${tokenBalanceFormatted} ${token.symbol}`);
+        console.log(`📝 Order will be created but may fail during execution`);
+      }
+    }
+    
+    return {
+      gasEstimate,
+      balanceCheck,
+      hasEnoughGas: balanceCheck.hasEnoughGas
+    };
+    
+  } catch (error) {
+    console.error('❌ Balance/gas check failed:', error);
+    console.log('📝 Continuing with order creation using fallback estimates');
+    return {
+      gasEstimate: null,
+      balanceCheck: null,
+      hasEnoughGas: false
+    };
   }
 }
 
