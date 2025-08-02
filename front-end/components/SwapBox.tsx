@@ -69,16 +69,7 @@ export function SwapBox({
 
   const isConfigured = !!oneInchService;
 
-  // Debug logging for wallet connection
-  useEffect(() => {
-    console.log("🔍 SwapBox Debug:", {
-      walletAddress,
-      apiKey: !!apiKey,
-      rpcUrl,
-      isConfigured,
-      hasOneInchService: !!oneInchService
-    });
-  }, [walletAddress, apiKey, rpcUrl, isConfigured, oneInchService]);
+
 
   // Initialize with popular tokens (crash-safe)
   useEffect(() => {
@@ -224,14 +215,7 @@ export function SwapBox({
   };
 
   const handleClassicSwap = async () => {
-    console.log("🔍 handleClassicSwap called with:", {
-      oneInchService: !!oneInchService,
-      fromAmount,
-      quote: !!quote,
-      fromToken: fromToken?.symbol,
-      toToken: toToken?.symbol,
-      walletAddress
-    });
+
 
     if (!oneInchService || !fromAmount || !quote || !fromToken || !toToken)
       return;

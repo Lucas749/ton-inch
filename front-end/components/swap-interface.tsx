@@ -77,16 +77,7 @@ export function SwapInterface({
 
   const isConfigured = !!oneInchService;
 
-  // Debug logging for wallet connection
-  useEffect(() => {
-    console.log("🔍 SwapInterface Debug:", {
-      walletAddress,
-      apiKey: !!apiKey,
-      rpcUrl,
-      isConfigured,
-      hasOneInchService: !!oneInchService
-    });
-  }, [walletAddress, apiKey, rpcUrl, isConfigured, oneInchService]);
+
 
   // Initialize with popular tokens
   useEffect(() => {

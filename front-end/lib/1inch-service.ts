@@ -203,6 +203,8 @@ export class OneInchService {
       proxyPath += '/quote';
     } else if (path.includes('/swap')) {
       proxyPath += '/swap';  
+    } else if (path.includes('/fusion')) {
+      proxyPath += '/fusion';
     } else {
       // Default to swap endpoint for other paths
       proxyPath += '/swap';
@@ -489,10 +491,24 @@ export class OneInchService {
       ...(params.nonce && { nonce: params.nonce }),
     };
 
-    return this.callFusionAPI<IntentSwapQuoteResponse>(
-      "/quote/receive",
-      queryParams
-    );
+    // Use proxy endpoint instead of direct fusion API call
+    const url = this.buildQueryURL("/fusion", queryParams);
+    
+    console.log("🌐 Intent swap quote using proxy:", url);
+    
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`Fusion API proxy returned status ${response.status}: ${body}`);
+    }
+
+    return (await response.json()) as IntentSwapQuoteResponse;
   }
 
   /**
