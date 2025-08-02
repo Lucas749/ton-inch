@@ -176,7 +176,8 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
         avatar: blockchainIndex.avatar || prev.avatar,
         color: blockchainIndex.color || prev.color,  
         category: blockchainIndex.category || prev.category,
-        description: blockchainIndex.description || prev.description
+        description: blockchainIndex.description || prev.description,
+        sourceUrl: blockchainIndex.sourceUrl || prev.sourceUrl
       }));
     }
   }, [blockchainIndex]);
@@ -200,8 +201,33 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
 
   // Load historical chart data
   const loadChartData = async () => {
-    const symbol = getAlphaVantageSymbol(index.id);
     const apiKey = process.env.NEXT_PUBLIC_ALPHAVANTAGE || "123";
+    
+    // Use blockchain index sourceUrl if available, otherwise fallback to symbol mapping
+    let symbol = getAlphaVantageSymbol(index.id);
+    let useRealAlphaVantageData = false;
+    let alphaVantageFunction = null;
+    let alphaVantageSymbol = null;
+    
+    if (blockchainIndex && blockchainIndex.sourceUrl && blockchainIndex.sourceUrl.includes('alphavantage.co')) {
+      try {
+        const url = new URL(blockchainIndex.sourceUrl);
+        alphaVantageFunction = url.searchParams.get('function');
+        alphaVantageSymbol = url.searchParams.get('symbol');
+        useRealAlphaVantageData = true;
+        
+        // Update symbol for API calls
+        if (alphaVantageSymbol) {
+          symbol = alphaVantageSymbol;
+        } else if (alphaVantageFunction) {
+          symbol = alphaVantageFunction;
+        }
+        
+        console.log(`📊 Using real Alpha Vantage data: function=${alphaVantageFunction}, symbol=${alphaVantageSymbol}`);
+      } catch (error) {
+        console.warn('Could not parse blockchain index sourceUrl:', error);
+      }
+    }
     
     // Check which tokens we can fetch data for
     const canFetchFromToken = fromToken && !shouldSkipToken(fromToken.symbol);
@@ -244,7 +270,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
         }
       };
       
-      // Determine the appropriate API call based on symbol type
+      // Determine the appropriate API call based on Alpha Vantage function or symbol type
       let response: TimeSeriesResponse | undefined;
       let parsedData: Array<{
         date: string;
@@ -255,7 +281,59 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
         volume: number;
       }>;
 
-      if (symbol.includes('USD') && !symbol.includes('/')) {
+      // Use real Alpha Vantage function if available
+      if (useRealAlphaVantageData && alphaVantageFunction) {
+        console.log(`📊 Making Alpha Vantage API call with function: ${alphaVantageFunction}`);
+        
+        if (alphaVantageFunction === 'EARNINGS_ESTIMATES' && alphaVantageSymbol) {
+          // For earnings estimates, fallback to stock price data
+          console.log(`📈 Fetching stock data for earnings symbol: ${alphaVantageSymbol}`);
+          response = await alphaVantageService.getDailyTimeSeries(alphaVantageSymbol, false, "compact");
+          parsedData = AlphaVantageService.parseTimeSeriesData(response);
+        } else if (alphaVantageFunction === 'GLOBAL_QUOTE' && alphaVantageSymbol) {
+          // Stock quote - use daily time series
+          console.log(`📈 Fetching stock data for: ${alphaVantageSymbol}`);
+          response = await alphaVantageService.getDailyTimeSeries(alphaVantageSymbol, false, "compact");
+          parsedData = AlphaVantageService.parseTimeSeriesData(response);
+        } else if (alphaVantageFunction === 'DIGITAL_CURRENCY_DAILY' && alphaVantageSymbol) {
+          // Crypto currency
+          console.log(`📈 Fetching crypto data for: ${alphaVantageSymbol}`);
+          const cryptoResponse = await alphaVantageService.getCryptoTimeSeries(alphaVantageSymbol, 'USD', 'daily');
+          parsedData = AlphaVantageService.parseTimeSeriesData(cryptoResponse);
+        } else if (['CORN', 'WHEAT', 'WTI', 'BRENT', 'NATURAL_GAS', 'COPPER', 'ALUMINUM', 'ZINC', 'NICKEL', 'GOLD', 'SILVER'].includes(alphaVantageFunction)) {
+          // Commodity functions
+          console.log(`📈 Fetching commodity data for: ${alphaVantageFunction}`);
+          let commodityResponse: any;
+          
+          switch (alphaVantageFunction) {
+            case 'WTI':
+              commodityResponse = await alphaVantageService.getWTIOil('monthly');
+              break;
+            case 'BRENT':
+              commodityResponse = await alphaVantageService.getBrentOil('monthly');
+              break;
+            case 'WHEAT':
+              commodityResponse = await alphaVantageService.getWheat('monthly');
+              break;
+            case 'CORN':
+              commodityResponse = await alphaVantageService.getCorn('monthly');
+              break;
+            default:
+              // For other commodities, fallback to SPY data
+              response = await alphaVantageService.getDailyTimeSeries('SPY', false, "compact");
+              parsedData = AlphaVantageService.parseTimeSeriesData(response);
+          }
+          
+          if (commodityResponse) {
+            parsedData = AlphaVantageService.parseTimeSeriesData(commodityResponse);
+          }
+        } else {
+          // Fallback to stock data
+          console.log(`📈 Fallback: fetching stock data for: ${symbol}`);
+          response = await alphaVantageService.getDailyTimeSeries(symbol, false, "compact");
+          parsedData = AlphaVantageService.parseTimeSeriesData(response);
+        }
+      } else if (symbol.includes('USD') && !symbol.includes('/')) {
         // Crypto symbols like BTCUSD, ETHUSD
         console.log(`📈 Fetching crypto data for ${symbol}`);
         const cryptoResponse = await alphaVantageService.getCryptoTimeSeries(
@@ -614,6 +692,16 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                   <h1 className="text-3xl font-bold text-gray-900">{realIndexData.name}</h1>
                   <div className="flex items-center space-x-2">
                     <span className="text-gray-600">${realIndexData.symbol}</span>
+                    {realIndexData.sourceUrl && (
+                      <a 
+                        href={realIndexData.sourceUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-blue-500 hover:text-blue-700 text-sm underline"
+                      >
+                        📊 Data Source
+                      </a>
+                    )}
                     <span className="text-gray-400">•</span>
                     <span className="text-sm text-gray-500">{realIndexData.handle}</span>
                   </div>

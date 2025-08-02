@@ -289,6 +289,9 @@ export class BlockchainIndices {
 
           console.log(`🔍 Index ${id} final name: "${name}", symbol: "${alphaVantageSymbol || `IDX${id}`}", category: "${category}"`);
           
+          // Extract sourceUrl for external link
+          const sourceUrl = indexDetails && indexDetails[2] ? indexDetails[2] : null;
+          
           indices.push({
             id,
             name,
@@ -302,7 +305,8 @@ export class BlockchainIndices {
             category,
             avatar,
             color,
-            symbol: alphaVantageSymbol || `IDX${id}`
+            symbol: alphaVantageSymbol || `IDX${id}`,
+            sourceUrl: sourceUrl
           });
           
           console.log(`✅ Loaded custom ${name}: ${value} basis points (active: ${active})`);
