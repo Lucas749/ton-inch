@@ -87,101 +87,100 @@ export class BlockchainIndices {
   private async fetchAllIndices(): Promise<CustomIndex[]> {
     const indices: CustomIndex[] = [];
 
-      // Get the actual list of created custom indices from the oracle
-      try {
-        const customIndicesArray = await this.oracle.methods.getAllCustomIndices().call();
-        console.log("📊 Found custom indices:", customIndicesArray);
-        
-        for (let i = 0; i < customIndicesArray.length; i++) {
-          const indexId = customIndicesArray[i];
-          try {
-            const id = Number(indexId);
-            
-            // Use retry logic for getIndexValue
-            const result = await retryWithBackoff(async () => {
-              return await this.oracle.methods.getIndexValue(id).call();
-            });
-            
-            // Try to get additional info from PreInteraction contract
-            let indexInfo = null;
-            try {
-              indexInfo = await retryWithBackoff(async () => {
-                return await this.preInteraction.methods.getIndexInfo(id).call();
-              });
-            } catch (e) {
-              // Index not registered in PreInteraction, use default values
-            }
+    // First, load the 4 predefined indices (Apple=0, Tesla=1, VIX=2, BTC=3)
+    console.log("🔍 Loading predefined indices (0-3)...");
+    const predefinedIndices = [
+      { id: 0, name: "Apple Stock", symbol: "AAPL", description: "Apple Inc. stock price" },
+      { id: 1, name: "Tesla Stock", symbol: "TSLA", description: "Tesla Inc. stock price" },
+      { id: 2, name: "VIX Volatility Index", symbol: "VIX", description: "CBOE Volatility Index" },
+      { id: 3, name: "Bitcoin Price", symbol: "BTC", description: "Bitcoin price in USD" }
+    ];
 
+    for (const predefined of predefinedIndices) {
+      try {
+        const result = await retryWithBackoff(async () => {
+          return await this.oracle.methods.getIndexValue(predefined.id).call();
+        });
+        
+        if (result && result[0]) {
+          indices.push({
+            id: predefined.id,
+            name: predefined.name,
+            description: predefined.description,
+            value: Number(result[0]),
+            timestamp: Number(result[1]) || Date.now(),
+            active: true,
+            creator: CONTRACTS.IndexOracle,
+            createdAt: 0
+          });
+          console.log(`✅ Loaded ${predefined.name}: ${Number(result[0])} basis points`);
+        }
+        
+        // Add small delay between requests
+        await delay(100);
+      } catch (error) {
+        console.warn(`⚠️ Could not load predefined index ${predefined.name}:`, error);
+        // Still add the index with default values so it shows up
+        indices.push({
+          id: predefined.id,
+          name: predefined.name,
+          description: predefined.description,
+          value: 0,
+          timestamp: 0,
+          active: false,
+          creator: CONTRACTS.IndexOracle,
+          createdAt: 0
+        });
+      }
+    }
+
+    // Then load any custom indices (starting from ID 4)
+    console.log("🔍 Loading custom indices (4+)...");
+    try {
+      const customIndicesArray = await this.oracle.methods.getAllCustomIndices().call();
+      console.log("📊 Found custom indices:", customIndicesArray);
+      
+      for (let i = 0; i < customIndicesArray.length; i++) {
+        const indexId = customIndicesArray[i];
+        const id = Number(indexId);
+        
+        // Skip if it's one of the predefined indices we already loaded
+        if (id < 4) continue;
+        
+        try {
+          const result = await retryWithBackoff(async () => {
+            return await this.oracle.methods.getIndexValue(id).call();
+          });
+          
+          if (result && result[0]) {
             indices.push({
               id,
-              name: indexInfo?.name || `Custom Index ${id}`,
-              description:
-                indexInfo?.description || `Custom index with ID ${id}`,
+              name: `Custom Index ${id}`,
+              description: `User-created index #${id}`,
               value: Number(result[0]),
               timestamp: Number(result[1]),
-              active: indexInfo?.isActive ?? true,
-              creator: indexInfo?.creator,
-              createdAt: indexInfo?.createdAt
-                ? Number(indexInfo.createdAt)
-                : undefined,
+              active: true,
+              creator: "Unknown",
+              createdAt: Number(result[1])
             });
-            
-            // Add delay between requests to avoid overwhelming RPC
-            if (i < customIndicesArray.length - 1) {
-              await delay(200);
-            }
-          } catch (e) {
-            console.warn(`⚠️ Failed to load index ${indexId}:`, e);
-            continue;
+            console.log(`✅ Loaded custom index ${id}: ${Number(result[0])}`);
           }
-        }
-      } catch (error) {
-        console.warn("Could not get custom indices list, falling back to range scan:", error);
-        
-        // Fallback: scan a wider range and validate more carefully
-        for (let i = 0; i <= 50; i++) {
-          try {
-            const result = await retryWithBackoff(async () => {
-              return await this.oracle.methods.getIndexValue(i).call();
-            });
-            
-            // More robust existence check: ensure we have valid data and timestamp
-            if (result && result[0] && Number(result[0]) > 0 && Number(result[1]) > 0) {
-              let indexInfo = null;
-              try {
-                indexInfo = await retryWithBackoff(async () => {
-                  return await this.preInteraction.methods.getIndexInfo(i).call();
-                });
-              } catch (e) {
-                // Index not registered in PreInteraction
-              }
-
-              indices.push({
-                id: i,
-                name: indexInfo?.name || `Custom Index ${i}`,
-                description:
-                  indexInfo?.description || `Custom index with ID ${i}`,
-                value: Number(result[0]),
-                timestamp: Number(result[1]),
-                active: indexInfo?.isActive ?? true,
-                creator: indexInfo?.creator,
-                createdAt: indexInfo?.createdAt
-                  ? Number(indexInfo.createdAt)
-                  : undefined,
-              });
-            }
-            
-            // Add delay between fallback requests
-            await delay(100);
-          } catch (e) {
-            // Index doesn't exist, continue
-            continue;
+          
+          // Add delay between requests
+          if (i < customIndicesArray.length - 1) {
+            await delay(200);
           }
+        } catch (e) {
+          console.warn(`⚠️ Failed to load custom index ${indexId}:`, e);
+          continue;
         }
       }
+    } catch (error) {
+      console.warn("Could not get custom indices list:", error);
+    }
 
-      console.log(`✅ Loaded ${indices.length} total indices`);
-      return indices.sort((a, b) => a.id - b.id);
+    console.log(`✅ Loaded ${indices.length} total indices`);
+    return indices.sort((a, b) => a.id - b.id);
   }
 
   /**
