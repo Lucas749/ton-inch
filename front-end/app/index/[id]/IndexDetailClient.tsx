@@ -92,31 +92,10 @@ const getBlockchainIndexId = (indexId: string): number | null => {
   return indexMap[indexId] ?? null;
 };
 
-// Map token symbols to Alpha Vantage symbols for price data
-const getTokenAlphaVantageSymbol = (tokenSymbol: string): string | null => {
-  const tokenMap: Record<string, string> = {
-    // Major crypto
-    'ETH': 'ETHUSD',
-    'WETH': 'ETHUSD',  // Wrapped ETH = ETH price
-    'BTC': 'BTCUSD',
-    'WBTC': 'BTCUSD',  // Wrapped BTC = BTC price
-    
-    // Major stocks (if tokens represent stock derivatives)
-    'AAPL': 'AAPL',
-    'TSLA': 'TSLA',
-    'MSFT': 'MSFT',
-    'GOOGL': 'GOOGL',
-    'META': 'META',
-    'NVDA': 'NVDA',
-    
-    // Stablecoins - no Alpha Vantage data needed, always ~$1
-    'USDC': null,
-    'USDT': null,
-    'DAI': null,
-    'BUSD': null,
-  };
-  
-  return tokenMap[tokenSymbol.toUpperCase()] || null;
+// Check if token should be skipped (stablecoins are always ~$1)
+const shouldSkipToken = (tokenSymbol: string): boolean => {
+  const stablecoins = ['USDC', 'USDT', 'DAI', 'BUSD', 'FRAX', 'FDUSD'];
+  return stablecoins.includes(tokenSymbol.toUpperCase());
 };
 
 export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) {
@@ -125,7 +104,8 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
   const [chartData, setChartData] = useState<Array<{
     date: string;
     price: number;
-    correlationToken?: number;
+    fromTokenPrice?: number;
+    toTokenPrice?: number;
     close: number;
     high: number;
     low: number;
@@ -207,19 +187,9 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
     const symbol = getAlphaVantageSymbol(index.id);
     const apiKey = process.env.NEXT_PUBLIC_ALPHAVANTAGE || "123";
     
-    // Get correlation token from conditional order tokens
-    let correlationSymbol: string | null = null;
-    let correlationTokenName = '';
-    
-    // Try fromToken first, then toToken
-    if (fromToken) {
-      correlationSymbol = getTokenAlphaVantageSymbol(fromToken.symbol);
-      correlationTokenName = fromToken.symbol;
-    }
-    if (!correlationSymbol && toToken) {
-      correlationSymbol = getTokenAlphaVantageSymbol(toToken.symbol);
-      correlationTokenName = toToken.symbol;
-    }
+    // Check which tokens we can fetch data for
+    const canFetchFromToken = fromToken && !shouldSkipToken(fromToken.symbol);
+    const canFetchToToken = toToken && !shouldSkipToken(toToken.symbol);
     
     try {
       setIsLoadingChart(true);
@@ -228,12 +198,29 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
       const alphaVantageService = new AlphaVantageService({ apiKey });
       
       console.log(`🔍 Loading chart data for ${symbol} (${index.name})`);
-      if (correlationSymbol) {
-        console.log(`🔗 Loading correlation data for ${correlationTokenName} (${correlationSymbol})`);
-      } else {
-        console.log(`🔗 No Alpha Vantage data available for selected tokens`);
+      if (canFetchFromToken) {
+        console.log(`🔗 Loading fromToken data: ${fromToken?.symbol}`);
+      }
+      if (canFetchToToken) {
+        console.log(`🔗 Loading toToken data: ${toToken?.symbol}`);
+      }
+      if (!canFetchFromToken && !canFetchToToken) {
+        console.log(`🔗 No Alpha Vantage data available for selected tokens (stablecoins skipped)`);
       }
       console.log(`📡 Using API key: ${apiKey.substring(0, 8)}...`);
+
+      // Helper function to fetch token price data using crypto API
+      const fetchTokenData = async (tokenSymbol: string) => {
+        try {
+          console.log(`📈 Fetching crypto data for ${tokenSymbol}`);
+          // Use crypto API for all tokens - Alpha Vantage will handle the lookup
+          const response = await alphaVantageService.getCryptoTimeSeries(tokenSymbol, 'USD', 'daily');
+          return AlphaVantageService.parseTimeSeriesData(response);
+        } catch (error) {
+          console.warn(`⚠️ Could not load crypto data for ${tokenSymbol}:`, error);
+          return [];
+        }
+      };
       
       // Determine the appropriate API call based on symbol type
       let response: TimeSeriesResponse | undefined;
@@ -305,42 +292,21 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
             }))
             .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
           
-          // Fetch correlation token data for commodities only if we have a valid symbol
-          let correlationData: Array<{
-            date: string;
-            open: number;
-            high: number;
-            low: number;
-            close: number;
-            volume: number;
-          }> = [];
+          // Fetch token price data for commodities
+          const fromTokenPriceData = canFetchFromToken ? await fetchTokenData(fromToken!.symbol) : [];
+          const toTokenPriceData = canFetchToToken ? await fetchTokenData(toToken!.symbol) : [];
           
-          if (correlationSymbol) {
-            try {
-              // For crypto correlation tokens, use a stock proxy
-              if (correlationSymbol.includes('USD') && !correlationSymbol.includes('/')) {
-                const correlationResponse = await alphaVantageService.getDailyTimeSeries('SPY', false, "full");
-                correlationData = AlphaVantageService.parseTimeSeriesData(correlationResponse);
-              } else {
-                const correlationResponse = await alphaVantageService.getDailyTimeSeries(correlationSymbol, false, "full");
-                correlationData = AlphaVantageService.parseTimeSeriesData(correlationResponse);
-              }
-              console.log(`📊 Commodity correlation data loaded (${correlationData.length} items)`);
-            } catch (correlationError) {
-              console.warn(`⚠️ Could not load correlation data for ${correlationSymbol}:`, correlationError);
-            }
-          }
-          
-          // Format commodity data for chart with correlation
+          // Format commodity data for chart with token prices
           const chartDataFormatted = rawCommodityData.map((item, index) => {
-            // Find matching correlation data point by date
-            const correlationPoint = correlationData.find(cp => cp.date === item.date);
+            // Find matching token price data points by date
+            const fromTokenPoint = fromTokenPriceData.find(fp => fp.date === item.date);
+            const toTokenPoint = toTokenPriceData.find(tp => tp.date === item.date);
             
             return {
               date: item.date,
               price: item.close,
-              // Add correlation token price
-              correlationToken: correlationPoint ? correlationPoint.close : undefined,
+              fromTokenPrice: fromTokenPoint ? fromTokenPoint.close : undefined,
+              toTokenPrice: toTokenPoint ? toTokenPoint.close : undefined,
               close: item.close,
               high: item.high,
               low: item.low,
@@ -349,7 +315,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
             };
           });
           
-          console.log(`📋 Formatted commodity chart data with correlation (${chartDataFormatted.length} items):`, chartDataFormatted.slice(0, 3));
+          console.log(`📋 Formatted commodity chart data with tokens (${chartDataFormatted.length} items):`, chartDataFormatted.slice(0, 3));
           setChartData(chartDataFormatted);
           return; // Early return for commodity data
         } else {
@@ -367,49 +333,23 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
       }
       console.log(`📈 Parsed data (${parsedData.length} items):`, parsedData.slice(0, 3));
       
-      // Fetch correlation token data only if we have a valid symbol
-      let correlationData: Array<{
-        date: string;
-        open: number;
-        high: number;
-        low: number;
-        close: number;
-        volume: number;
-      }> = [];
-      
-      if (correlationSymbol) {
-        try {
-          console.log(`📈 Fetching correlation token data for ${correlationSymbol}`);
-          
-          // For crypto correlation tokens, we need to handle them specially
-          if (correlationSymbol.includes('USD') && !correlationSymbol.includes('/')) {
-            // This is a crypto symbol like BTCUSD, ETHUSD - for now use a stock proxy
-            const correlationResponse = await alphaVantageService.getDailyTimeSeries('SPY', false, "full");
-            correlationData = AlphaVantageService.parseTimeSeriesData(correlationResponse);
-          } else {
-            // Regular stock
-            const correlationResponse = await alphaVantageService.getDailyTimeSeries(correlationSymbol, false, "full");
-            correlationData = AlphaVantageService.parseTimeSeriesData(correlationResponse);
-          }
-          console.log(`📊 Correlation data loaded (${correlationData.length} items)`);
-        } catch (correlationError) {
-          console.warn(`⚠️ Could not load correlation data for ${correlationSymbol}:`, correlationError);
-          // Continue without correlation data
-        }
-      }
+      // Fetch token price data
+      const fromTokenPriceData = canFetchFromToken ? await fetchTokenData(fromToken!.symbol) : [];
+      const toTokenPriceData = canFetchToToken ? await fetchTokenData(toToken!.symbol) : [];
       
       // Format data for Recharts (last 90 days for 3 months)
       const chartDataFormatted = parsedData
         .slice(-90) // Get last 90 days (approximately 3 months)
         .map((item, index) => {
-          // Find matching correlation data point by date
-          const correlationPoint = correlationData.find(cp => cp.date === item.date);
+          // Find matching token price data points by date
+          const fromTokenPoint = fromTokenPriceData.find(fp => fp.date === item.date);
+          const toTokenPoint = toTokenPriceData.find(tp => tp.date === item.date);
           
           return {
             date: item.date,
             price: item.close,
-            // Add correlation token price (normalized to percentage scale for comparison)
-            correlationToken: correlationPoint ? correlationPoint.close : undefined,
+            fromTokenPrice: fromTokenPoint ? fromTokenPoint.close : undefined,
+            toTokenPrice: toTokenPoint ? toTokenPoint.close : undefined,
             close: item.close,
             high: item.high,
             low: item.low,
@@ -418,7 +358,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
           };
         });
       
-      console.log(`📋 Formatted chart data with correlation (${chartDataFormatted.length} items):`, chartDataFormatted.slice(0, 3));
+      console.log(`📋 Formatted chart data with tokens (${chartDataFormatted.length} items):`, chartDataFormatted.slice(0, 3));
       setChartData(chartDataFormatted);
     } catch (error) {
       console.error("❌ Error loading chart data:", error);
@@ -444,12 +384,23 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
         symbol === 'VIX' ? 20 :     // VIX volatility index
         index.price || 100;         // Default fallback
       
-      // Get correlation token base price for demo data only if we have selected tokens
-      let correlationBasePrice = 0;
-      if (correlationSymbol) {
-        correlationBasePrice = 
-          correlationSymbol === 'BTCUSD' ? 45000 : 
-          correlationSymbol === 'ETHUSD' ? 2500 : 
+      // Get demo base prices for selected tokens
+      let fromTokenBasePrice = 0;
+      let toTokenBasePrice = 0;
+      
+      if (canFetchFromToken) {
+        const tokenSymbol = fromToken!.symbol.toUpperCase();
+        fromTokenBasePrice = 
+          tokenSymbol === 'BTC' || tokenSymbol === 'WBTC' ? 45000 : 
+          tokenSymbol === 'ETH' || tokenSymbol === 'WETH' ? 2500 : 
+          400; // Default for other tokens
+      }
+      
+      if (canFetchToToken) {
+        const tokenSymbol = toToken!.symbol.toUpperCase();
+        toTokenBasePrice = 
+          tokenSymbol === 'BTC' || tokenSymbol === 'WBTC' ? 45000 : 
+          tokenSymbol === 'ETH' || tokenSymbol === 'WETH' ? 2500 : 
           400; // Default for other tokens
       }
       
@@ -470,10 +421,16 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
           volume: Math.floor(Math.random() * 1000000)
         };
         
-        // Only add correlation token if we have a valid symbol
-        if (correlationSymbol && correlationBasePrice > 0) {
-          const correlationPrice = correlationBasePrice * (1 + variation + (Math.random() - 0.5) * 0.05);
-          dataPoint.correlationToken = Number(correlationPrice.toFixed(2));
+        // Add fromToken price if available
+        if (canFetchFromToken && fromTokenBasePrice > 0) {
+          const fromTokenPrice = fromTokenBasePrice * (1 + variation + (Math.random() - 0.5) * 0.05);
+          dataPoint.fromTokenPrice = Number(fromTokenPrice.toFixed(2));
+        }
+        
+        // Add toToken price if available  
+        if (canFetchToToken && toTokenBasePrice > 0) {
+          const toTokenPrice = toTokenBasePrice * (1 + variation + (Math.random() - 0.5) * 0.05);
+          dataPoint.toTokenPrice = Number(toTokenPrice.toFixed(2));
         }
         
         return dataPoint;
@@ -725,13 +682,13 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
                   <CardTitle>
-                    {fromToken || toToken ? 'Price Correlation Analysis (3 Months)' : 'Price Chart (3 Months)'}
+                    {fromToken || toToken ? 'Price Analysis (3 Months)' : 'Price Chart (3 Months)'}
                   </CardTitle>
                   <div className="text-sm text-gray-500">
                     {chartError ? (
                       <span className="text-orange-600">{chartError} - Showing fallback data</span>
                     ) : fromToken || toToken ? (
-                      `${realIndexData.symbol} vs ${fromToken?.symbol || toToken?.symbol || 'selected token'} correlation (Last 90 days)`
+                      `${realIndexData.symbol} with ${[fromToken?.symbol, toToken?.symbol].filter(Boolean).join(' & ')} tokens (Last 90 days)`
                     ) : (
                       `Historical ${realIndexData.symbol} data from Alpha Vantage (Last 90 days)`
                     )}
@@ -797,10 +754,13 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                           formatter={(value: number, name: string) => [
                             name === 'price' ? 
                               (realIndexData.category === 'Forex' ? value.toFixed(4) : `$${value.toFixed(2)}`) :
-                            name === 'correlationToken' ? `$${value.toFixed(2)}` :
+                            name === 'fromTokenPrice' ? `$${value.toFixed(2)}` :
+                            name === 'toTokenPrice' ? `$${value.toFixed(2)}` :
                               `$${value.toFixed(2)}`,
                             name === 'price' ? realIndexData.symbol : 
-                            name === 'correlationToken' ? (fromToken?.symbol || toToken?.symbol || 'Token') : name
+                            name === 'fromTokenPrice' ? fromToken?.symbol :
+                            name === 'toTokenPrice' ? toToken?.symbol :
+                              name
                           ]}
                           labelStyle={{ color: '#374151' }}
                           contentStyle={{ 
@@ -819,17 +779,31 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                           dot={false}
                           activeDot={{ r: 4, fill: "#3b82f6" }}
                         />
-                        {/* Only show correlation line if we have token data */}
-                        {(fromToken || toToken) && (
+                        {/* Show fromToken line if available */}
+                        {fromToken && !shouldSkipToken(fromToken.symbol) && (
                           /* @ts-ignore */
                           <Line
                             type="monotone"
-                            dataKey="correlationToken"
+                            dataKey="fromTokenPrice"
                             stroke="#10b981"
                             strokeWidth={2}
-                            name="correlationToken"
+                            name="fromTokenPrice"
                             dot={false}
                             activeDot={{ r: 4, fill: "#10b981" }}
+                          />
+                        )}
+                        
+                        {/* Show toToken line if available */}
+                        {toToken && !shouldSkipToken(toToken.symbol) && (
+                          /* @ts-ignore */
+                          <Line
+                            type="monotone"
+                            dataKey="toTokenPrice"
+                            stroke="#f59e0b"
+                            strokeWidth={2}
+                            name="toTokenPrice"
+                            dot={false}
+                            activeDot={{ r: 4, fill: "#f59e0b" }}
                           />
                         )}
                       </LineChart>
