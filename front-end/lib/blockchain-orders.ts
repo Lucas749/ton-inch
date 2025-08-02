@@ -10,6 +10,7 @@ import { retryWithBackoff, parseTokenAmount } from "./blockchain-utils";
 import type { Order, OrderParams } from "./blockchain-types";
 import type { BlockchainWallet } from "./blockchain-wallet";
 import type { BlockchainTokens } from "./blockchain-tokens";
+import { OrderCacheService } from "./order-cache-service";
 
 // Note: 1inch SDK imports removed - now using backend API
 
@@ -188,8 +189,8 @@ export class BlockchainOrders {
         transactionHash: result.orderHash
       };
 
-      // Add to cache instead of clearing it
-      console.log('💾 Adding order to cache for index', params.indexId);
+      // Add to in-memory cache instead of clearing it
+      console.log('💾 Adding order to in-memory cache for index', params.indexId);
       const cached = this.orderCache.get(params.indexId);
       if (cached) {
         cached.orders.unshift(newOrder); // Add to beginning
@@ -199,6 +200,61 @@ export class BlockchainOrders {
           orders: [newOrder],
           timestamp: Date.now()
         });
+      }
+
+      // Also save to persistent localStorage cache
+      try {
+        console.log('💾 Saving order to persistent localStorage cache');
+        
+        const fromTokenInfo = this.getTokenInfo(params.fromToken);
+        const toTokenInfo = this.getTokenInfo(params.toToken);
+        
+        const savedOrder = {
+          orderHash: newOrder.hash,
+          type: 'limit' as const,
+          timestamp: newOrder.createdAt,
+          date: new Date(newOrder.createdAt).toISOString(),
+          status: 'submitted' as const, // New orders start as submitted
+          
+          fromToken: {
+            address: params.fromToken,
+            symbol: fromTokenInfo.symbol,
+            name: fromTokenInfo.symbol,
+            decimals: fromTokenInfo.decimals
+          },
+          toToken: {
+            address: params.toToken,
+            symbol: toTokenInfo.symbol,
+            name: toTokenInfo.symbol,
+            decimals: toTokenInfo.decimals
+          },
+          fromAmount: newOrder.makingAmount || '0',
+          toAmount: newOrder.takingAmount || '0',
+          fromAmountFormatted: `${newOrder.fromAmount} ${fromTokenInfo.symbol}`,
+          toAmountFormatted: `${newOrder.toAmount} ${toTokenInfo.symbol}`,
+          
+          walletAddress: this.wallet.currentAccount!,
+          chainId: CONFIG.CHAIN_ID.toString(),
+          
+          validUntil: newOrder.expiry,
+          
+          limitOrderData: {
+            maker: newOrder.maker,
+            receiver: newOrder.receiver,
+            makerAsset: newOrder.makerAsset,
+            takerAsset: newOrder.takerAsset,
+            makingAmount: newOrder.makingAmount || '0',
+            takingAmount: newOrder.takingAmount || '0',
+            salt: '0'
+          }
+        };
+        
+        OrderCacheService.saveOrder(savedOrder);
+        console.log('✅ Saved new order to persistent localStorage cache');
+        
+      } catch (cacheError) {
+        console.error('⚠️ Failed to save order to persistent cache, but in-memory cache updated:', cacheError);
+        // Don't fail the whole operation if persistent cache save fails
       }
 
       // Return the cached order object
@@ -350,24 +406,87 @@ export class BlockchainOrders {
       
       // Check if the API preparation was successful
       if (result.success) {
-        console.log('✅ API cancellation preparation successful, updating cache');
+        console.log('✅ API cancellation preparation successful, updating both caches');
         
-        // Only update cache if the operation was successful
+        // Update in-memory cache
         let orderFound = false;
+        let cancelledOrder = null;
         for (const [indexId, cacheData] of Array.from(this.orderCache.entries())) {
           const order = cacheData.orders.find((o: any) => o.hash === orderHash);
           if (order) {
             order.status = 'cancelled' as const;
             order.cancelledAt = Date.now(); // Track when it was cancelled
-            console.log(`✅ Marked order ${orderHash} as cancelled in cache for index ${indexId}`);
+            cancelledOrder = order;
+            console.log(`✅ Marked order ${orderHash} as cancelled in in-memory cache for index ${indexId}`);
             orderFound = true;
             break;
           }
         }
         
         if (!orderFound) {
-          console.warn(`⚠️ Order ${orderHash} not found in cache - may already be cancelled or doesn't exist`);
+          console.warn(`⚠️ Order ${orderHash} not found in in-memory cache - may already be cancelled or doesn't exist`);
           return false;
+        }
+        
+        // Update persistent localStorage cache
+        try {
+          const persistentCacheUpdated = OrderCacheService.updateOrderStatus(orderHash, 'cancelled');
+          
+          if (persistentCacheUpdated) {
+            console.log('✅ Updated order status in persistent localStorage cache');
+          } else {
+            // Order might not exist in persistent cache, try to create it
+            if (cancelledOrder && this.wallet.currentAccount) {
+              console.log('📝 Order not found in persistent cache, creating cancelled order entry');
+              
+              const fromTokenInfo = this.getTokenInfo(cancelledOrder.fromToken);
+              const toTokenInfo = this.getTokenInfo(cancelledOrder.toToken);
+              
+              const savedOrder = {
+                orderHash: cancelledOrder.hash,
+                type: 'limit' as const,
+                timestamp: cancelledOrder.cancelledAt || Date.now(),
+                date: new Date(cancelledOrder.cancelledAt || Date.now()).toISOString(),
+                status: 'cancelled' as const,
+                
+                fromToken: {
+                  address: cancelledOrder.fromToken,
+                  symbol: fromTokenInfo.symbol,
+                  name: fromTokenInfo.symbol,
+                  decimals: fromTokenInfo.decimals
+                },
+                toToken: {
+                  address: cancelledOrder.toToken,
+                  symbol: toTokenInfo.symbol,
+                  name: toTokenInfo.symbol,
+                  decimals: toTokenInfo.decimals
+                },
+                fromAmount: cancelledOrder.makingAmount || '0',
+                toAmount: cancelledOrder.takingAmount || '0',
+                fromAmountFormatted: `${cancelledOrder.fromAmount || '0'} ${fromTokenInfo.symbol}`,
+                toAmountFormatted: `${cancelledOrder.toAmount || '0'} ${toTokenInfo.symbol}`,
+                
+                walletAddress: this.wallet.currentAccount,
+                chainId: CONFIG.CHAIN_ID.toString(),
+                
+                limitOrderData: {
+                  maker: cancelledOrder.maker || this.wallet.currentAccount,
+                  receiver: cancelledOrder.receiver || this.wallet.currentAccount,
+                  makerAsset: cancelledOrder.makerAsset || cancelledOrder.fromToken,
+                  takerAsset: cancelledOrder.takerAsset || cancelledOrder.toToken,
+                  makingAmount: cancelledOrder.makingAmount || '0',
+                  takingAmount: cancelledOrder.takingAmount || '0',
+                  salt: '0'
+                }
+              };
+              
+              OrderCacheService.saveOrder(savedOrder);
+              console.log('✅ Created cancelled order entry in persistent cache');
+            }
+          }
+        } catch (cacheError) {
+          console.error('⚠️ Failed to update persistent cache, but in-memory cache updated:', cacheError);
+          // Don't fail the whole operation if persistent cache update fails
         }
         
         return true;
@@ -409,19 +528,76 @@ export class BlockchainOrders {
 
   /**
    * Get ALL cached orders across all indices (for portfolio overview)
+   * Merges both in-memory cache and persistent localStorage cache
    */
   async getAllCachedOrders(): Promise<any[]> {
     const allOrders: any[] = [];
     
+    // Get orders from in-memory cache
     for (const [indexId, cacheData] of Array.from(this.orderCache.entries())) {
       allOrders.push(...cacheData.orders);
     }
     
-    // Sort by creation time (newest first)
-    allOrders.sort((a, b) => b.createdAt - a.createdAt);
-    
-    console.log(`📋 Loaded ${allOrders.length} total cached orders across all indices`);
-    return allOrders;
+    // Get orders from persistent localStorage cache
+    try {
+      const persistentOrders = OrderCacheService.getAllOrders();
+      
+      // Filter persistent orders to only include those for the current wallet
+      const walletAddress = this.wallet.currentAccount?.toLowerCase();
+      const walletPersistentOrders = walletAddress ? 
+        persistentOrders.filter(order => order.walletAddress.toLowerCase() === walletAddress) : [];
+      
+      // Convert persistent orders to the format expected by the frontend
+      const convertedPersistentOrders = walletPersistentOrders.map(persistentOrder => ({
+        hash: persistentOrder.orderHash,
+        indexId: 0, // Default index for persistent orders without specific index
+        operator: 1, // Default operator
+        threshold: 0, // Default threshold
+        description: `${persistentOrder.fromToken.symbol} → ${persistentOrder.toToken.symbol}`,
+        makerAsset: persistentOrder.fromToken.address,
+        takerAsset: persistentOrder.toToken.address,
+        makingAmount: persistentOrder.fromAmount,
+        takingAmount: persistentOrder.toAmount,
+        fromToken: persistentOrder.fromToken.address,
+        toToken: persistentOrder.toToken.address,
+        fromAmount: persistentOrder.fromAmountFormatted,
+        toAmount: persistentOrder.toAmountFormatted,
+        maker: persistentOrder.walletAddress,
+        receiver: persistentOrder.walletAddress,
+        expiry: persistentOrder.validUntil || Math.floor(Date.now() / 1000) + 86400,
+        status: persistentOrder.status as any,
+        createdAt: persistentOrder.timestamp,
+        transactionHash: persistentOrder.orderHash
+      }));
+      
+      // Merge orders, avoiding duplicates (persistent cache takes precedence for status)
+      const mergedOrders = [...allOrders];
+      
+      for (const persistentOrder of convertedPersistentOrders) {
+        const existingIndex = mergedOrders.findIndex(order => order.hash === persistentOrder.hash);
+        if (existingIndex >= 0) {
+          // Update existing order with persistent cache status (more reliable)
+          mergedOrders[existingIndex] = { ...mergedOrders[existingIndex], ...persistentOrder };
+        } else {
+          // Add new order from persistent cache
+          mergedOrders.push(persistentOrder);
+        }
+      }
+      
+      // Sort by creation time (newest first)
+      mergedOrders.sort((a, b) => b.createdAt - a.createdAt);
+      
+      console.log(`📋 Loaded ${allOrders.length} in-memory + ${walletPersistentOrders.length} persistent = ${mergedOrders.length} total cached orders`);
+      return mergedOrders;
+      
+    } catch (error) {
+      console.error('⚠️ Failed to load persistent cache, using in-memory cache only:', error);
+      
+      // Fallback to in-memory cache only
+      allOrders.sort((a, b) => b.createdAt - a.createdAt);
+      console.log(`📋 Loaded ${allOrders.length} total cached orders (in-memory only)`);
+      return allOrders;
+    }
   }
 
   /**
