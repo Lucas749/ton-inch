@@ -184,9 +184,35 @@ export class BlockchainOrders {
 
           console.log('✅ Order signed by user:', signature);
           
-          // TODO: Submit signed order to 1inch
-          // For now, just log that we have the signature
-          console.log('📤 Ready to submit signed order to 1inch (implementation pending)');
+          // Submit signed order to 1inch
+          console.log('📤 Submitting signed order to 1inch...');
+          
+          try {
+            const submitResponse = await fetch('/api/oneinch/fusion', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                action: 'submit-order',
+                order: result.typedData.message,
+                signature: signature,
+                walletAddress: this.wallet.currentAccount
+              })
+            });
+
+            if (!submitResponse.ok) {
+              const errorData = await submitResponse.json();
+              throw new Error(errorData.error || 'Failed to submit order to 1inch');
+            }
+
+            const submitResult = await submitResponse.json();
+            console.log('✅ Order successfully submitted to 1inch:', submitResult);
+            
+          } catch (submitError) {
+            console.error('❌ Failed to submit order to 1inch:', submitError);
+            throw new Error(`Order signed but submission failed: ${(submitError as Error).message}`);
+          }
           
         } catch (signError) {
           console.error('❌ User rejected signing or signing failed:', signError);
