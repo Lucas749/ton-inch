@@ -1201,6 +1201,25 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                     </div>
                   </div>
 
+                  {/* Expiration Time */}
+                  <div>
+                    <label className="text-sm font-medium">Expiry Time</label>
+                    <Select value={orderForm.expiry} onValueChange={(value) => setOrderForm(prev => ({ ...prev, expiry: value }))}>
+                      <SelectTrigger className="h-12">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">1 hour</SelectItem>
+                        <SelectItem value="2">2 hours</SelectItem>
+                        <SelectItem value="6">6 hours</SelectItem>
+                        <SelectItem value="12">12 hours</SelectItem>
+                        <SelectItem value="24">24 hours (1 day)</SelectItem>
+                        <SelectItem value="72">72 hours (3 days)</SelectItem>
+                        <SelectItem value="168">1 week</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   <div className="flex space-x-3">
                     <Button 
                       onClick={handleCreateOrder}
