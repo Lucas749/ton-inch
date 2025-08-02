@@ -315,19 +315,35 @@ export class BlockchainIndices {
       let tx;
       if (indexId <= 5) {
         console.log('📤 Updating predefined index...');
+        
+        // Estimate gas first to catch any issues early
+        const gasEstimate = await this.oracle.methods
+          .updateIndex(indexId, newValue)
+          .estimateGas({ from: this.wallet.currentAccount });
+        
+        console.log(`⛽ Estimated gas: ${gasEstimate}`);
+        
         tx = await this.oracle.methods
           .updateIndex(indexId, newValue)
           .send({
             from: this.wallet.currentAccount,
-            gas: "100000",
+            gas: Math.floor(gasEstimate * 1.2), // Add 20% buffer
           });
       } else {
         console.log('📤 Updating custom index...');
+        
+        // Estimate gas first to catch any issues early
+        const gasEstimate = await this.oracle.methods
+          .updateCustomIndex(indexId, newValue)
+          .estimateGas({ from: this.wallet.currentAccount });
+        
+        console.log(`⛽ Estimated gas: ${gasEstimate}`);
+        
         tx = await this.oracle.methods
           .updateCustomIndex(indexId, newValue)
           .send({
             from: this.wallet.currentAccount,
-            gas: "100000",
+            gas: Math.floor(gasEstimate * 1.2), // Add 20% buffer
           });
       }
 
