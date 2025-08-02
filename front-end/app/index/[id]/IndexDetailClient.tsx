@@ -181,7 +181,107 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
     }
   }, [blockchainIndex]);
 
-  // Load real Alpha Vantage data for this index
+  // Load current price from Alpha Vantage (prioritized) or blockchain
+  const loadCurrentPrice = async () => {
+    try {
+      const apiKey = process.env.NEXT_PUBLIC_ALPHAVANTAGE || "123";
+      let currentPrice = null;
+      let priceChange = null;
+      let isPositive = true;
+
+      // Priority 1: Try Alpha Vantage using blockchain sourceUrl
+      if (blockchainIndex && blockchainIndex.sourceUrl && blockchainIndex.sourceUrl.includes('alphavantage.co')) {
+        try {
+          const url = new URL(blockchainIndex.sourceUrl);
+          const alphaVantageFunction = url.searchParams.get('function');
+          const alphaVantageSymbol = url.searchParams.get('symbol');
+          
+          if (alphaVantageFunction && alphaVantageSymbol) {
+            const alphaVantageService = new AlphaVantageService(apiKey);
+            
+            // Handle different Alpha Vantage functions
+            if (alphaVantageFunction === 'CORN' && alphaVantageSymbol === 'WTI') {
+              const cornData = await alphaVantageService.getCorn();
+              if (cornData && cornData.data && cornData.data.length > 0) {
+                currentPrice = cornData.data[0].value;
+                if (cornData.data.length > 1) {
+                  const prevPrice = cornData.data[1].value;
+                  priceChange = ((currentPrice - prevPrice) / prevPrice * 100).toFixed(2);
+                  isPositive = currentPrice >= prevPrice;
+                }
+              }
+            } else if (alphaVantageFunction === 'EARNINGS_ESTIMATES') {
+              const earningsData = await alphaVantageService.getEarningsEstimates(alphaVantageSymbol);
+              if (earningsData && earningsData.quarterlyEarnings && earningsData.quarterlyEarnings.length > 0) {
+                const latest = earningsData.quarterlyEarnings[0];
+                currentPrice = latest.estimatedEarningsPerShare;
+                // For earnings, show the revision as change
+                priceChange = latest.numberOfEstimatesRevisions > 0 ? '+' + latest.numberOfEstimatesRevisions : latest.numberOfEstimatesRevisions;
+              }
+            } else if (alphaVantageFunction === 'GLOBAL_QUOTE') {
+              const quoteData = await alphaVantageService.getGlobalQuote(alphaVantageSymbol);
+              if (quoteData) {
+                currentPrice = parseFloat(quoteData.price);
+                priceChange = quoteData.changePercent;
+                isPositive = !quoteData.changePercent.startsWith('-');
+              }
+            } else if (alphaVantageFunction === 'DIGITAL_CURRENCY_DAILY') {
+              const cryptoData = await alphaVantageService.getCryptoTimeSeries(alphaVantageSymbol);
+              if (cryptoData && cryptoData.data && cryptoData.data.length > 0) {
+                currentPrice = cryptoData.data[0].close;
+                if (cryptoData.data.length > 1) {
+                  const prevPrice = cryptoData.data[1].close;
+                  priceChange = ((currentPrice - prevPrice) / prevPrice * 100).toFixed(2);
+                  isPositive = currentPrice >= prevPrice;
+                }
+              }
+            } else if (alphaVantageFunction === 'FX_DAILY') {
+              const fxData = await alphaVantageService.getDailyTimeSeries(alphaVantageSymbol);
+              if (fxData && fxData.data && fxData.data.length > 0) {
+                currentPrice = fxData.data[0].close;
+                if (fxData.data.length > 1) {
+                  const prevPrice = fxData.data[1].close;
+                  priceChange = ((currentPrice - prevPrice) / prevPrice * 100).toFixed(2);
+                  isPositive = currentPrice >= prevPrice;
+                }
+              }
+            }
+          }
+        } catch (alphaVantageError) {
+          console.error("Error fetching Alpha Vantage data:", alphaVantageError);
+        }
+      }
+
+      // Priority 2: Fallback to blockchain value
+      if (currentPrice === null && blockchainIndex && blockchainIndex.value) {
+        currentPrice = Number(blockchainIndex.value);
+        // For blockchain data, we don't have historical data for change calculation
+        priceChange = null;
+      }
+
+      // Update the price display if we found current data
+      if (currentPrice !== null) {
+        setRealIndexData(prev => ({
+          ...prev,
+          price: currentPrice,
+          valueLabel: currentPrice >= 1000 ? 
+            `$${(currentPrice / 1000).toFixed(1)}K` :
+            currentPrice >= 1 ?
+            `$${currentPrice.toFixed(2)}` :
+            `$${currentPrice.toFixed(4)}`,
+          change: priceChange ? 
+            (isPositive ? `+${priceChange}%` : `${priceChange}%`) : 
+            'N/A',
+          isPositive: isPositive
+        }));
+      }
+
+    } catch (error) {
+      console.error("Error loading current price:", error);
+    }
+  };
+
+  // Load real Alpha Vantage data for this index (fallback for predefined indices)
   const loadRealIndexData = async () => {
     try {
       const apiKey = process.env.NEXT_PUBLIC_ALPHAVANTAGE || "123";
@@ -549,8 +649,9 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
   // Load data on component mount
   useEffect(() => {
     loadRealIndexData();
+    loadCurrentPrice();
     loadChartData();
-  }, [index.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [index.id, blockchainIndex]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reload chart when tokens change (for correlation analysis)
   useEffect(() => {
@@ -1015,15 +1116,6 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                   <div className="space-y-2">
                     <label className="text-sm font-medium">From</label>
                     <div className="flex space-x-2">
-                      <div className="flex-1">
-                        <Input
-                          type="number"
-                          placeholder="0.0001"
-                          value={orderForm.fromAmount}
-                          onChange={(e) => setOrderForm(prev => ({ ...prev, fromAmount: e.target.value }))}
-                          disabled={isCreatingOrder}
-                        />
-                      </div>
                       <div className="w-32">
                         <TokenSelector
                           selectedToken={fromToken}
@@ -1032,6 +1124,16 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                           disabled={isCreatingOrder}
                           excludeTokens={toToken ? [toToken.address] : []}
                           className="w-full"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <Input
+                          type="number"
+                          placeholder="0.0001"
+                          value={orderForm.fromAmount}
+                          onChange={(e) => setOrderForm(prev => ({ ...prev, fromAmount: e.target.value }))}
+                          disabled={isCreatingOrder}
+                          className="h-12"
                         />
                       </div>
                     </div>
@@ -1053,15 +1155,6 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                   <div className="space-y-2">
                     <label className="text-sm font-medium">To</label>
                     <div className="flex space-x-2">
-                      <div className="flex-1">
-                        <Input
-                          type="number"
-                          placeholder="0.25"
-                          value={orderForm.toAmount}
-                          onChange={(e) => setOrderForm(prev => ({ ...prev, toAmount: e.target.value }))}
-                          disabled={isCreatingOrder}
-                        />
-                      </div>
                       <div className="w-32">
                         <TokenSelector
                           selectedToken={toToken}
@@ -1070,6 +1163,16 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                           disabled={isCreatingOrder}
                           excludeTokens={fromToken ? [fromToken.address] : []}
                           className="w-full"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <Input
+                          type="number"
+                          placeholder="0.25"
+                          value={orderForm.toAmount}
+                          onChange={(e) => setOrderForm(prev => ({ ...prev, toAmount: e.target.value }))}
+                          disabled={isCreatingOrder}
+                          className="h-12"
                         />
                       </div>
                     </div>
