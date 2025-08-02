@@ -139,6 +139,11 @@ export async function GET(request: NextRequest) {
   const outputsize = searchParams.get('outputsize');
   const datatype = searchParams.get('datatype');
   
+  // Extract additional parameters for specific function types
+  const market = searchParams.get('market'); // For crypto functions
+  const from_currency = searchParams.get('from_currency'); // For forex functions
+  const to_currency = searchParams.get('to_currency'); // For forex functions
+  
   // Use server-side API key from environment
   const apikey = process.env.NEXT_ALPHAVANTAGE;
   
@@ -147,8 +152,12 @@ export async function GET(request: NextRequest) {
   }
 
   // Check if we should use cached data
-  if (symbol && cacheService.shouldUseCache(symbol, function_, interval || undefined)) {
-    const cachedData = cacheService.getCachedData(symbol, function_, interval || undefined);
+  // Create cache key that includes all relevant parameters
+  const cacheSymbol = symbol || from_currency || 'unknown';
+  const cacheKey = [cacheSymbol, function_, interval, market, from_currency, to_currency].filter(Boolean).join('_');
+  
+  if (cacheService.shouldUseCache(cacheKey, function_, interval || undefined)) {
+    const cachedData = cacheService.getCachedData(cacheKey, function_, interval || undefined);
     if (cachedData) {
       return NextResponse.json(cachedData, {
         headers: {
@@ -173,6 +182,11 @@ export async function GET(request: NextRequest) {
     if (interval) alphaVantageUrl.searchParams.set('interval', interval);
     if (outputsize) alphaVantageUrl.searchParams.set('outputsize', outputsize);
     if (datatype) alphaVantageUrl.searchParams.set('datatype', datatype);
+    
+    // Add function-specific parameters
+    if (market) alphaVantageUrl.searchParams.set('market', market);
+    if (from_currency) alphaVantageUrl.searchParams.set('from_currency', from_currency);
+    if (to_currency) alphaVantageUrl.searchParams.set('to_currency', to_currency);
 
     console.log('🌐 Fetching fresh AlphaVantage data:', function_, symbol || '', interval || '');
 
@@ -202,8 +216,8 @@ export async function GET(request: NextRequest) {
     validateResponseData(data, function_);
 
     // Cache the successful response
-    if (symbol) {
-      cacheService.cacheData(symbol, function_, interval || undefined, data);
+    if (cacheKey && cacheKey !== 'unknown') {
+      cacheService.cacheData(cacheKey, function_, interval || undefined, data);
     }
     
     return NextResponse.json(data, {
@@ -218,8 +232,8 @@ export async function GET(request: NextRequest) {
     console.error('Alpha Vantage API proxy error:', error);
     
     // Mark failed request for retry logic
-    if (symbol) {
-      cacheService.markFailedRequest(symbol, function_, interval || undefined);
+    if (cacheKey && cacheKey !== 'unknown') {
+      cacheService.markFailedRequest(cacheKey, function_, interval || undefined);
     }
     
     return NextResponse.json(
