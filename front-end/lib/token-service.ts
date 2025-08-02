@@ -195,8 +195,8 @@ class TokenService {
   }
 
   /**
-   * Get supported tokens for the current chain
-   * Endpoint: GET /token/v1.2/{chainId}
+   * Get ALL supported tokens for current chain - SINGLE API REQUEST
+   * Endpoint: GET /token/v1.3/{chainId} (1inch multi-chain endpoint)
    */
   async getSupportedTokens(): Promise<TokenList> {
     try {
@@ -230,7 +230,7 @@ class TokenService {
 
   /**
    * Search for tokens by query (name, symbol, or address)
-   * Endpoint: GET /token/v1.2/{chainId}/search
+   * Endpoint: GET /token/v1.3/{chainId}/search
    */
   async searchTokens(query: string, limit: number = 20): Promise<TokenSearchResult[]> {
     try {
@@ -329,18 +329,23 @@ class TokenService {
   }
 
   /**
-   * Get top 3 most popular tokens from API
+   * Get top 3 most popular tokens from single API request
+   * Uses 1inch Token API v1.3 multi-chain endpoint: GET /token/v1.3/{chainId}
    */
   async getTop3PopularTokens(): Promise<Token[]> {
     try {
-      console.log('🔥 Fetching top 3 popular tokens from API...');
-      const tokenList = await this.getTokens();
+      console.log('🔥 Fetching all supported tokens from 1inch API (single request)...');
+      
+      // Single API call to get ALL supported tokens for Base mainnet
+      const tokenList = await this.getSupportedTokens();
+      
       if (tokenList && tokenList.tokens && tokenList.tokens.length > 0) {
-        // Return top 3 tokens as "popular"
+        console.log(`✅ Loaded ${tokenList.tokens.length} total tokens, returning top 3 popular`);
+        // Return top 3 tokens (1inch API returns tokens in popularity order)
         return tokenList.tokens.slice(0, 3);
       }
     } catch (error) {
-      console.warn('⚠️ Failed to fetch top 3 popular tokens from API, using fallback:', error);
+      console.warn('⚠️ Failed to fetch tokens from 1inch API, using fallback:', error);
     }
     
     // Fallback to top 3 hardcoded popular tokens

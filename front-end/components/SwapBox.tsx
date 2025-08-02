@@ -67,7 +67,7 @@ export function SwapBox({
 
   // Initialize with popular tokens
   useEffect(() => {
-    const popularTokens = tokenService.getPopularTokens();
+    const popularTokens = tokenService.getPopularTokensSync();
     if (popularTokens.length >= 2 && !fromToken && !toToken) {
       setFromToken(popularTokens[1]); // USDC
       setToToken(popularTokens[0]); // WETH
