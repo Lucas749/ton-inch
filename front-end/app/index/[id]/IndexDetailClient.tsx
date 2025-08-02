@@ -521,8 +521,6 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
 
   // Load historical chart data
   const loadChartData = async () => {
-    const apiKey = process.env.NEXT_PUBLIC_ALPHAVANTAGE || "123";
-    
     // Use blockchain index sourceUrl if available, otherwise fallback to symbol mapping
     let symbol = getAlphaVantageSymbol(index.id);
     let useRealAlphaVantageData = false;
@@ -556,9 +554,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
       setIsLoadingChart(true);
       setChartError(null);
       
-      const alphaVantageService = new AlphaVantageService({ apiKey });
-      
-      console.log(`🔍 Loading chart data for ${symbol} (${index.name})`);
+      console.log(`🔍 Loading chart data for ${symbol} (${index.name}) via cached API route`);
       if (canFetchFromToken) {
         console.log(`🔗 Loading fromToken data: ${fromToken?.symbol}`);
       }
@@ -568,9 +564,8 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
       if (!canFetchFromToken && !canFetchToToken) {
         console.log(`🔗 No Alpha Vantage data available for selected tokens (stablecoins skipped)`);
       }
-      console.log(`📡 Using API key: ${apiKey.substring(0, 8)}...`);
 
-      // Helper function to fetch token price data using crypto API
+      // Helper function to fetch token price data using cached API route
       const fetchTokenData = async (tokenSymbol: string) => {
         try {
           // Map wrapped tokens to their base tokens for Alpha Vantage
@@ -578,11 +573,16 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                                    tokenSymbol === 'WBTC' ? 'BTC' : 
                                    tokenSymbol;
           
-          console.log(`📈 Fetching crypto data for ${tokenSymbol} (using ${alphaVantageSymbol})`);
-          // Use crypto API for all tokens - Alpha Vantage will handle the lookup
-          const response = await alphaVantageService.getCryptoTimeSeries(alphaVantageSymbol, 'USD', 'daily');
-          // @ts-ignore - Parse crypto response directly since it has different structure
-          return AlphaVantageService.parseTimeSeriesData(response);
+          console.log(`📈 Fetching crypto data for ${tokenSymbol} (using ${alphaVantageSymbol}) via cached API`);
+          // Use cached API route for crypto data
+          const response = await fetch(`/api/alphavantage?function=DIGITAL_CURRENCY_DAILY&symbol=${alphaVantageSymbol}&market=USD`);
+          const data = await response.json();
+          
+          if (!response.ok) {
+            throw new Error(data.error || 'Failed to fetch crypto data');
+          }
+          
+          return AlphaVantageService.parseTimeSeriesData(data);
         } catch (error) {
           console.warn(`⚠️ Could not load crypto data for ${tokenSymbol}:`, error);
           return [];
@@ -602,97 +602,97 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
 
       // Use real Alpha Vantage function if available
       if (useRealAlphaVantageData && alphaVantageFunction) {
-        console.log(`📊 Making Alpha Vantage API call with function: ${alphaVantageFunction}`);
+        console.log(`📊 Making cached Alpha Vantage API call with function: ${alphaVantageFunction}`);
         
         if (alphaVantageFunction === 'EARNINGS_ESTIMATES' && alphaVantageSymbol) {
           // For earnings estimates, fallback to stock price data
-          console.log(`📈 Fetching stock data for earnings symbol: ${alphaVantageSymbol}`);
-          response = await alphaVantageService.getDailyTimeSeries(alphaVantageSymbol, false, "compact");
+          console.log(`📈 Fetching stock data for earnings symbol: ${alphaVantageSymbol} via cached API`);
+          const apiResponse = await fetch(`/api/alphavantage?function=TIME_SERIES_DAILY&symbol=${alphaVantageSymbol}&outputsize=compact`);
+          response = await apiResponse.json();
+          if (!apiResponse.ok) throw new Error(response.error || 'Failed to fetch stock data');
           parsedData = AlphaVantageService.parseTimeSeriesData(response);
         } else if (alphaVantageFunction === 'GLOBAL_QUOTE' && alphaVantageSymbol) {
           // Stock quote - use daily time series
-          console.log(`📈 Fetching stock data for: ${alphaVantageSymbol}`);
-          response = await alphaVantageService.getDailyTimeSeries(alphaVantageSymbol, false, "compact");
+          console.log(`📈 Fetching stock data for: ${alphaVantageSymbol} via cached API`);
+          const apiResponse = await fetch(`/api/alphavantage?function=TIME_SERIES_DAILY&symbol=${alphaVantageSymbol}&outputsize=compact`);
+          response = await apiResponse.json();
+          if (!apiResponse.ok) throw new Error(response.error || 'Failed to fetch stock data');
           parsedData = AlphaVantageService.parseTimeSeriesData(response);
         } else if (alphaVantageFunction === 'DIGITAL_CURRENCY_DAILY' && alphaVantageSymbol) {
           // Crypto currency
-          console.log(`📈 Fetching crypto data for: ${alphaVantageSymbol}`);
-          const cryptoResponse = await alphaVantageService.getCryptoTimeSeries(alphaVantageSymbol, 'USD', 'daily');
+          console.log(`📈 Fetching crypto data for: ${alphaVantageSymbol} via cached API`);
+          const apiResponse = await fetch(`/api/alphavantage?function=DIGITAL_CURRENCY_DAILY&symbol=${alphaVantageSymbol}&market=USD`);
+          const cryptoResponse = await apiResponse.json();
+          if (!apiResponse.ok) throw new Error(cryptoResponse.error || 'Failed to fetch crypto data');
           parsedData = AlphaVantageService.parseTimeSeriesData(cryptoResponse);
         } else if (['CORN', 'WHEAT', 'WTI', 'BRENT', 'NATURAL_GAS', 'COPPER', 'ALUMINUM', 'ZINC', 'NICKEL', 'GOLD', 'SILVER'].includes(alphaVantageFunction)) {
-          // Commodity functions
-          console.log(`📈 Fetching commodity data for: ${alphaVantageFunction}`);
+          // Commodity functions - use cached API route
+          console.log(`📈 Fetching commodity data for: ${alphaVantageFunction} via cached API`);
           let commodityResponse: any;
           
-          switch (alphaVantageFunction) {
-            case 'WTI':
-              commodityResponse = await alphaVantageService.getWTIOil('monthly');
-              break;
-            case 'BRENT':
-              commodityResponse = await alphaVantageService.getBrentOil('monthly');
-              break;
-            case 'WHEAT':
-              commodityResponse = await alphaVantageService.getWheat('monthly');
-              break;
-            case 'CORN':
-              commodityResponse = await alphaVantageService.getCorn('monthly');
-              break;
-            default:
-              // For other commodities, fallback to SPY data
-              response = await alphaVantageService.getDailyTimeSeries('SPY', false, "compact");
-              parsedData = AlphaVantageService.parseTimeSeriesData(response);
-          }
+          const apiResponse = await fetch(`/api/alphavantage?function=${alphaVantageFunction}`);
+          commodityResponse = await apiResponse.json();
           
-          if (commodityResponse) {
+          if (!apiResponse.ok) {
+            console.warn(`Failed to fetch commodity data for ${alphaVantageFunction}, falling back to SPY`);
+            // For other commodities, fallback to SPY data
+            const fallbackResponse = await fetch(`/api/alphavantage?function=TIME_SERIES_DAILY&symbol=SPY&outputsize=compact`);
+            response = await fallbackResponse.json();
+            if (!fallbackResponse.ok) throw new Error(response.error || 'Failed to fetch fallback data');
+            parsedData = AlphaVantageService.parseTimeSeriesData(response);
+          } else {
             parsedData = AlphaVantageService.parseTimeSeriesData(commodityResponse);
           }
         } else {
           // Fallback to stock data
-          console.log(`📈 Fallback: fetching stock data for: ${symbol}`);
-          response = await alphaVantageService.getDailyTimeSeries(symbol, false, "compact");
+          console.log(`📈 Fallback: fetching stock data for: ${symbol} via cached API`);
+          const apiResponse = await fetch(`/api/alphavantage?function=TIME_SERIES_DAILY&symbol=${symbol}&outputsize=compact`);
+          response = await apiResponse.json();
+          if (!apiResponse.ok) throw new Error(response.error || 'Failed to fetch stock data');
           parsedData = AlphaVantageService.parseTimeSeriesData(response);
         }
       } else if (symbol.includes('USD') && !symbol.includes('/')) {
         // Crypto symbols like BTCUSD, ETHUSD
-        console.log(`📈 Fetching crypto data for ${symbol}`);
-        const cryptoResponse = await alphaVantageService.getCryptoTimeSeries(
-          symbol.replace('USD', ''), 'USD', 'daily'
-        );
-        // Note: Crypto API has different structure, would need custom parsing
-        // For now, fallback to regular daily series
-        response = await alphaVantageService.getDailyTimeSeries('SPY', false, "compact");
-        parsedData = AlphaVantageService.parseTimeSeriesData(response);
+        console.log(`📈 Fetching crypto data for ${symbol} via cached API`);
+        const cryptoSymbol = symbol.replace('USD', '');
+        try {
+          const apiResponse = await fetch(`/api/alphavantage?function=DIGITAL_CURRENCY_DAILY&symbol=${cryptoSymbol}&market=USD`);
+          const cryptoResponse = await apiResponse.json();
+          if (!apiResponse.ok) throw new Error(cryptoResponse.error || 'Failed to fetch crypto data');
+          parsedData = AlphaVantageService.parseTimeSeriesData(cryptoResponse);
+        } catch (error) {
+          console.warn(`Failed to fetch crypto data for ${symbol}, falling back to SPY`);
+          const apiResponse = await fetch(`/api/alphavantage?function=TIME_SERIES_DAILY&symbol=SPY&outputsize=compact`);
+          response = await apiResponse.json();
+          if (!apiResponse.ok) throw new Error(response.error || 'Failed to fetch fallback data');
+          parsedData = AlphaVantageService.parseTimeSeriesData(response);
+        }
       } else if (symbol.includes('/')) {
         // Forex pairs like EUR/USD
-        console.log(`📈 Fetching forex data for ${symbol}`);
+        console.log(`📈 Fetching forex data for ${symbol} via cached API`);
         const [fromCurrency, toCurrency] = symbol.split('/');
-        const forexResponse = await alphaVantageService.getForexTimeSeries(
-          fromCurrency, toCurrency, 'daily'
-        );
-        // Note: Forex API has different structure, would need custom parsing
-        // For now, fallback to regular daily series
-        response = await alphaVantageService.getDailyTimeSeries('SPY', false, "compact");
-        parsedData = AlphaVantageService.parseTimeSeriesData(response);
+        try {
+          const apiResponse = await fetch(`/api/alphavantage?function=FX_DAILY&from_currency=${fromCurrency}&to_currency=${toCurrency}`);
+          const forexResponse = await apiResponse.json();
+          if (!apiResponse.ok) throw new Error(forexResponse.error || 'Failed to fetch forex data');
+          parsedData = AlphaVantageService.parseTimeSeriesData(forexResponse);
+        } catch (error) {
+          console.warn(`Failed to fetch forex data for ${symbol}, falling back to SPY`);
+          const apiResponse = await fetch(`/api/alphavantage?function=TIME_SERIES_DAILY&symbol=SPY&outputsize=compact`);
+          response = await apiResponse.json();
+          if (!apiResponse.ok) throw new Error(response.error || 'Failed to fetch fallback data');
+          parsedData = AlphaVantageService.parseTimeSeriesData(response);
+        }
       } else if (['WTI', 'BRENT', 'WHEAT', 'CORN'].includes(symbol)) {
-        // Commodity symbols - use proper commodity APIs
-        console.log(`📈 Fetching commodity data for ${symbol}`);
+        // Commodity symbols - use cached API for proper commodity APIs
+        console.log(`📈 Fetching commodity data for ${symbol} via cached API`);
         let commodityResponse: any;
         
-        switch (symbol) {
-          case 'WTI':
-            commodityResponse = await alphaVantageService.getWTIOil('monthly');
-            break;
-          case 'BRENT':
-            commodityResponse = await alphaVantageService.getBrentOil('monthly');
-            break;
-          case 'WHEAT':
-            commodityResponse = await alphaVantageService.getWheat('monthly');
-            break;
-          case 'CORN':
-            commodityResponse = await alphaVantageService.getCorn('monthly');
-            break;
-          default:
-            throw new Error(`Unsupported commodity: ${symbol}`);
+        const apiResponse = await fetch(`/api/alphavantage?function=${symbol}`);
+        commodityResponse = await apiResponse.json();
+        
+        if (!apiResponse.ok) {
+          throw new Error(commodityResponse.error || `Failed to fetch commodity data for ${symbol}`);
         }
         
         console.log(`📊 Raw commodity API response for ${symbol}:`, commodityResponse);
@@ -742,8 +742,10 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
         }
       } else {
         // Regular stocks and ETFs
-        console.log(`📈 Fetching stock data for ${symbol}`);
-        response = await alphaVantageService.getDailyTimeSeries(symbol, false, "full");
+        console.log(`📈 Fetching stock data for ${symbol} via cached API`);
+        const apiResponse = await fetch(`/api/alphavantage?function=TIME_SERIES_DAILY&symbol=${symbol}&outputsize=full`);
+        response = await apiResponse.json();
+        if (!apiResponse.ok) throw new Error(response.error || 'Failed to fetch stock data');
         parsedData = AlphaVantageService.parseTimeSeriesData(response);
       }
       
