@@ -251,6 +251,39 @@ async function testOracleManager() {
                 console.log('');
             }
             
+            console.log('👤 TEST 14b: Creator Functionality Testing');
+            console.log('==========================================');
+            
+            // Test getIndexCreator for predefined indices
+            console.log('📋 Testing creator information for predefined indices:');
+            for (let i = 0; i <= 5; i++) {
+                const creatorResult = await oracleManager.getIndexCreator(i);
+                if (creatorResult.success) {
+                    console.log(`   Index ${i}: Creator ${creatorResult.creator}`);
+                } else {
+                    console.log(`   Index ${i}: Error getting creator`);
+                }
+            }
+            
+            // Test getIndexDetails for a specific index
+            const detailsResult = await oracleManager.getIndexDetails(3); // VIX Index
+            if (detailsResult.success) {
+                console.log('\n📊 Detailed index information with creator:');
+                oracleManager.displayIndex(detailsResult.index);
+            }
+            
+            // Test getAllCustomIndicesWithCreators if there are custom indices
+            const customWithCreators = await oracleManager.getAllCustomIndicesWithCreators();
+            if (customWithCreators.success && customWithCreators.count > 0) {
+                console.log('👥 Custom indices with creator information:');
+                customWithCreators.indices.forEach((index, i) => {
+                    console.log(`   ${i + 1}. ${index.name} - Creator: ${index.creator}`);
+                });
+            } else {
+                console.log('📋 No custom indices found for creator testing');
+            }
+            console.log('');
+            
             console.log('🔗 TEST 15: Set EPS Consumer as Chainlink Oracle');
             console.log('==============================================');
             

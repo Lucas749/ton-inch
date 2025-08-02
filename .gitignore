@@ -1,8 +1,20 @@
-1inch_contracts/
+# Build outputs
 cache/
-.local/
 out/
-lib/
-.env/
-.env
+
+# Dependencies  
 node_modules/
+lib/
+1inch_contracts/
+
+# Environment files
+.env
+.env/
+.local/
+
+# Foundry
+broadcast/
+
+# macOS
+.DS_Store
+**/.DS_Store
