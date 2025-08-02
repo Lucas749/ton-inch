@@ -9,48 +9,11 @@ import { retryWithBackoff, delay } from "./blockchain-utils";
 import type { CustomIndex, OrderCondition } from "./blockchain-types";
 import type { BlockchainWallet } from "./blockchain-wallet";
 
-// Browser-global request lock to prevent multiple simultaneous requests across all instances
-declare global {
-  interface Window {
-    __BLOCKCHAIN_INDICES_CACHE__?: {
-      pendingRequest: Promise<CustomIndex[]> | null;
-      cache: CustomIndex[] | null;
-      timestamp: number;
-    };
-  }
-}
-
-const GLOBAL_CACHE_DURATION = 30000; // 30 seconds
-
-// Initialize global cache on window (browser only)
-function getGlobalCache() {
-  if (typeof window === 'undefined') {
-    // Server-side: use module-level variables
-    return {
-      get pendingRequest() { return globalPendingRequest; },
-      set pendingRequest(value) { globalPendingRequest = value; },
-      get cache() { return globalIndicesCache; },
-      set cache(value) { globalIndicesCache = value; },
-      get timestamp() { return globalCacheTimestamp; },
-      set timestamp(value) { globalCacheTimestamp = value; },
-    };
-  }
-  
-  // Client-side: use window global
-  if (!window.__BLOCKCHAIN_INDICES_CACHE__) {
-    window.__BLOCKCHAIN_INDICES_CACHE__ = {
-      pendingRequest: null,
-      cache: null,
-      timestamp: 0,
-    };
-  }
-  return window.__BLOCKCHAIN_INDICES_CACHE__;
-}
-
-// Fallback for server-side
+// Global request lock to prevent multiple simultaneous requests across all instances
 let globalPendingRequest: Promise<CustomIndex[]> | null = null;
 let globalIndicesCache: CustomIndex[] | null = null;
 let globalCacheTimestamp: number = 0;
+const GLOBAL_CACHE_DURATION = 30000; // 30 seconds
 
 export class BlockchainIndices {
   private web3: Web3;
@@ -79,46 +42,43 @@ export class BlockchainIndices {
   }
 
   /**
-   * Get all custom indices from the oracle with rate limiting and browser-global caching
+   * Get all custom indices from the oracle with rate limiting and global caching
    */
   async getAllIndices(): Promise<CustomIndex[]> {
     try {
-      const globalCache = getGlobalCache();
-      const now = Date.now();
-      
       // Check global cache first
-      if (globalCache.cache && (now - globalCache.timestamp) < GLOBAL_CACHE_DURATION) {
-        console.log(`📊 Using browser-global cached indices data (${globalCache.cache.length} indices, cached ${Math.round((now - globalCache.timestamp) / 1000)}s ago)`);
-        return globalCache.cache;
+      const now = Date.now();
+      if (globalIndicesCache && (now - globalCacheTimestamp) < GLOBAL_CACHE_DURATION) {
+        console.log(`📊 Using global cached indices data (${globalIndicesCache.length} indices, cached ${Math.round((now - globalCacheTimestamp) / 1000)}s ago)`);
+        return globalIndicesCache;
       }
 
       // If there's already a global pending request, return it to avoid duplicate calls
-      if (globalCache.pendingRequest) {
-        console.log('📊 Waiting for existing browser-global indices request... (preventing duplicate call)');
-        return globalCache.pendingRequest;
+      if (globalPendingRequest) {
+        console.log('📊 Waiting for existing global indices request... (preventing duplicate call)');
+        return globalPendingRequest;
       }
 
-      console.log('📊 Fetching all indices with rate limiting... (browser-global request)');
+      console.log('📊 Fetching all indices with rate limiting... (global request)');
       
       // Create and store the global promise
-      globalCache.pendingRequest = this.fetchAllIndices();
+      globalPendingRequest = this.fetchAllIndices();
       
       try {
-        const indices = await globalCache.pendingRequest;
+        const indices = await globalPendingRequest;
         
         // Cache the results globally
-        globalCache.cache = indices;
-        globalCache.timestamp = now;
+        globalIndicesCache = indices;
+        globalCacheTimestamp = now;
         
         return indices;
       } finally {
         // Clear the global pending request
-        globalCache.pendingRequest = null;
+        globalPendingRequest = null;
       }
     } catch (error) {
       console.error("❌ Error fetching indices:", error);
-      const globalCache = getGlobalCache();
-      globalCache.pendingRequest = null; // Clear on error
+      globalPendingRequest = null; // Clear on error
       return []; // Return empty array instead of throwing
     }
   }
@@ -252,14 +212,13 @@ export class BlockchainIndices {
   }
 
   /**
-   * Clear the browser-global indices cache (call after creating/updating indices)
+   * Clear the global indices cache (call after creating/updating indices)
    */
   clearCache(): void {
-    const globalCache = getGlobalCache();
-    globalCache.cache = null;
-    globalCache.timestamp = 0;
-    globalCache.pendingRequest = null;
-    console.log('🗑️ Cleared browser-global indices cache');
+    globalIndicesCache = null;
+    globalCacheTimestamp = 0;
+    globalPendingRequest = null;
+    console.log('🗑️ Cleared global indices cache');
   }
 
   /**

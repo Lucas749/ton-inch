@@ -19,13 +19,6 @@ import type {
   SwapOrder 
 } from "./blockchain-types";
 
-// Browser-global singleton to prevent multiple instances across SSR/CSR
-declare global {
-  interface Window {
-    __BLOCKCHAIN_SERVICE_INSTANCE__?: BlockchainService;
-  }
-}
-
 export class BlockchainService {
   private static instance: BlockchainService | null = null;
   private web3: Web3;
@@ -39,7 +32,7 @@ export class BlockchainService {
   private constructor() {
     // Initialize Web3 with Alchemy or fallback to Base Sepolia
     const rpcUrl = getRpcUrl();
-    console.log(`🌐 Initializing Web3 with RPC: ${getRpcDescription(rpcUrl)} (Browser-Global Singleton)`);
+    console.log(`🌐 Initializing Web3 with RPC: ${getRpcDescription(rpcUrl)} (Singleton)`);
     this.web3 = new Web3(rpcUrl);
     
     // Initialize specialized services
@@ -59,15 +52,6 @@ export class BlockchainService {
   }
 
   public static getInstance(): BlockchainService {
-    // In browser, use window global to ensure true singleton across all contexts
-    if (typeof window !== 'undefined') {
-      if (!window.__BLOCKCHAIN_SERVICE_INSTANCE__) {
-        window.__BLOCKCHAIN_SERVICE_INSTANCE__ = new BlockchainService();
-      }
-      return window.__BLOCKCHAIN_SERVICE_INSTANCE__;
-    }
-    
-    // Server-side fallback
     if (!BlockchainService.instance) {
       BlockchainService.instance = new BlockchainService();
     }
@@ -76,9 +60,6 @@ export class BlockchainService {
 
   // Method to reset singleton for testing purposes
   public static resetInstance(): void {
-    if (typeof window !== 'undefined') {
-      delete window.__BLOCKCHAIN_SERVICE_INSTANCE__;
-    }
     BlockchainService.instance = null;
   }
 
