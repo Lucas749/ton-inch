@@ -353,7 +353,6 @@ export function TokenSelector({
                   }}
                 />
                 <span className="font-medium">{selectedToken.symbol}</span>
-                <span className="text-gray-500 text-sm">{selectedToken.name}</span>
               </div>
             ) : (
               <span className="text-gray-500">{placeholder}</span>
