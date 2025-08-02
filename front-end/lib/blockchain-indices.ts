@@ -4,7 +4,7 @@
  */
 
 import { Web3 } from "web3";
-import { CONTRACTS, ABIS } from "./blockchain-constants";
+import { CONTRACTS, ABIS, INDICES } from "./blockchain-constants";
 import { retryWithBackoff, delay } from "./blockchain-utils";
 import type { CustomIndex, OrderCondition } from "./blockchain-types";
 import type { BlockchainWallet } from "./blockchain-wallet";
@@ -32,13 +32,11 @@ export class BlockchainIndices {
    */
   private initializeContracts(): void {
     this.oracle = new this.web3.eth.Contract(
-      ABIS.MockIndexOracle,
-      CONTRACTS.MockIndexOracle
+      ABIS.IndexOracle,
+      CONTRACTS.IndexOracle
     );
-    this.preInteraction = new this.web3.eth.Contract(
-      ABIS.IndexPreInteraction,
-      CONTRACTS.IndexPreInteraction
-    );
+    // No more preInteraction contract in new architecture
+    this.preInteraction = null;
   }
 
   /**

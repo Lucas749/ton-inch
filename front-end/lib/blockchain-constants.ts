@@ -3,27 +3,59 @@
  * Contract addresses, ABIs, and operator definitions
  */
 
-// Order operators (matching comprehensive demo)
+// Order operators (matching new backend system)
 export const OPERATORS = {
-  GT: 0, // Greater Than
-  LT: 1, // Less Than
-  GTE: 2, // Greater Than or Equal
-  LTE: 3, // Less Than or Equal
-  EQ: 4, // Equal
+  GT: 1, // Greater Than
+  LT: 2, // Less Than  
+  GTE: 3, // Greater Than or Equal
+  LTE: 4, // Less Than or Equal
+  EQ: 5, // Equal
+  NEQ: 6, // Not Equal
 };
 
-// Contract addresses - Base Mainnet
+// Index mappings (matching new backend system)
+export const INDICES = {
+  APPLE_STOCK: {
+    id: 0,
+    name: 'Apple Stock',
+    symbol: 'AAPL',
+    description: 'Apple Inc. stock price',
+    unit: 'USD (basis points)',
+  },
+  TESLA_STOCK: {
+    id: 1,
+    name: 'Tesla Stock', 
+    symbol: 'TSLA',
+    description: 'Tesla Inc. stock price',
+    unit: 'USD (basis points)',
+  },
+  VIX_INDEX: {
+    id: 2,
+    name: 'VIX Volatility Index',
+    symbol: 'VIX', 
+    description: 'CBOE Volatility Index',
+    unit: 'Index points (basis points)',
+  },
+  BTC_PRICE: {
+    id: 3,
+    name: 'Bitcoin Price',
+    symbol: 'BTC',
+    description: 'Bitcoin price in USD', 
+    unit: 'USD (basis points)',
+  },
+};
+
+// Contract addresses - Base Mainnet (New Architecture)
 export const CONTRACTS = {
-  // TODO: Update these addresses after mainnet deployment
-  IndexPreInteraction: "0x8AF8db923E96A6709Ae339d1bFb9E986410D8461",
-  IndexLimitOrderFactory: "0x0312Af95deFE475B89852ec05Eab5A785f647e73", 
-  MockIndexOracle: "0x3de6DF18226B2c57328709D9bc68CaA7AD76EdEB",
+  // ONLY contract we need - Hybrid Oracle for index data
+  IndexOracle: "0x8a585F9B2359Ef093E8a2f5432F387960e953BD2", // Hybrid Oracle (Base Mainnet)
   
   // Base Mainnet token addresses
   USDC: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // Base Mainnet USDC
   WETH: "0x4200000000000000000000000000000000000006", // Base Mainnet WETH
+  DAI: "0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb", // Base Mainnet DAI
   
-  // 1inch Protocol v4 on Base Mainnet
+  // 1inch Protocol v4 on Base Mainnet (used directly via SDK)
   OneInchProtocol: "0x111111125421cA6dc452d289314280a0f8842A65", // 1inch v4 router
 };
 
@@ -65,18 +97,73 @@ export const ABIS = {
       "type": "function"
     }
   ],
-  MockIndexOracle: [
+  // New Hybrid Oracle ABI (supports both mock and Chainlink data)
+  IndexOracle: [
     {
       type: "function",
-      name: "getNextCustomIndexId",
+      name: "getIndexValue",
+      inputs: [{ name: "indexType", type: "uint8" }],
+      outputs: [
+        { name: "value", type: "uint256" },
+        { name: "timestamp", type: "uint256" },
+      ],
+      stateMutability: "view",
+    },
+    {
+      type: "function", 
+      name: "getIndexValue",
+      inputs: [{ name: "indexId", type: "uint256" }],
+      outputs: [
+        { name: "value", type: "uint256" },
+        { name: "timestamp", type: "uint256" },
+      ],
+      stateMutability: "view",
+    },
+    {
+      type: "function",
+      name: "isValidIndex",
+      inputs: [{ name: "indexType", type: "uint8" }],
+      outputs: [{ name: "", type: "bool" }],
+      stateMutability: "view",
+    },
+    {
+      type: "function",
+      name: "getNextCustomIndexId", 
       inputs: [],
       outputs: [{ name: "", type: "uint256" }],
       stateMutability: "view",
     },
     {
       type: "function",
+      name: "getAllCustomIndices",
+      inputs: [],
+      outputs: [
+        { name: "indexIds", type: "uint256[]" },
+        { name: "values", type: "uint256[]" },
+        { name: "timestamps", type: "uint256[]" },
+        { name: "activeStates", type: "bool[]" },
+      ],
+      stateMutability: "view",
+    },
+    {
+      type: "function",
       name: "createCustomIndex",
-      inputs: [{ name: "initialValue", type: "uint256" }],
+      inputs: [
+        { name: "initialValue", type: "uint256" },
+        { name: "sourceUrl", type: "string" },
+        { name: "oracleType", type: "uint8" },
+        { name: "chainlinkOracleAddress", type: "address" },
+      ],
+      outputs: [{ name: "indexId", type: "uint256" }],
+      stateMutability: "nonpayable",
+    },
+    {
+      type: "function",
+      name: "updateIndex",
+      inputs: [
+        { name: "indexType", type: "uint8" },
+        { name: "newValue", type: "uint256" },
+      ],
       outputs: [],
       stateMutability: "nonpayable",
     },
@@ -92,113 +179,35 @@ export const ABIS = {
     },
     {
       type: "function",
-      name: "getIndexValue",
-      inputs: [{ name: "indexId", type: "uint256" }],
-      outputs: [
-        { name: "value", type: "uint256" },
-        { name: "timestamp", type: "uint256" },
-      ],
-      stateMutability: "view",
-    },
-    {
-      type: "function",
-      name: "getAllCustomIndices",
-      inputs: [],
-      outputs: [{ name: "", type: "uint256[]" }],
-      stateMutability: "view",
-    },
-  ],
-  IndexPreInteraction: [
-    {
-      type: "function",
-      name: "registerIndex",
+      name: "setIndexActive",
       inputs: [
-        { name: "name", type: "string" },
-        { name: "description", type: "string" },
-        { name: "oracle", type: "address" },
-      ],
-      outputs: [{ name: "indexId", type: "uint256" }],
-      stateMutability: "nonpayable",
-    },
-    {
-      type: "function",
-      name: "updateIndexOracle",
-      inputs: [
-        { name: "indexId", type: "uint256" },
-        { name: "newOracle", type: "address" },
-      ],
-      outputs: [],
-      stateMutability: "nonpayable",
-    },
-    {
-      type: "function",
-      name: "deactivateIndex",
-      inputs: [{ name: "indexId", type: "uint256" }],
-      outputs: [],
-      stateMutability: "nonpayable",
-    },
-    {
-      type: "function",
-      name: "registerOrderCondition",
-      inputs: [
-        { name: "orderHash", type: "bytes32" },
-        { name: "indexId", type: "uint256" },
-        { name: "operator", type: "uint8" },
-        { name: "thresholdValue", type: "uint256" },
-      ],
-      outputs: [],
-      stateMutability: "nonpayable",
-    },
-    {
-      type: "function",
-      name: "getIndexInfo",
-      inputs: [{ name: "indexId", type: "uint256" }],
-      outputs: [
-        { name: "name", type: "string" },
-        { name: "description", type: "string" },
-        { name: "oracle", type: "address" },
-        { name: "creator", type: "address" },
+        { name: "indexType", type: "uint8" },
         { name: "isActive", type: "bool" },
-        { name: "createdAt", type: "uint256" },
       ],
-      stateMutability: "view",
+      outputs: [],
+      stateMutability: "nonpayable",
     },
     {
-      type: "function",
-      name: "getOrderCondition",
-      inputs: [{ name: "orderHash", type: "bytes32" }],
+      type: "function", 
+      name: "getHybridOracleStatus",
+      inputs: [],
       outputs: [
-        { name: "indexId", type: "uint256" },
-        { name: "operator", type: "uint8" },
-        { name: "thresholdValue", type: "uint256" },
+        { name: "chainlinkAddress", type: "address" },
+        { name: "isChainlinkConfigured", type: "bool" },
+        { name: "mockIndicesCount", type: "uint256" },
+        { name: "chainlinkIndicesCount", type: "uint256" },
       ],
       stateMutability: "view",
     },
     {
       type: "function",
-      name: "getIndexValue",
-      inputs: [{ name: "indexId", type: "uint256" }],
-      outputs: [
-        { name: "value", type: "uint256" },
-        { name: "timestamp", type: "uint256" },
-      ],
-      stateMutability: "view",
-    },
-    {
-      type: "function",
-      name: "validateOrderCondition",
-      inputs: [{ name: "orderHash", type: "bytes32" }],
-      outputs: [{ name: "", type: "bool" }],
-      stateMutability: "view",
-    },
-    {
-      type: "function",
-      name: "getUserIndices",
-      inputs: [{ name: "user", type: "address" }],
-      outputs: [{ name: "", type: "uint256[]" }],
+      name: "owner",
+      inputs: [],
+      outputs: [{ name: "", type: "address" }],
       stateMutability: "view",
     },
   ],
+  // Removed IndexPreInteraction - not needed in new architecture
   ERC20: [
     {
       type: "function",
@@ -242,104 +251,7 @@ export const ABIS = {
       stateMutability: "view",
     },
   ],
-  IndexLimitOrderFactory: [
-    {
-      inputs: [
-        { name: "salt", type: "uint256" },
-        { name: "maker", type: "address" },
-        { name: "receiver", type: "address" },
-        { name: "makerAsset", type: "address" },
-        { name: "takerAsset", type: "address" },
-        { name: "makingAmount", type: "uint256" },
-        { name: "takingAmount", type: "uint256" },
-        { name: "indexId", type: "uint256" },
-        { name: "operator", type: "uint8" },
-        { name: "thresholdValue", type: "uint256" },
-        { name: "expiry", type: "uint40" }
-      ],
-      name: "createIndexOrder",
-      outputs: [
-        {
-          components: [
-            { name: "salt", type: "uint256" },
-            { name: "maker", type: "address" },
-            { name: "receiver", type: "address" },
-            { name: "makerAsset", type: "address" },
-            { name: "takerAsset", type: "address" },
-            { name: "makingAmount", type: "uint256" },
-            { name: "takingAmount", type: "uint256" },
-            { name: "makerTraits", type: "bytes32" }
-          ],
-          name: "",
-          type: "tuple"
-        },
-        { name: "", type: "bytes" }
-      ],
-      type: "function"
-    },
-    {
-      inputs: [
-        {
-          components: [
-            { name: "salt", type: "uint256" },
-            { name: "maker", type: "address" },
-            { name: "receiver", type: "address" },
-            { name: "makerAsset", type: "address" },
-            { name: "takerAsset", type: "address" },
-            { name: "makingAmount", type: "uint256" },
-            { name: "takingAmount", type: "uint256" },
-            { name: "makerTraits", type: "bytes32" }
-          ],
-          name: "order",
-          type: "tuple"
-        }
-      ],
-      name: "getOrderHash",
-      outputs: [{ name: "", type: "bytes32" }],
-      type: "function"
-    },
-    {
-      anonymous: false,
-      inputs: [
-        {
-          indexed: true,
-          name: "orderHash",
-          type: "bytes32"
-        },
-        {
-          indexed: true,
-          name: "maker",
-          type: "address"
-        },
-        {
-          indexed: true,
-          name: "indexId",
-          type: "uint256"
-        },
-        {
-          indexed: false,
-          name: "operator",
-          type: "uint8"
-        },
-        {
-          indexed: false,
-          name: "thresholdValue",
-          type: "uint256"
-        }
-      ],
-      name: "IndexOrderCreated",
-      type: "event"
-    },
-    {
-      inputs: [
-        { name: "orderHash", type: "bytes32" }
-      ],
-      name: "cancelOrder",
-      outputs: [{ name: "", type: "bool" }],
-      stateMutability: "nonpayable",
-      type: "function"
-    }
-  ],
+  // Removed IndexLimitOrderFactory - using 1inch SDK directly
   // 1inch Protocol v4 Functions for order management
   OneInchProtocol: [
     {
