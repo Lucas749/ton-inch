@@ -157,6 +157,10 @@ export class BlockchainIndices {
             // Get custom index details
             indexDetails = await this.oracle.methods.customIndexData(id).call();
             console.log(`📄 Custom index ${id} details:`, indexDetails);
+            console.log(`📄 Index details length: ${indexDetails ? indexDetails.length : 'null'}`);
+            if (indexDetails && indexDetails.length >= 3) {
+              console.log(`📄 SourceUrl at index 2: "${indexDetails[2]}"`);
+            }
           } catch (error) {
             console.warn(`⚠️ Could not get details for custom index ${id}:`, error);
           }
@@ -165,10 +169,15 @@ export class BlockchainIndices {
           let name = `Custom Index ${id}`;
           let description = `User-created index #${id}`;
           
+          console.log(`🔍 Checking indexDetails for index ${id}: exists=${!!indexDetails}, length=${indexDetails ? indexDetails.length : 'N/A'}`);
+          
           if (indexDetails && indexDetails.length >= 3) {
+            console.log(`🔍 IndexDetails has sufficient length for index ${id}`);
             const sourceUrl = indexDetails[2]; // sourceUrl is typically the 3rd element
             console.log(`🔍 Processing sourceUrl for index ${id}: "${sourceUrl}"`);
+            console.log(`🔍 SourceUrl exists and trimmed: ${!!(sourceUrl && sourceUrl.trim())}`);
             if (sourceUrl && sourceUrl.trim()) {
+              console.log(`🔍 Entering URL parsing logic for index ${id}`);
               try {
                 const url = new URL(sourceUrl);
                 const functionParam = url.searchParams.get('function');
@@ -275,8 +284,14 @@ export class BlockchainIndices {
                 console.warn(`Could not parse sourceUrl for index ${id}:`, urlError);
                 // Keep the default name and description
               }
+            } else {
+              console.log(`🔍 SourceUrl for index ${id} is empty or whitespace only`);
             }
+          } else {
+            console.log(`🔍 IndexDetails for index ${id} doesn't have sufficient length or is null`);
           }
+          
+          console.log(`🔍 Final name for index ${id} after URL processing: "${name}"`);
           
           // Extract additional market data from Alpha Vantage URL
           let alphaVantageSymbol = null;
