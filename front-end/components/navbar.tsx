@@ -1,7 +1,7 @@
 "use client";
 
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { Search, Bell, TrendingUp, BarChart3, Settings, X, ArrowRight } from "lucide-react";
+import { Search, TrendingUp, BarChart3, Settings, X, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
@@ -256,11 +256,6 @@ export function Navbar() {
                 </div>
               )}
             </div>
-
-            {/* Notification button - Cookie.fun style */}
-            <Button variant="ghost" size="sm" className="p-2">
-              <Bell className="w-4 h-4 text-gray-500" />
-            </Button>
 
             <ConnectButton />
           </div>
