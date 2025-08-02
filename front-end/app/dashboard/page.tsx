@@ -229,7 +229,7 @@ export default function Dashboard() {
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="indices">My Indices</TabsTrigger>
                 <TabsTrigger value="orders">My Orders</TabsTrigger>
-                <TabsTrigger value="fusion-orders">Fusion Orders</TabsTrigger>
+                <TabsTrigger value="fusion-orders">All Orders</TabsTrigger>
           </TabsList>
 
               {/* Overview Tab */}
@@ -553,7 +553,7 @@ export default function Dashboard() {
                 )}
           </TabsContent>
 
-          {/* Fusion Orders Tab */}
+          {/* All Orders Tab */}
           <TabsContent value="fusion-orders" className="space-y-6">
             <FusionOrdersView walletAddress={isConnected ? window?.ethereum?.selectedAddress : undefined} />
           </TabsContent>

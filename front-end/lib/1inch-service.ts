@@ -1,5 +1,5 @@
 import { Hex } from "viem";
-import { OrderCacheService, SavedFusionOrder } from './order-cache-service';
+import { OrderCacheService, SavedOrder } from './order-cache-service';
 import { tokenService } from './token-service';
 
 // Type definitions for window.ethereum
@@ -418,6 +418,9 @@ export class OneInchService {
     result.swapTxHash = swapTxHash;
     console.log("Swap transaction sent. Hash:", swapTxHash);
 
+    // Save swap order to cache for tracking
+    await this.saveSwapToCache(params, swapTxHash, result.approvalTxHash, swapTx);
+
     return result;
   }
 
@@ -783,14 +786,9 @@ export class OneInchService {
         toTokenDetails.symbol
       );
 
-      // Create saved order object
-      const savedOrder: SavedFusionOrder = {
+      // Create saved order object using helper method
+      const savedOrder = OrderCacheService.createFusionOrder({
         orderHash: submitResponse.orderHash,
-        timestamp: Date.now(),
-        date: new Date().toISOString(),
-        status: 'submitted',
-
-        // Token details
         fromToken: {
           address: fromTokenDetails.address,
           symbol: fromTokenDetails.symbol,
@@ -803,27 +801,15 @@ export class OneInchService {
           name: toTokenDetails.name,
           decimals: toTokenDetails.decimals
         },
-
-        // Amounts
         fromAmount: params.amount,
         toAmount: order.toAmount,
-        fromAmountFormatted,
-        toAmountFormatted,
-
-        // Execution details
         walletAddress: params.walletAddress,
         chainId: params.chainId || BASE_MAINNET_CHAIN_ID.toString(),
         preset: params.preset || 'fast',
-        estimatedFillTime: submitResponse.estimatedFillTime,
-
-        // Order details
-        signature: '', // We don't store the signature for security
         nonce: order.nonce,
         validUntil: order.validUntil,
-
-        // Price info
-        estimatedPrice
-      };
+        estimatedFillTime: submitResponse.estimatedFillTime
+      });
 
       // Save to localStorage
       OrderCacheService.saveOrder(savedOrder);
@@ -838,6 +824,78 @@ export class OneInchService {
 
     } catch (error) {
       console.error('❌ Failed to save order to cache:', error);
+      // Don't throw - this is not critical to the swap flow
+    }
+  }
+
+  /**
+   * Save completed regular swap to browser cache for tracking
+   */
+  private async saveSwapToCache(
+    params: SwapParams,
+    swapTxHash: string,
+    approvalTxHash?: string,
+    swapResponse?: SwapResponse
+  ): Promise<void> {
+    try {
+      console.log('💾 Saving swap to cache...');
+
+      // Get token details for both from and to tokens
+      const [fromTokenDetails, toTokenDetails] = await Promise.all([
+        tokenService.getTokenDetails(params.src),
+        tokenService.getTokenDetails(params.dst)
+      ]);
+
+      if (!fromTokenDetails || !toTokenDetails) {
+        console.warn('⚠️ Could not get token details, skipping swap cache save');
+        return;
+      }
+
+      // For regular swaps, we need to estimate the toAmount from the swap response
+      // or calculate it based on the quote if available
+      let toAmount = params.amount; // fallback
+      if (swapResponse && (swapResponse as any).toAmount) {
+        toAmount = (swapResponse as any).toAmount;
+      } else if (swapResponse && (swapResponse as any).dstAmount) {
+        toAmount = (swapResponse as any).dstAmount;
+      }
+
+      // Create saved order object using helper method
+      const savedOrder = OrderCacheService.createSwapOrder({
+        swapTxHash,
+        approvalTxHash,
+        fromToken: {
+          address: fromTokenDetails.address,
+          symbol: fromTokenDetails.symbol,
+          name: fromTokenDetails.name,
+          decimals: fromTokenDetails.decimals
+        },
+        toToken: {
+          address: toTokenDetails.address,
+          symbol: toTokenDetails.symbol,
+          name: toTokenDetails.name,
+          decimals: toTokenDetails.decimals
+        },
+        fromAmount: params.amount,
+        toAmount,
+        walletAddress: params.from,
+        chainId: BASE_MAINNET_CHAIN_ID.toString(),
+        slippage: params.slippage
+      });
+
+      // Save to localStorage
+      OrderCacheService.saveOrder(savedOrder);
+
+      console.log('✅ Swap saved to cache:', {
+        swapTxHash,
+        fromToken: savedOrder.fromToken.symbol,
+        toToken: savedOrder.toToken.symbol,
+        fromAmount: savedOrder.fromAmountFormatted,
+        toAmount: savedOrder.toAmountFormatted
+      });
+
+    } catch (error) {
+      console.error('❌ Failed to save swap to cache:', error);
       // Don't throw - this is not critical to the swap flow
     }
   }

@@ -1,10 +1,13 @@
-// Order Cache Service - Manages Fusion orders in browser localStorage
+// Order Cache Service - Manages all order types in browser localStorage
 
-export interface SavedFusionOrder {
+export type OrderType = 'fusion' | 'swap' | 'limit';
+
+export interface SavedOrder {
   orderHash: string;
+  type: OrderType;  // New field to distinguish order types
   timestamp: number;
   date: string;
-  status: 'submitted' | 'filled' | 'cancelled' | 'expired' | 'pending';
+  status: 'submitted' | 'filled' | 'cancelled' | 'expired' | 'pending' | 'completed';
   
   // Order details
   fromToken: {
@@ -27,31 +30,52 @@ export interface SavedFusionOrder {
   // Execution details
   walletAddress: string;
   chainId: string;
-  preset: string;
+  preset?: string; // Optional for non-fusion orders
   estimatedFillTime?: string;
   
-  // Transaction details
-  signature: string;
-  nonce: string;
-  validUntil: number;
+  // Transaction details (different for each order type)
+  signature?: string; // Not applicable for regular swaps
+  nonce?: string; // Not applicable for regular swaps
+  validUntil?: number; // Not applicable for regular swaps
+  
+  // Transaction hashes
+  swapTxHash?: string; // For completed regular swaps
+  approvalTxHash?: string; // For swaps that required approval
   
   // Price info
   estimatedPrice?: string; // Price per token
+  slippage?: number; // For regular swaps
   
   // Optional fill information (updated when order is filled)
   fillTxHash?: string;
   filledAt?: number;
   actualToAmount?: string;
+  
+  // Limit order specific fields
+  limitOrderData?: {
+    maker: string;
+    receiver: string;
+    makerAsset: string;
+    takerAsset: string;
+    makingAmount: string;
+    takingAmount: string;
+    salt: string;
+  };
+}
+
+// Backwards compatibility
+export interface SavedFusionOrder extends SavedOrder {
+  type: 'fusion';
 }
 
 export class OrderCacheService {
-  private static readonly STORAGE_KEY = 'fusion_orders';
+  private static readonly STORAGE_KEY = 'all_orders'; // Updated key name
   private static readonly MAX_ORDERS = 100; // Limit stored orders
 
   /**
-   * Save a new Fusion order to localStorage
+   * Save a new order to localStorage (supports all order types)
    */
-  static saveOrder(order: SavedFusionOrder): void {
+  static saveOrder(order: SavedOrder): void {
     try {
       const existingOrders = this.getAllOrders();
       
@@ -82,12 +106,12 @@ export class OrderCacheService {
   /**
    * Get all saved orders, sorted by most recent first
    */
-  static getAllOrders(): SavedFusionOrder[] {
+  static getAllOrders(): SavedOrder[] {
     try {
       const stored = localStorage.getItem(this.STORAGE_KEY);
       if (!stored) return [];
       
-      const orders = JSON.parse(stored) as SavedFusionOrder[];
+      const orders = JSON.parse(stored) as SavedOrder[];
       
       // Sort by timestamp (most recent first)
       return orders.sort((a, b) => b.timestamp - a.timestamp);
@@ -100,16 +124,30 @@ export class OrderCacheService {
   /**
    * Get orders for a specific wallet address
    */
-  static getOrdersForWallet(walletAddress: string): SavedFusionOrder[] {
+  static getOrdersForWallet(walletAddress: string): SavedOrder[] {
     return this.getAllOrders().filter(
       order => order.walletAddress.toLowerCase() === walletAddress.toLowerCase()
     );
   }
 
   /**
+   * Get orders by type
+   */
+  static getOrdersByType(type: OrderType): SavedOrder[] {
+    return this.getAllOrders().filter(order => order.type === type);
+  }
+
+  /**
+   * Get orders for a specific wallet address and type
+   */
+  static getOrdersForWalletByType(walletAddress: string, type: OrderType): SavedOrder[] {
+    return this.getOrdersForWallet(walletAddress).filter(order => order.type === type);
+  }
+
+  /**
    * Get a specific order by hash
    */
-  static getOrderByHash(orderHash: string): SavedFusionOrder | null {
+  static getOrderByHash(orderHash: string): SavedOrder | null {
     const orders = this.getAllOrders();
     return orders.find(order => order.orderHash === orderHash) || null;
   }
@@ -119,7 +157,7 @@ export class OrderCacheService {
    */
   static updateOrderStatus(
     orderHash: string, 
-    status: SavedFusionOrder['status'],
+    status: SavedOrder['status'],
     additionalData?: {
       fillTxHash?: string;
       filledAt?: number;
@@ -245,6 +283,149 @@ export class OrderCacheService {
     } catch {
       return 'Price unavailable';
     }
+  }
+
+  /**
+   * Helper method to create a regular swap order for saving
+   */
+  static createSwapOrder(params: {
+    swapTxHash: string;
+    approvalTxHash?: string;
+    fromToken: SavedOrder['fromToken'];
+    toToken: SavedOrder['toToken'];
+    fromAmount: string;  
+    toAmount: string;
+    walletAddress: string;
+    chainId: string;
+    slippage: number;
+  }): SavedOrder {
+    const timestamp = Date.now();
+    return {
+      orderHash: params.swapTxHash, // Use tx hash as order hash for swaps
+      type: 'swap',
+      timestamp,
+      date: new Date(timestamp).toISOString(),
+      status: 'completed',
+      
+      fromToken: params.fromToken,
+      toToken: params.toToken,
+      fromAmount: params.fromAmount,
+      toAmount: params.toAmount,
+      fromAmountFormatted: this.formatTokenAmount(params.fromAmount, params.fromToken.decimals, params.fromToken.symbol),
+      toAmountFormatted: this.formatTokenAmount(params.toAmount, params.toToken.decimals, params.toToken.symbol),
+      
+      walletAddress: params.walletAddress,
+      chainId: params.chainId,
+      slippage: params.slippage,
+      
+      swapTxHash: params.swapTxHash,
+      approvalTxHash: params.approvalTxHash,
+      
+      estimatedPrice: this.calculatePrice(
+        params.fromAmount,
+        params.toAmount,
+        params.fromToken.decimals,
+        params.toToken.decimals,
+        params.fromToken.symbol,
+        params.toToken.symbol
+      )
+    };
+  }
+
+  /**
+   * Helper method to create a Fusion order for saving
+   */
+  static createFusionOrder(params: {
+    orderHash: string;
+    fromToken: SavedOrder['fromToken'];
+    toToken: SavedOrder['toToken'];
+    fromAmount: string;
+    toAmount: string;
+    walletAddress: string;
+    chainId: string;
+    preset: string;
+    nonce: string;
+    validUntil: number;
+    estimatedFillTime?: string;
+  }): SavedOrder {
+    const timestamp = Date.now();
+    return {
+      orderHash: params.orderHash,
+      type: 'fusion',
+      timestamp,
+      date: new Date(timestamp).toISOString(),
+      status: 'submitted',
+      
+      fromToken: params.fromToken,
+      toToken: params.toToken,
+      fromAmount: params.fromAmount,
+      toAmount: params.toAmount,
+      fromAmountFormatted: this.formatTokenAmount(params.fromAmount, params.fromToken.decimals, params.fromToken.symbol),
+      toAmountFormatted: this.formatTokenAmount(params.toAmount, params.toToken.decimals, params.toToken.symbol),
+      
+      walletAddress: params.walletAddress,
+      chainId: params.chainId,
+      preset: params.preset,
+      estimatedFillTime: params.estimatedFillTime,
+      
+      nonce: params.nonce,
+      validUntil: params.validUntil,
+      
+      estimatedPrice: this.calculatePrice(
+        params.fromAmount,
+        params.toAmount,
+        params.fromToken.decimals,
+        params.toToken.decimals,
+        params.fromToken.symbol,
+        params.toToken.symbol
+      )
+    };
+  }
+
+  /**
+   * Helper method to create a limit order for saving
+   */
+  static createLimitOrder(params: {
+    orderHash: string;
+    fromToken: SavedOrder['fromToken'];
+    toToken: SavedOrder['toToken'];
+    fromAmount: string;
+    toAmount: string;
+    walletAddress: string;
+    chainId: string;
+    limitOrderData: SavedOrder['limitOrderData'];
+    validUntil?: number;
+  }): SavedOrder {
+    const timestamp = Date.now();
+    return {
+      orderHash: params.orderHash,
+      type: 'limit',
+      timestamp,
+      date: new Date(timestamp).toISOString(),
+      status: 'submitted',
+      
+      fromToken: params.fromToken,
+      toToken: params.toToken,
+      fromAmount: params.fromAmount,
+      toAmount: params.toAmount,
+      fromAmountFormatted: this.formatTokenAmount(params.fromAmount, params.fromToken.decimals, params.fromToken.symbol),
+      toAmountFormatted: this.formatTokenAmount(params.toAmount, params.toToken.decimals, params.toToken.symbol),
+      
+      walletAddress: params.walletAddress,
+      chainId: params.chainId,
+      
+      validUntil: params.validUntil,
+      limitOrderData: params.limitOrderData,
+      
+      estimatedPrice: this.calculatePrice(
+        params.fromAmount,
+        params.toAmount,
+        params.fromToken.decimals,
+        params.toToken.decimals,
+        params.fromToken.symbol,
+        params.toToken.symbol
+      )
+    };
   }
 }
 
