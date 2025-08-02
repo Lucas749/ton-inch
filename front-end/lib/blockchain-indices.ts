@@ -9,15 +9,17 @@ import { retryWithBackoff, delay } from "./blockchain-utils";
 import type { CustomIndex, OrderCondition } from "./blockchain-types";
 import type { BlockchainWallet } from "./blockchain-wallet";
 
+// Global request lock to prevent multiple simultaneous requests across all instances
+let globalPendingRequest: Promise<CustomIndex[]> | null = null;
+let globalIndicesCache: CustomIndex[] | null = null;
+let globalCacheTimestamp: number = 0;
+const GLOBAL_CACHE_DURATION = 30000; // 30 seconds
+
 export class BlockchainIndices {
   private web3: Web3;
   private wallet: BlockchainWallet;
   private oracle: any;
   private preInteraction: any;
-  private indicesCache: CustomIndex[] | null = null;
-  private cacheTimestamp: number = 0;
-  private readonly CACHE_DURATION = 30000; // 30 seconds
-  private pendingRequest: Promise<CustomIndex[]> | null = null;
 
   constructor(web3Instance: Web3, walletInstance: BlockchainWallet) {
     this.web3 = web3Instance;
@@ -40,43 +42,43 @@ export class BlockchainIndices {
   }
 
   /**
-   * Get all custom indices from the oracle with rate limiting and caching
+   * Get all custom indices from the oracle with rate limiting and global caching
    */
   async getAllIndices(): Promise<CustomIndex[]> {
     try {
-      // Check cache first
+      // Check global cache first
       const now = Date.now();
-      if (this.indicesCache && (now - this.cacheTimestamp) < this.CACHE_DURATION) {
-        console.log(`📊 Using cached indices data (${this.indicesCache.length} indices, cached ${Math.round((now - this.cacheTimestamp) / 1000)}s ago)`);
-        return this.indicesCache;
+      if (globalIndicesCache && (now - globalCacheTimestamp) < GLOBAL_CACHE_DURATION) {
+        console.log(`📊 Using global cached indices data (${globalIndicesCache.length} indices, cached ${Math.round((now - globalCacheTimestamp) / 1000)}s ago)`);
+        return globalIndicesCache;
       }
 
-      // If there's already a pending request, return it to avoid duplicate calls
-      if (this.pendingRequest) {
-        console.log('📊 Waiting for existing indices request... (preventing duplicate call)');
-        return this.pendingRequest;
+      // If there's already a global pending request, return it to avoid duplicate calls
+      if (globalPendingRequest) {
+        console.log('📊 Waiting for existing global indices request... (preventing duplicate call)');
+        return globalPendingRequest;
       }
 
-      console.log('📊 Fetching all indices with rate limiting...');
+      console.log('📊 Fetching all indices with rate limiting... (global request)');
       
-      // Create and store the promise
-      this.pendingRequest = this.fetchAllIndices();
+      // Create and store the global promise
+      globalPendingRequest = this.fetchAllIndices();
       
       try {
-        const indices = await this.pendingRequest;
+        const indices = await globalPendingRequest;
         
-        // Cache the results
-        this.indicesCache = indices;
-        this.cacheTimestamp = now;
+        // Cache the results globally
+        globalIndicesCache = indices;
+        globalCacheTimestamp = now;
         
         return indices;
       } finally {
-        // Clear the pending request
-        this.pendingRequest = null;
+        // Clear the global pending request
+        globalPendingRequest = null;
       }
     } catch (error) {
       console.error("❌ Error fetching indices:", error);
-      this.pendingRequest = null; // Clear on error
+      globalPendingRequest = null; // Clear on error
       return []; // Return empty array instead of throwing
     }
   }
@@ -210,13 +212,13 @@ export class BlockchainIndices {
   }
 
   /**
-   * Clear the indices cache (call after creating/updating indices)
+   * Clear the global indices cache (call after creating/updating indices)
    */
   clearCache(): void {
-    this.indicesCache = null;
-    this.cacheTimestamp = 0;
-    this.pendingRequest = null;
-    console.log('🗑️ Cleared indices cache');
+    globalIndicesCache = null;
+    globalCacheTimestamp = 0;
+    globalPendingRequest = null;
+    console.log('🗑️ Cleared global indices cache');
   }
 
   /**
@@ -460,7 +462,7 @@ export class BlockchainIndices {
    */
   reinitialize(): void {
     this.initializeContracts();
-    // Clear cache when network changes
+    // Clear global cache when network changes
     this.clearCache();
   }
 }

@@ -154,7 +154,7 @@ export function useBlockchain(): UseBlockchainReturn {
     []
   );
 
-  // Refresh indices
+  // Refresh indices with debounce to prevent multiple rapid calls
   const refreshIndices = useCallback(async () => {
     try {
       // Clear cache first to force fresh data
