@@ -272,7 +272,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
     
     try {
       // Get the token contract
-      const provider = new (window as any).ethereum;
+      const provider = (window as any).ethereum;
       const web3 = new (await import('web3')).Web3(provider);
       
       const tokenContract = new web3.eth.Contract([
@@ -326,7 +326,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
     setIsApprovingToken(true);
     
     try {
-      const provider = new (window as any).ethereum;
+      const provider = (window as any).ethereum;
       const web3 = new (await import('web3')).Web3(provider);
       
       const tokenContract = new web3.eth.Contract([
