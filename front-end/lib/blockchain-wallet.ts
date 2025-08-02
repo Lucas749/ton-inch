@@ -217,6 +217,31 @@ export class BlockchainWallet {
     }
   }
 
+  /**
+   * Sign typed data (EIP-712) for 1inch orders
+   */
+  async signTypedDataV4(typedData: any): Promise<string> {
+    try {
+      if (!this.isWalletConnected() || !this.currentAccount) {
+        throw new Error("Wallet not connected. Please connect your wallet first.");
+      }
+
+      console.log("🔄 Signing typed data for 1inch order");
+
+      // Use eth_signTypedData_v4 method
+      const signature = await (window as any).ethereum.request({
+        method: 'eth_signTypedData_v4',
+        params: [this.currentAccount, JSON.stringify(typedData)]
+      });
+
+      console.log(`✅ Typed data signed successfully`);
+      return signature;
+    } catch (error) {
+      console.error("❌ Error signing typed data:", error);
+      throw error;
+    }
+  }
+
   // Getters for internal state
   get currentAccount(): string | null {
     return this.account;

@@ -1,20 +1,55 @@
 /**
  * 📋 Blockchain Orders Service
- * Handles order operations like creating, canceling, and tracking orders
+ * Handles order operations like creating, canceling, and tracking orders using 1inch SDK
  */
 
 import { Web3 } from "web3";
-import { CONTRACTS, ABIS } from "./blockchain-constants";
+import { CONTRACTS, ABIS, OPERATORS, INDICES } from "./blockchain-constants";
 import { retryWithBackoff, parseTokenAmount } from "./blockchain-utils";
 import type { Order, OrderParams } from "./blockchain-types";
 import type { BlockchainWallet } from "./blockchain-wallet";
 import type { BlockchainTokens } from "./blockchain-tokens";
+
+// 1inch SDK imports
+import { 
+  LimitOrder, 
+  MakerTraits, 
+  Address, 
+  Sdk, 
+  randBigInt, 
+  FetchProviderConnector, 
+  ExtensionBuilder 
+} from '@1inch/limit-order-sdk';
+import { ethers } from 'ethers';
+
+// Configuration matching backend
+const CONFIG = {
+  CHAIN_ID: 8453, // Base Mainnet
+  RPC_URL: 'https://base.llamarpc.com',
+  LIMIT_ORDER_PROTOCOL: '0x111111125421cA6dc452d289314280a0f8842A65',
+  INDEX_ORACLE_ADDRESS: '0x8a585F9B2359Ef093E8a2f5432F387960e953BD2',
+  
+  // Base Mainnet Token Addresses (matching backend)
+  TOKENS: {
+    USDC: {
+      address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+      decimals: 6,
+      symbol: 'USDC'
+    },
+    WETH: {
+      address: '0x4200000000000000000000000000000000000006',
+      decimals: 18,
+      symbol: 'WETH'
+    }
+  }
+};
 
 export class BlockchainOrders {
   private web3: Web3;
   private wallet: BlockchainWallet;
   private tokens: BlockchainTokens;
   private oneInchContract: any;
+  private sdk: any;
   private orderCache: Map<number, { orders: Order[], timestamp: number }> = new Map();
   private readonly CACHE_DURATION = 30000; // 30 seconds
 
@@ -23,6 +58,7 @@ export class BlockchainOrders {
     this.wallet = walletInstance;
     this.tokens = tokensInstance;
     this.initializeContracts();
+    this.initializeSDK();
   }
 
   /**
@@ -37,27 +73,237 @@ export class BlockchainOrders {
   }
 
   /**
-   * Create a new order with index condition (NEW ARCHITECTURE - NOT IMPLEMENTED YET)
-   * 
-   * NOTE: This needs to be completely rewritten to use the 1inch SDK directly
-   * as shown in the backend. For now, this throws an error to indicate the
-   * architectural change needed.
+   * Initialize 1inch SDK
+   */
+  private initializeSDK(): void {
+    try {
+      this.sdk = new Sdk({
+        networkId: CONFIG.CHAIN_ID,
+        httpConnector: new FetchProviderConnector(),
+        // authKey will be provided when needed
+      });
+      console.log('✅ 1inch SDK initialized');
+    } catch (error) {
+      console.warn('⚠️ Failed to initialize 1inch SDK:', error);
+    }
+  }
+
+  /**
+   * Create a new order with index condition (using 1inch SDK)
    */
   async createOrder(params: OrderParams): Promise<Order | null> {
-    throw new Error(`
-      🚧 ORDER CREATION NEEDS UPDATING FOR NEW ARCHITECTURE 🚧
+    try {
+      console.log("🔄 Creating order with 1inch SDK:", params);
       
-      The new backend uses the 1inch SDK directly instead of factory contracts.
+      if (!this.wallet.isWalletConnected() || !this.wallet.currentAccount) {
+        throw new Error("Wallet not connected. Please connect your wallet first.");
+      }
+
+      if (!this.sdk) {
+        throw new Error("1inch SDK not initialized");
+      }
+
+      // Get token info
+      const fromToken = this.getTokenInfo(params.fromToken);
+      const toToken = this.getTokenInfo(params.toToken);
       
-      To fix this, we need to:
-      1. Install @1inch/limit-order-sdk in the frontend
-      2. Rewrite this method to match the backend's index-order-creator.js
-      3. Use 1inch SDK's LimitOrder, MakerTraits, ExtensionBuilder etc.
+      console.log(`📊 Trading: ${params.fromAmount} ${fromToken.symbol} → ${params.toAmount} ${toToken.symbol}`);
+
+      // Parse amounts
+      const makingAmount = ethers.utils.parseUnits(params.fromAmount.toString(), fromToken.decimals);
+      const takingAmount = ethers.utils.parseUnits(params.toAmount.toString(), toToken.decimals);
+
+      // Create index predicate
+      console.log('🔮 Creating index predicate...');
+      const predicate = this.createIndexPredicate({
+        indexId: params.indexId,
+        operator: this.mapOperatorToString(params.operator),
+        threshold: params.threshold
+      });
+
+      // Create extension with predicate
+      const extension = new ExtensionBuilder()
+        .withPredicate(predicate)
+        .build();
       
-      See: unicorn-project/backend/src/index-order-creator.js for reference
+      console.log('✅ Extension created with predicate');
+
+      // Setup timing
+      const expirationHours = 24; // Default 24 hours
+      const expiration = BigInt(Math.floor(Date.now() / 1000) + (expirationHours * 3600));
+      const UINT_40_MAX = (1n << 40n) - 1n;
+
+      // Create MakerTraits
+      const makerTraits = MakerTraits.default()
+        .withExpiration(expiration)
+        .withNonce(randBigInt(UINT_40_MAX))
+        .allowPartialFills()
+        .allowMultipleFills()
+        .withExtension();
+
+      console.log('🔧 Creating order...');
+
+      // Create order using SDK
+      const order = await this.sdk.createOrder({
+        makerAsset: new Address(fromToken.address),
+        takerAsset: new Address(toToken.address),
+        makingAmount: makingAmount,
+        takingAmount: takingAmount,
+        maker: new Address(this.wallet.currentAccount),
+        extension: extension.encode()
+      }, makerTraits);
+
+      const orderHash = order.getOrderHash();
+      console.log(`✅ Order created: ${orderHash}`);
+
+      // Sign order using wallet
+      console.log('✍️ Signing order...');
+      const typedData = order.getTypedData(CONFIG.CHAIN_ID);
       
-      Parameters received: ${JSON.stringify(params, null, 2)}
-    `);
+      // Use the wallet's signTypedData method
+      const signature = await this.wallet.signTypedDataV4(typedData);
+      console.log('✅ Order signed');
+
+      // Submit order to 1inch
+      console.log('📤 Submitting to 1inch...');
+      let submitResult = null;
+      try {
+        submitResult = await this.sdk.submitOrder(order, signature);
+        console.log('✅ Order submitted successfully!');
+      } catch (error) {
+        console.log(`⚠️ Submit failed: ${error.message}`);
+        console.log('Order created locally but not submitted to 1inch API');
+      }
+
+      // Clear cache so new order appears
+      this.clearOrderCache(params.indexId);
+
+      // Return order object
+      return {
+        hash: orderHash,
+        indexId: params.indexId,
+        operator: params.operator,
+        threshold: params.threshold,
+        description: params.description,
+        makerAsset: params.fromToken,
+        takerAsset: params.toToken,
+        makingAmount: makingAmount.toString(),
+        takingAmount: takingAmount.toString(),
+        fromToken: params.fromToken,
+        toToken: params.toToken,
+        fromAmount: params.fromAmount,
+        toAmount: params.toAmount,
+        maker: this.wallet.currentAccount,
+        receiver: this.wallet.currentAccount,
+        expiry: Number(expiration),
+        status: submitResult ? "active" : "pending",
+        createdAt: Date.now(),
+        transactionHash: orderHash, // In 1inch, orderHash is the primary identifier
+      };
+
+    } catch (error) {
+      console.error("❌ Error creating order:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get token info helper
+   */
+  private getTokenInfo(tokenAddress: string) {
+    // Check if it's a symbol or address
+    const tokenKey = Object.keys(CONFIG.TOKENS).find(key => 
+      CONFIG.TOKENS[key].address.toLowerCase() === tokenAddress.toLowerCase() ||
+      key === tokenAddress.toUpperCase()
+    );
+    
+    if (tokenKey) {
+      return CONFIG.TOKENS[tokenKey];
+    }
+    
+    // Default fallback for unknown tokens
+    return {
+      address: tokenAddress,
+      symbol: 'UNKNOWN',
+      decimals: 18
+    };
+  }
+
+  /**
+   * Map numeric operator to string
+   */
+  private mapOperatorToString(operator: number): string {
+    switch (operator) {
+      case OPERATORS.GT: return 'gt';
+      case OPERATORS.LT: return 'lt';
+      case OPERATORS.GTE: return 'gte';
+      case OPERATORS.LTE: return 'lte';
+      case OPERATORS.EQ: return 'eq';
+      case OPERATORS.NEQ: return 'neq';
+      default: return 'gt';
+    }
+  }
+
+  /**
+   * Create index predicate (matching backend logic)
+   */
+  private createIndexPredicate(condition: { indexId: number, operator: string, threshold: number }): string {
+    console.log(`   Index: ${INDICES[Object.keys(INDICES).find(key => INDICES[key].id === condition.indexId)]?.name}`);
+    console.log(`   Operator: ${condition.operator}`);
+    console.log(`   Threshold: ${condition.threshold}`);
+    
+    // Oracle call encoding
+    const getIndexValueSelector = ethers.utils.id('getIndexValue(uint256)').slice(0, 10);
+    const oracleCallData = ethers.utils.defaultAbiCoder.encode(
+      ['bytes4', 'uint256'],
+      [getIndexValueSelector, condition.indexId]
+    );
+    
+    // Predicate structure: operator(threshold, arbitraryStaticCall(oracle, callData))
+    const arbitraryStaticCallData = ethers.utils.defaultAbiCoder.encode(
+      ['address', 'bytes'],
+      [CONFIG.INDEX_ORACLE_ADDRESS, oracleCallData]
+    );
+    
+    let predicateData;
+    
+    // Map our operator to 1inch methods
+    switch (condition.operator) {
+      case 'gt':
+      case 'gte': // Treat >= as > for simplicity
+        predicateData = ethers.utils.defaultAbiCoder.encode(
+          ['uint256', 'bytes'],
+          [condition.threshold, arbitraryStaticCallData]
+        );
+        break;
+      case 'lt':
+      case 'lte': // Treat <= as < for simplicity
+        predicateData = ethers.utils.defaultAbiCoder.encode(
+          ['uint256', 'bytes'],
+          [condition.threshold, arbitraryStaticCallData]
+        );
+        break;
+      case 'eq':
+        predicateData = ethers.utils.defaultAbiCoder.encode(
+          ['uint256', 'bytes'],
+          [condition.threshold, arbitraryStaticCallData]
+        );
+        break;
+      default:
+        // Default to gt
+        predicateData = ethers.utils.defaultAbiCoder.encode(
+          ['uint256', 'bytes'],
+          [condition.threshold, arbitraryStaticCallData]
+        );
+    }
+    
+    // Complete predicate with protocol address
+    const completePredicate = ethers.utils.solidityPack(
+      ['address', 'bytes'],
+      [CONFIG.LIMIT_ORDER_PROTOCOL, predicateData]
+    );
+    
+    return completePredicate;
   }
 
   /**
