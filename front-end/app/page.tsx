@@ -23,7 +23,7 @@ export default function Home() {
             </div>
           </div>
           <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
-            Welcome to <span className="text-blue-600">EventLimit</span>
+            Welcome to <span className="text-blue-600">c1nch</span>
           </h1>
           <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
             Create custom indices and set up conditional trading orders that execute automatically when your conditions are met.

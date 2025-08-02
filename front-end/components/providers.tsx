@@ -7,8 +7,8 @@ import { sepolia, baseSepolia } from 'wagmi/chains';
 import '@rainbow-me/rainbowkit/styles.css';
 
 const config = getDefaultConfig({
-  appName: 'EventLimit',
-  projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'eventlimit-demo',
+          appName: 'c1nch',
+        projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'c1nch-demo',
   chains: [baseSepolia, sepolia],
   ssr: true,
 });

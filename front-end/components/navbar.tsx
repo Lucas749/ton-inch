@@ -23,7 +23,7 @@ export function Navbar() {
                 <TrendingUp className="w-5 h-5 text-white" />
               </div>
               <span className="text-xl font-bold text-gray-900">
-                EventLimit
+                c1nch
               </span>
             </div>
             <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">

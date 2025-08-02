@@ -176,7 +176,7 @@ export function useOrders(): UseOrdersReturn {
 
   // Load orders on mount (from localStorage for persistence)
   useEffect(() => {
-    const savedOrders = localStorage.getItem('unicorn-orders');
+    const savedOrders = localStorage.getItem('c1nch-orders');
     if (savedOrders) {
       try {
         const parsedOrders = JSON.parse(savedOrders);
@@ -190,7 +190,7 @@ export function useOrders(): UseOrdersReturn {
   // Save orders to localStorage when they change
   useEffect(() => {
     if (orders.length > 0) {
-      localStorage.setItem('unicorn-orders', JSON.stringify(orders));
+      localStorage.setItem('c1nch-orders', JSON.stringify(orders));
     }
   }, [orders]);
 
