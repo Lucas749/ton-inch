@@ -374,6 +374,28 @@ export class BlockchainWallet {
     }
   }
 
+  /**
+   * Sync wallet state with external wallet provider (like wagmi)
+   * This allows the blockchain service to work with external wallet connections
+   */
+  syncExternalWallet(address: string | null): void {
+    if (address) {
+      this.account = address;
+      this.isInitialized = true;
+      
+      // Set up Web3 provider if available
+      if (typeof window !== "undefined" && window.ethereum) {
+        this.web3.setProvider(window.ethereum);
+      }
+      
+      console.log("✅ Synced external wallet:", address);
+    } else {
+      this.account = null;
+      this.isInitialized = false;
+      console.log("🔄 Wallet disconnected from external provider");
+    }
+  }
+
   // Getters for internal state
   get currentAccount(): string | null {
     return this.account;

@@ -250,8 +250,11 @@ export function useBlockchain(): UseBlockchainReturn {
     }
   }, []);
 
-  // Load indices when wallet connects
+  // Sync wagmi wallet state with blockchain service and load indices
   useEffect(() => {
+    // Sync wallet state with blockchain service
+    blockchainService.wallet.syncExternalWallet(walletAddress);
+    
     if (isConnected && walletAddress) {
       refreshIndices().catch((err) => {
         console.warn("Warning: Failed to refresh indices after wallet connection:", err);
@@ -262,7 +265,7 @@ export function useBlockchain(): UseBlockchainReturn {
       setIsOwner(false);
       setError(null);
     }
-  }, [isConnected, walletAddress, refreshIndices]);
+  }, [isConnected, walletAddress]); // Removed refreshIndices from dependency array to prevent infinite loop
 
   return {
     // State
