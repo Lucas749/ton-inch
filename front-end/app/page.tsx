@@ -73,129 +73,204 @@ export default function Home() {
     <div className="min-h-screen bg-white">
       <Navbar />
       
-      {/* Interactive Hero Section - How c1nch Works */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 py-16 md:py-24">
-        <div className="absolute inset-0 bg-grid-slate-100 [mask-image:linear-gradient(0deg,transparent,black)] opacity-20"></div>
-        
-        <div className="container mx-auto px-4 relative">
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center px-4 py-2 rounded-full bg-blue-100 text-blue-800 text-sm font-medium mb-4">
-              <Zap className="w-4 h-4 mr-2" />
-              Next-Gen Conditional Trading
-            </div>
-            <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
-              Trade When
-              <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"> Conditions </span>
-              Are Perfect
-            </h1>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-8">
-              c1nch enables intelligent conditional trading using real-world data. Set conditions, sit back, and let your trades execute automatically when your criteria are met.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-3">
-                Start Trading <ArrowRight className="w-5 h-5 ml-2" />
-              </Button>
-              <Button variant="outline" size="lg" className="px-8 py-3">
-                Watch Demo <Globe className="w-5 h-5 ml-2" />
-              </Button>
-            </div>
-          </div>
+      {/* Hero Section - Premium Design */}
+      <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-black">
+        {/* Animated Background */}
+        <div className="absolute inset-0">
+          {/* Gradient Mesh */}
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-blue-900/20 to-cyan-900/20"></div>
+          
+          {/* Animated Grid */}
+          <div className="absolute inset-0 bg-[linear-gradient(rgba(59,130,246,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(59,130,246,0.1)_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,#000_70%,transparent_110%)]"></div>
+          
+          {/* Floating Orbs */}
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
+          <div className="absolute top-1/2 right-1/3 w-64 h-64 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-full blur-3xl animate-pulse delay-2000"></div>
+        </div>
 
-          {/* Interactive Flow Diagram */}
-          <div className="max-w-6xl mx-auto">
-            <div className="grid md:grid-cols-4 gap-6 mb-12">
-              {/* Step 1 */}
-              <div className="relative group">
-                <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                    <Target className="w-6 h-6 text-white" />
-                  </div>
-                  <h3 className="font-semibold text-gray-900 mb-2">1. Set Conditions</h3>
-                  <p className="text-sm text-gray-600">Choose real-world indices like VIX, inflation, or custom metrics as triggers</p>
-                </div>
-                <div className="hidden md:block absolute top-1/2 -right-3 transform -translate-y-1/2 z-10">
-                  <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
-                    <ArrowRight className="w-4 h-4 text-white" />
-                  </div>
-                </div>
+        <div className="container mx-auto px-4 relative z-10">
+          <div className="max-w-7xl mx-auto">
+            {/* Main Content */}
+            <div className="text-center mb-16">
+              {/* Badge */}
+              <div className="inline-flex items-center px-6 py-3 rounded-full bg-gradient-to-r from-blue-500/10 to-purple-500/10 backdrop-blur border border-blue-500/20 text-blue-300 text-sm font-medium mb-8 hover:scale-105 transition-transform duration-300">
+                <Zap className="w-5 h-5 mr-3 text-yellow-400" />
+                <span className="bg-gradient-to-r from-blue-300 to-purple-300 bg-clip-text text-transparent font-semibold">
+                  Next-Generation Conditional Trading Platform
+                </span>
               </div>
 
-              {/* Step 2 */}
-              <div className="relative group">
-                <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
-                  <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                    <Layers className="w-6 h-6 text-white" />
-                  </div>
-                  <h3 className="font-semibold text-gray-900 mb-2">2. Configure Trade</h3>
-                  <p className="text-sm text-gray-600">Define your swap parameters - tokens, amounts, and execution preferences</p>
-                </div>
-                <div className="hidden md:block absolute top-1/2 -right-3 transform -translate-y-1/2 z-10">
-                  <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center">
-                    <ArrowRight className="w-4 h-4 text-white" />
-                  </div>
-                </div>
-              </div>
+              {/* Main Headline */}
+              <h1 className="text-5xl md:text-7xl lg:text-8xl font-black mb-8 leading-tight">
+                <span className="text-white">Trade When</span>
+                <br />
+                <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent animate-pulse">
+                  Conditions
+                </span>
+                <br />
+                <span className="text-white">Are Perfect</span>
+              </h1>
 
-              {/* Step 3 */}
-              <div className="relative group">
-                <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
-                  <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                    <ShieldCheck className="w-6 h-6 text-white" />
-                  </div>
-                  <h3 className="font-semibold text-gray-900 mb-2">3. Smart Monitoring</h3>
-                  <p className="text-sm text-gray-600">Our oracle network continuously monitors your conditions 24/7</p>
-                </div>
-                <div className="hidden md:block absolute top-1/2 -right-3 transform -translate-y-1/2 z-10">
-                  <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                    <ArrowRight className="w-4 h-4 text-white" />
-                  </div>
-                </div>
-              </div>
+              {/* Subtitle */}
+              <p className="text-xl md:text-2xl text-gray-300 max-w-4xl mx-auto mb-12 leading-relaxed">
+                Revolutionary DeFi automation that executes trades based on{' '}
+                <span className="text-blue-400 font-semibold">real-world data triggers.</span>{' '}
+                Set intelligent conditions, optimize timing, and never miss the perfect trade again.
+              </p>
 
-              {/* Step 4 */}
-              <div className="relative group">
-                <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
-                  <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                    <Zap className="w-6 h-6 text-white" />
+              {/* CTA Buttons */}
+              <div className="flex flex-col sm:flex-row gap-6 justify-center mb-16">
+                <button className="group relative px-10 py-5 text-lg font-bold text-white overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 transform hover:scale-105 transition-all duration-300 shadow-2xl shadow-blue-500/25">
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-xl"></div>
+                  <div className="relative flex items-center justify-center">
+                    Start Trading Revolution
+                    <ArrowRight className="w-6 h-6 ml-3 group-hover:translate-x-1 transition-transform duration-300" />
                   </div>
-                  <h3 className="font-semibold text-gray-900 mb-2">4. Auto Execute</h3>
-                  <p className="text-sm text-gray-600">When conditions are met, your trade executes automatically via 1inch</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Live Example */}
-            <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-8 text-white">
-              <div className="text-center mb-6">
-                <h3 className="text-2xl font-bold mb-2">Live Example</h3>
-                <p className="text-blue-100">See how intelligent conditions work in real-time</p>
-              </div>
-              
-              <div className="bg-white/10 backdrop-blur rounded-xl p-6 max-w-2xl mx-auto">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                      <span className="text-lg">⚡</span>
-                    </div>
-                    <div>
-                      <div className="font-semibold">VIX Volatility Trade</div>
-                      <div className="text-sm text-blue-100">Active Condition</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                    <span className="text-sm">Monitoring</span>
-                  </div>
-                </div>
+                </button>
                 
-                <div className="bg-white/10 rounded-lg p-4 font-mono text-sm">
-                  <div className="flex justify-between items-center">
-                    <span>IF VIX Index > 25.0</span>
-                    <span className="text-blue-200">Current: 22.57</span>
+                <button className="group px-10 py-5 text-lg font-bold text-white border-2 border-gray-600 hover:border-blue-400 rounded-2xl backdrop-blur hover:bg-white/5 transform hover:scale-105 transition-all duration-300">
+                  <div className="flex items-center justify-center">
+                    <Globe className="w-6 h-6 mr-3 group-hover:rotate-12 transition-transform duration-300" />
+                    Watch Live Demo
                   </div>
-                  <div className="flex justify-between items-center mt-2">
-                    <span>THEN Swap 0.1 ETH → USDC</span>
-                    <span className="text-green-300">Ready</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Interactive Process Flow */}
+            <div className="max-w-6xl mx-auto">
+              <div className="text-center mb-12">
+                <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">How It Works</h2>
+                <p className="text-gray-400 text-lg">Four steps to autonomous trading mastery</p>
+              </div>
+
+              <div className="grid md:grid-cols-4 gap-8">
+                {[
+                  {
+                    step: "01",
+                    title: "Set Conditions",
+                    desc: "Choose from 50+ real-world data sources including VIX, inflation rates, social sentiment, and custom metrics",
+                    icon: Target,
+                    color: "from-blue-500 to-cyan-500",
+                    bgColor: "from-blue-500/20 to-cyan-500/20"
+                  },
+                  {
+                    step: "02", 
+                    title: "Configure Strategy",
+                    desc: "Define precise trading parameters with advanced position sizing, slippage protection, and multi-token swaps",
+                    icon: Layers,
+                    color: "from-purple-500 to-pink-500",
+                    bgColor: "from-purple-500/20 to-pink-500/20"
+                  },
+                  {
+                    step: "03",
+                    title: "Smart Monitoring", 
+                    desc: "Enterprise-grade oracle network monitors conditions across multiple data sources with 99.9% uptime",
+                    icon: ShieldCheck,
+                    color: "from-green-500 to-emerald-500",
+                    bgColor: "from-green-500/20 to-emerald-500/20"
+                  },
+                  {
+                    step: "04",
+                    title: "Auto Execute",
+                    desc: "Lightning-fast execution via 1inch aggregator ensures optimal pricing and minimal slippage",
+                    icon: Zap,
+                    color: "from-orange-500 to-red-500", 
+                    bgColor: "from-orange-500/20 to-red-500/20"
+                  }
+                ].map((item, index) => (
+                  <div key={index} className="group relative">
+                    {/* Connection Line */}
+                    {index < 3 && (
+                      <div className="hidden md:block absolute top-16 -right-4 w-8 h-0.5 bg-gradient-to-r from-gray-600 to-transparent z-0"></div>
+                    )}
+                    
+                    {/* Card */}
+                    <div className="relative bg-gradient-to-br from-gray-900/50 to-gray-800/50 backdrop-blur border border-gray-700/50 rounded-3xl p-8 hover:border-gray-600 transform hover:scale-105 hover:-translate-y-2 transition-all duration-500 group-hover:shadow-2xl group-hover:shadow-blue-500/10">
+                      {/* Step Number */}
+                      <div className="absolute -top-4 -left-4 w-12 h-12 bg-gradient-to-r from-gray-800 to-gray-700 border-2 border-gray-600 rounded-2xl flex items-center justify-center text-sm font-bold text-white shadow-lg">
+                        {item.step}
+                      </div>
+                      
+                      {/* Icon */}
+                      <div className={`w-20 h-20 bg-gradient-to-br ${item.bgColor} rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 shadow-lg`}>
+                        <item.icon className={`w-10 h-10 bg-gradient-to-r ${item.color} bg-clip-text text-transparent`} style={{filter: 'brightness(0) saturate(100%) invert(1)'}} />
+                      </div>
+
+                      {/* Content */}
+                      <h3 className="text-xl font-bold text-white mb-4 group-hover:text-blue-300 transition-colors duration-300">
+                        {item.title}
+                      </h3>
+                      <p className="text-gray-400 leading-relaxed group-hover:text-gray-300 transition-colors duration-300">
+                        {item.desc}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Live Trading Example */}
+            <div className="max-w-4xl mx-auto mt-20">
+              <div className="relative bg-gradient-to-br from-gray-900/80 to-gray-800/80 backdrop-blur border border-gray-700/50 rounded-3xl p-8 overflow-hidden">
+                {/* Background Effect */}
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 to-purple-600/5"></div>
+                
+                <div className="relative">
+                  <div className="text-center mb-8">
+                    <div className="inline-flex items-center px-4 py-2 rounded-full bg-green-500/20 border border-green-500/30 text-green-300 text-sm font-medium mb-4">
+                      <div className="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></div>
+                      Live Trading Example
+                    </div>
+                    <h3 className="text-2xl font-bold text-white mb-2">VIX Volatility Strategy</h3>
+                    <p className="text-gray-400">Monitoring market fear index in real-time</p>
+                  </div>
+
+                  {/* Trading Interface Mockup */}
+                  <div className="bg-black/50 rounded-2xl p-6 border border-gray-700/50">
+                    <div className="flex items-center justify-between mb-6">
+                      <div className="flex items-center space-x-4">
+                        <div className="w-12 h-12 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-xl flex items-center justify-center">
+                          <span className="text-2xl">⚡</span>
+                        </div>
+                        <div>
+                          <div className="text-white font-semibold text-lg">Market Fear Strategy</div>
+                          <div className="text-gray-400 text-sm">Automated volatility hedge</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+                        <span className="text-green-300 font-medium">Active</span>
+                      </div>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-6">
+                      <div className="space-y-4">
+                        <div className="bg-gray-800/50 rounded-xl p-4">
+                          <div className="text-gray-400 text-sm mb-1">Condition</div>
+                          <div className="text-white font-mono">IF VIX Index > 25.0</div>
+                          <div className="text-blue-300 text-sm mt-1">Current: 22.57 ⬇</div>
+                        </div>
+                        <div className="bg-gray-800/50 rounded-xl p-4">
+                          <div className="text-gray-400 text-sm mb-1">Position Size</div>
+                          <div className="text-white">0.5 ETH → USDC</div>
+                          <div className="text-gray-400 text-sm mt-1">~$1,247.50</div>
+                        </div>
+                      </div>
+                      <div className="space-y-4">
+                        <div className="bg-gray-800/50 rounded-xl p-4">
+                          <div className="text-gray-400 text-sm mb-1">Expected Execution</div>
+                          <div className="text-yellow-300">Standby Mode</div>
+                          <div className="text-gray-400 text-sm mt-1">Waiting for trigger</div>
+                        </div>
+                        <div className="bg-gray-800/50 rounded-xl p-4">
+                          <div className="text-gray-400 text-sm mb-1">Profit Target</div>
+                          <div className="text-green-400">+12.5% when VIX spikes</div>
+                          <div className="text-gray-400 text-sm mt-1">Historical avg</div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
