@@ -77,9 +77,12 @@ export function useBlockchain(): UseBlockchainReturn {
         setChainId(networkInfo.chainId);
         setNetworkName(networkInfo.networkName);
 
-        // Get ETH balance (indices loaded explicitly by pages)
+        // Get ETH balance
         const balance = await blockchainService.getETHBalance();
         setEthBalance(balance);
+
+        // Load indices
+        await refreshIndices();
       }
     } catch (err) {
       const errorMessage =
@@ -233,7 +236,7 @@ export function useBlockchain(): UseBlockchainReturn {
           setEthBalance(balance);
         });
 
-        // Indices will be loaded explicitly by pages when needed
+        refreshIndices();
       }
     }
 
@@ -243,8 +246,9 @@ export function useBlockchain(): UseBlockchainReturn {
         setWalletAddress(account);
         setIsConnected(true);
 
-        // Refresh balances for new account (indices loaded on-demand)
+        // Refresh balances and data for new account
         blockchainService.getETHBalance().then(setEthBalance);
+        refreshIndices();
       } else {
         setWalletAddress(null);
         setIsConnected(false);
@@ -267,12 +271,13 @@ export function useBlockchain(): UseBlockchainReturn {
           setChainId(networkInfo.chainId);
           setNetworkName(networkInfo.networkName);
           
-          // Refresh balance for new network (indices loaded on-demand)
+          // Refresh balance and indices for new network
           try {
             const balance = await blockchainService.getETHBalance();
             setEthBalance(balance);
+            await refreshIndices();
           } catch (err) {
-            console.warn("Warning: Failed to refresh balance after network switch:", err);
+            console.warn("Warning: Failed to refresh data after network switch:", err);
           }
         } else {
           // Wallet disconnected
@@ -285,7 +290,7 @@ export function useBlockchain(): UseBlockchainReturn {
         console.error("Error handling network change:", err);
       }
     });
-  }, []); // No dependencies - event listeners set once
+  }, [refreshIndices]);
 
   return {
     // State

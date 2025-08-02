@@ -57,43 +57,23 @@ export default function CreateIndex() {
   const { isConnected, indices: blockchainIndices, refreshIndices } = useBlockchain();
   const { createOrder, isLoading: isCreatingOrder } = useOrders();
 
-  // Load indices explicitly when page mounts or wallet connects
+  // Convert blockchain indices to IndexWithOrders format
   useEffect(() => {
-    const loadIndicesExplicitly = async () => {
-      if (!isConnected) {
-        setIndices([]);
-        setIsLoading(false);
-        return;
-      }
-
-      console.log('📊 Create Index: Loading indices explicitly...');
-      setIsLoading(true);
-      
-      try {
-        // Explicitly refresh indices for create-index page
-        await refreshIndices();
-      } catch (error) {
-        console.error('❌ Failed to load indices for create-index:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadIndicesExplicitly();
-  }, [isConnected, refreshIndices]);
-
-  // Convert blockchain indices to IndexWithOrders format when they change
-  useEffect(() => {
-    if (blockchainIndices.length > 0) {
-      const indicesWithOrders: IndexWithOrders[] = blockchainIndices.map(index => ({
-        ...index,
-        orders: [],
-        orderCount: 0 // Will be loaded on-demand if needed
-      }));
-
-      setIndices(indicesWithOrders);
+    if (!isConnected) {
+      setIndices([]);
+      setIsLoading(false);
+      return;
     }
-  }, [blockchainIndices]);
+
+    const indicesWithOrders: IndexWithOrders[] = blockchainIndices.map(index => ({
+      ...index,
+      orders: [],
+      orderCount: 0 // Will be loaded on-demand if needed
+    }));
+
+    setIndices(indicesWithOrders);
+    setIsLoading(false);
+  }, [isConnected, blockchainIndices]);
   
   // Handle selected index from URL
   useEffect(() => {

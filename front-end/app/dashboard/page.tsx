@@ -42,52 +42,30 @@ export default function Dashboard() {
     }
   };
   
-  const { isConnected, indices: blockchainIndices, refreshIndices, walletAddress } = useBlockchain();
-
-  // Debug connection state
-  console.log('📱 Dashboard connection state:', { isConnected, walletAddress, indiceCount: blockchainIndices.length });
+  const { isConnected, indices: blockchainIndices, refreshIndices } = useBlockchain();
   const { orders } = useOrders();
   const router = useRouter();
 
-  // Load indices explicitly when dashboard mounts or wallet connects
+  // Convert blockchain indices to IndexWithOrders format
   useEffect(() => {
-    const loadIndicesExplicitly = async () => {
-      if (!isConnected) {
-        setIndices([]);
-        setAllOrders([]);
-        setIsLoading(false);
-        return;
-      }
-
-      console.log('📊 Dashboard: Loading indices explicitly...');
-      setIsLoading(true);
-      
-      try {
-        // Explicitly refresh indices for dashboard
-        await refreshIndices();
-      } catch (error) {
-        console.error('❌ Failed to load indices for dashboard:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadIndicesExplicitly();
-  }, [isConnected, refreshIndices]);
-
-  // Convert blockchain indices to IndexWithOrders format when they change
-  useEffect(() => {
-    if (blockchainIndices.length > 0) {
-      const indicesWithOrders: IndexWithOrders[] = blockchainIndices.map(index => ({
-        ...index,
-        orders: [],
-        orderCount: 0 // Will be loaded on-demand when viewing Orders tab
-      }));
-
-      setIndices(indicesWithOrders);
-      setAllOrders([]); // Don't load orders automatically
+    if (!isConnected) {
+      setIndices([]);
+      setAllOrders([]);
+      setIsLoading(false);
+      return;
     }
-  }, [blockchainIndices]);
+
+    // Convert blockchain indices to IndexWithOrders format
+    const indicesWithOrders: IndexWithOrders[] = blockchainIndices.map(index => ({
+      ...index,
+      orders: [],
+      orderCount: 0 // Will be loaded on-demand when viewing Orders tab
+    }));
+
+    setIndices(indicesWithOrders);
+    setAllOrders([]); // Don't load orders automatically
+    setIsLoading(false);
+  }, [isConnected, blockchainIndices]);
 
   const handleCreateIndex = () => {
     router.push("/create-index");

@@ -289,27 +289,148 @@ export class BlockchainService {
       ABIS.IndexLimitOrderFactory,
       CONTRACTS.IndexLimitOrderFactory
     );
-
-    // Check for existing wallet connection on initialization
-    this.checkExistingConnection();
   }
 
   /**
-   * Check if wallet is already connected (for page refresh scenarios)
+   * Check if wallet is connected
    */
-  private async checkExistingConnection() {
-    if (typeof window !== "undefined" && window.ethereum) {
-      try {
-        const accounts = await window.ethereum.request({ method: "eth_accounts" });
-        if (accounts.length > 0) {
-          this.account = accounts[0];
-          this.web3.setProvider(window.ethereum);
-          this.isInitialized = true;
-          console.log("🔄 Auto-detected wallet connection:", this.account);
-        }
-      } catch (error) {
-        console.warn("Could not check existing wallet connection:", error);
+  isWalletConnected(): boolean {
+    // Check if account is set internally
+    if (this.account) return true;
+    
+    // Check window.ethereum for external wallet connection
+    if (typeof window !== 'undefined' && window.ethereum) {
+      const selectedAddress = (window.ethereum as any).selectedAddress;
+      if (selectedAddress) {
+        this.account = selectedAddress;
+        return true;
       }
+    }
+    
+    return false;
+  }
+
+  /**
+   * Get wallet address
+   */
+  getWalletAddress(): string | null {
+    if (this.account) return this.account;
+    
+    // Check window.ethereum for external wallet connection
+    if (typeof window !== 'undefined' && window.ethereum) {
+      const selectedAddress = (window.ethereum as any).selectedAddress;
+      if (selectedAddress) {
+        this.account = selectedAddress;
+        return selectedAddress;
+      }
+    }
+    
+    return null;
+  }
+
+  /**
+   * Auto-detect wallet connection changes
+   */
+  onAccountChanged(callback: (account: string | null) => void) {
+    if (typeof window !== 'undefined' && window.ethereum) {
+      window.ethereum.on('accountsChanged', (accounts: string[]) => {
+        const account = accounts[0] || null;
+        this.account = account;
+        console.log('🔄 Auto-detected wallet connection:', account);
+        callback(account);
+      });
+    }
+  }
+
+  /**
+   * Listen for network changes
+   */
+  onNetworkChanged(callback: (chainId: number) => void) {
+    if (typeof window !== 'undefined' && window.ethereum) {
+      window.ethereum.on('chainChanged', (chainId: string) => {
+        const numericChainId = parseInt(chainId, 16);
+        console.log('🌐 Network changed to:', numericChainId);
+        callback(numericChainId);
+      });
+    }
+  }
+
+  /**
+   * Get network information
+   */
+  async getNetworkInfo(): Promise<{ chainId: number; networkName: string }> {
+    try {
+      const chainId = await this.web3.eth.getChainId();
+      const networkName = this.getNetworkName(Number(chainId));
+      return { chainId: Number(chainId), networkName };
+    } catch (error) {
+      console.error('Error getting network info:', error);
+      return { chainId: 0, networkName: 'Unknown' };
+    }
+  }
+
+  private getNetworkName(chainId: number): string {
+    switch (chainId) {
+      case 84532: return 'Base Sepolia';
+      case 11155111: return 'Sepolia';
+      case 1: return 'Ethereum Mainnet';
+      case 8453: return 'Base';
+      default: return `Unknown (${chainId})`;
+    }
+  }
+
+  /**
+   * Get ETH balance for connected wallet
+   */
+  async getETHBalance(): Promise<string | null> {
+    try {
+      if (!this.isWalletConnected()) return null;
+      
+      const balance = await this.web3.eth.getBalance(this.account);
+      return this.web3.utils.fromWei(balance, 'ether');
+    } catch (error) {
+      console.error('Error getting ETH balance:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Switch to Base Sepolia network
+   */
+  async switchToBaseSepoliaNetwork(): Promise<boolean> {
+    try {
+      if (typeof window === 'undefined' || !window.ethereum) {
+        throw new Error('No wallet found');
+      }
+
+      await window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: '0x14A34' }], // 84532 in hex
+      });
+
+      return true;
+    } catch (error: any) {
+      if (error.code === 4902) {
+        // Network not added, try to add it
+        try {
+          await window.ethereum!.request({
+            method: 'wallet_addEthereumChain',
+            params: [{
+              chainId: '0x14A34',
+              chainName: 'Base Sepolia',
+              nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+              rpcUrls: ['https://sepolia.base.org'],
+              blockExplorerUrls: ['https://sepolia-explorer.base.org'],
+            }],
+          });
+          return true;
+        } catch (addError) {
+          console.error('Failed to add Base Sepolia network:', addError);
+          return false;
+        }
+      }
+      console.error('Network switch failed:', error);
+      return false;
     }
   }
 
@@ -976,100 +1097,9 @@ export class BlockchainService {
       return [];
     }
   }
-
-  /**
-   * Check if wallet is connected
-   */
-  isWalletConnected(): boolean {
-    return this.account !== null && this.account !== undefined;
-  }
-
-  /**
-   * Get current wallet address
-   */
-  getWalletAddress(): string | null {
-    return this.account || null;
-  }
-
-  /**
-   * Get network information
-   */
-  async getNetworkInfo(): Promise<{ chainId: number; networkName: string }> {
-    try {
-      const chainId = await this.web3.eth.getChainId();
-      const networkName = this.getNetworkName(Number(chainId));
-      return { chainId: Number(chainId), networkName };
-    } catch (error) {
-      console.error("Error getting network info:", error);
-      return { chainId: 0, networkName: "Unknown" };
-    }
-  }
-
-  /**
-   * Get network name from chain ID
-   */
-  private getNetworkName(chainId: number): string {
-    switch (chainId) {
-      case 1:
-        return "Ethereum Mainnet";
-      case 5:
-        return "Goerli Testnet";
-      case 11155111:
-        return "Sepolia Testnet";
-      case 84532:
-        return "Base Sepolia";
-      case 8453:
-        return "Base Mainnet";
-      default:
-        return `Unknown (${chainId})`;
-    }
-  }
-
-  /**
-   * Get ETH balance
-   */
-  async getETHBalance(): Promise<string> {
-    try {
-      if (!this.account) return "0";
-      const balance = await this.web3.eth.getBalance(this.account);
-      const balanceInEth = this.web3.utils.fromWei(balance, "ether");
-      return parseFloat(balanceInEth).toFixed(4);
-    } catch (error) {
-      console.error("Error getting ETH balance:", error);
-      return "0";
-    }
-  }
-
-  /**
-   * Listen for account changes
-   */
-  onAccountChanged(callback: (account: string | null) => void) {
-    if (typeof window !== "undefined" && window.ethereum) {
-      const handler = (accounts: string[]) => {
-        const newAccount = accounts.length > 0 ? accounts[0] : null;
-        this.account = newAccount;
-        callback(newAccount);
-      };
-      
-      window.ethereum.on("accountsChanged", handler);
-      return () => window.ethereum?.removeListener("accountsChanged", handler);
-    }
-  }
-
-  /**
-   * Listen for network changes
-   */
-  onNetworkChanged(callback: (chainId: number) => void) {
-    if (typeof window !== "undefined" && window.ethereum) {
-      const handler = (chainId: string) => {
-        callback(parseInt(chainId, 16));
-      };
-      
-      window.ethereum.on("chainChanged", handler);
-      return () => window.ethereum?.removeListener("chainChanged", handler);
-    }
-  }
 }
+
+
 
 // Singleton instance
 export const blockchainService = new BlockchainService();
