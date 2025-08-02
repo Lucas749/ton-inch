@@ -101,12 +101,15 @@ export class BlockchainIndices {
         
         console.log(`📋 Found ${indexIds.length} blockchain indices:`, indexIds.map(id => Number(id)));
         
-        // Map known indices to friendly names
+        // Map known indices to friendly names - expand to cover all 7 indices
         const knownIndices: Record<number, { name: string, symbol: string, description: string }> = {
           6: { name: "Apple Stock", symbol: "AAPL", description: "Apple Inc. stock price" },
           7: { name: "Tesla Stock", symbol: "TSLA", description: "Tesla Inc. stock price" },
           8: { name: "VIX Volatility Index", symbol: "VIX", description: "CBOE Volatility Index" },
-          9: { name: "Bitcoin Price", symbol: "BTC", description: "Bitcoin price in USD" }
+          9: { name: "Bitcoin Price", symbol: "BTC", description: "Bitcoin price in USD" },
+          10: { name: "Tesla Stock 2", symbol: "TSLA2", description: "Tesla Inc. stock price (duplicate)" },
+          11: { name: "VIX Volatility Index 2", symbol: "VIX2", description: "CBOE Volatility Index (duplicate)" },
+          12: { name: "Bitcoin Price 2", symbol: "BTC2", description: "Bitcoin price in USD (duplicate)" }
         };
         
         for (let i = 0; i < indexIds.length; i++) {

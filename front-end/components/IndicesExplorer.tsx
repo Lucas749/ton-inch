@@ -65,7 +65,7 @@ export function IndicesExplorer() {
   const availableIndicesSymbols = ['AAPL', 'TSLA', 'VIX', 'BTCUSD'];
   
   // Map blockchain indices to the available contract indices we want to show
-  const availableBlockchainIds = [6, 7, 8, 9]; // The actual blockchain IDs for Apple, Tesla, VIX, Bitcoin
+  const availableBlockchainIds = [6, 7, 8, 9, 10, 11, 12]; // All actual blockchain IDs from the oracle
   
   const filteredIndices = indices.filter(index => {
     const matchesSearch = index.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

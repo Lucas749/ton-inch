@@ -72,7 +72,15 @@ const getBlockchainIndexId = (indexId: string): number | null => {
     'aapl_stock': 6,   // Apple (actual blockchain ID)
     'tsla_stock': 7,   // Tesla (actual blockchain ID)
     'vix_index': 8,    // VIX (actual blockchain ID)
-    'btc_price': 9     // Bitcoin (actual blockchain ID)
+    'btc_price': 9,    // Bitcoin (actual blockchain ID)
+    // Add hardcoded support for any blockchain index by ID
+    'blockchain_6': 6,
+    'blockchain_7': 7,
+    'blockchain_8': 8,
+    'blockchain_9': 9,
+    'blockchain_10': 10,
+    'blockchain_11': 11,
+    'blockchain_12': 12
   };
   return indexMap[indexId] ?? null;
 };
