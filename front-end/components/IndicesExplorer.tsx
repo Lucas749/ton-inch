@@ -26,7 +26,7 @@ interface ExtendedRealIndexData extends RealIndexData {
   onChain?: boolean;
 }
 
-const categories = ["All", "Stocks", "Crypto", "Commodities", "Forex", "ETFs", "Indices"];
+const categories = ["All", "Stocks", "Crypto", "Commodities", "Forex", "ETFs", "Indices", "Economics", "Intelligence"];
 
 export function IndicesExplorer() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -130,7 +130,7 @@ export function IndicesExplorer() {
 
   const availableContractIndices = createIntegratedContractIndices();
   
-  // Get symbols of blockchain-available indices for reference
+  // Filter out Alpha Vantage indices that are available as contract indices from market indices
   const availableContractSymbols = availableContractIndices.map(index => index.symbol);
   const filteredIndices = indices.filter(index => {
     const matchesSearch = index.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -139,8 +139,10 @@ export function IndicesExplorer() {
     
     const matchesCategory = selectedCategory === "All" || index.category === selectedCategory;
     
-    // Show all indices regardless of blockchain availability
-    return matchesSearch && matchesCategory;
+    // Exclude indices that are available as contract indices
+    const isNotAvailableContract = !availableContractSymbols.includes(index.symbol);
+    
+    return matchesSearch && matchesCategory && isNotAvailableContract;
   });
 
   const handleViewIndex = (index: RealIndexData) => {
@@ -374,14 +376,7 @@ export function IndicesExplorer() {
                       {index.avatar}
                     </div>
                     <div>
-                      <div className="flex items-center space-x-2">
-                        <div className="font-semibold text-gray-900">{index.name}</div>
-                        {availableContractSymbols.includes(index.symbol) && (
-                          <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
-                            🔗 On Chain
-                          </Badge>
-                        )}
-                      </div>
+                      <div className="font-semibold text-gray-900">{index.name}</div>
                       <div className="text-sm text-gray-500">{index.handle}</div>
                     </div>
                   </div>
