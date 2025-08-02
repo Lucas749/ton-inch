@@ -1,6 +1,4 @@
-import { createPublicClient, createWalletClient, Hex, http } from "viem";
-import { base } from "viem/chains";
-import { privateKeyToAccount } from "viem/accounts";
+import { Hex } from "viem";
 
 // Base mainnet configuration (1inch doesn't support testnets)
 const BASE_MAINNET_CHAIN_ID = 8453;
@@ -18,7 +16,6 @@ export const TOKENS = {
 export interface SwapConfig {
   apiKey: string;
   rpcUrl: string;
-  privateKey?: Hex;
   walletAddress: string;
 }
 
@@ -158,26 +155,44 @@ export type SwapMode = "classic" | "intent";
 
 export class OneInchService {
   private config: SwapConfig;
-  private publicClient: any;
-  private walletClient: any;
-  private account: any;
 
   constructor(config: SwapConfig) {
     this.config = config;
+  }
 
-    // Initialize viem clients
-    this.publicClient = createPublicClient({
-      chain: base,
-      transport: http(config.rpcUrl),
-    });
+  /**
+   * Check if browser wallet is available and connected
+   */
+  private isWalletAvailable(): boolean {
+    return typeof window !== "undefined" && 
+           !!window.ethereum && 
+           !!window.ethereum.selectedAddress;
+  }
 
-    if (config.privateKey) {
-      this.account = privateKeyToAccount(config.privateKey);
-      this.walletClient = createWalletClient({
-        account: this.account,
-        chain: base,
-        transport: http(config.rpcUrl),
+  /**
+   * Send transaction using browser wallet
+   */
+  private async sendTransaction(transaction: TransactionPayload): Promise<string> {
+    if (!this.isWalletAvailable()) {
+      throw new Error("Browser wallet not available or not connected");
+    }
+
+    try {
+      const txHash = await window.ethereum!.request({
+        method: 'eth_sendTransaction',
+        params: [{
+          from: this.config.walletAddress,
+          to: transaction.to,
+          data: transaction.data,
+          value: `0x${transaction.value.toString(16)}`,
+        }],
       });
+
+      console.log("✅ Transaction sent:", txHash);
+      return txHash;
+    } catch (error) {
+      console.error("❌ Failed to send transaction:", error);
+      throw error;
     }
   }
 
@@ -334,71 +349,7 @@ export class OneInchService {
     return this.call1inchAPI<SwapResponse>("/swap", queryParams);
   }
 
-  /**
-   * Sign and send a transaction (requires private key)
-   */
-  async signAndSendTransaction(tx: TransactionPayload): Promise<string> {
-    if (!this.walletClient || !this.account) {
-      throw new Error(
-        "Wallet client not initialized. Private key required for transactions."
-      );
-    }
 
-    console.log("Estimating gas for transaction...");
-    const gas = await this.publicClient.estimateGas({
-      account: this.config.walletAddress as Hex,
-      to: tx.to,
-      data: tx.data,
-      value: BigInt(tx.value),
-    });
-
-    const latestBlock = await this.publicClient.getBlock();
-    const baseFeePerGas = latestBlock.baseFeePerGas;
-
-    const nonce = await this.publicClient.getTransactionCount({
-      address: this.account.address,
-      blockTag: "pending",
-    });
-
-    try {
-      if (baseFeePerGas !== null && baseFeePerGas !== undefined) {
-        console.log("Using EIP-1559 transaction format");
-        const fee = await this.publicClient.estimateFeesPerGas();
-
-        return await this.walletClient.sendTransaction({
-          account: this.account,
-          to: tx.to,
-          data: tx.data,
-          value: BigInt(tx.value),
-          gas,
-          maxFeePerGas: fee.maxFeePerGas,
-          maxPriorityFeePerGas: fee.maxPriorityFeePerGas,
-          chain: base,
-          nonce,
-        });
-      } else {
-        console.log("Using legacy transaction format");
-        const gasPrice = await this.publicClient.getGasPrice();
-
-        return await this.walletClient.sendTransaction({
-          account: this.account,
-          to: tx.to,
-          data: tx.data,
-          value: BigInt(tx.value),
-          gas,
-          gasPrice,
-          chain: base,
-          nonce,
-        });
-      }
-    } catch (err) {
-      console.error("Transaction signing or broadcasting failed");
-      console.error("Transaction data:", tx);
-      console.error("Gas:", gas.toString());
-      console.error("Nonce:", nonce.toString());
-      throw err;
-    }
-  }
 
   /**
    * Complete swap flow: check allowance, approve if needed, then swap
@@ -406,8 +357,8 @@ export class OneInchService {
   async performSwap(
     params: SwapParams
   ): Promise<{ approvalTxHash?: string; swapTxHash: string }> {
-    if (!this.walletClient) {
-      throw new Error("Wallet client required for performing swaps");
+    if (!this.isWalletAvailable()) {
+      throw new Error("Browser wallet not available. Please connect your wallet.");
     }
 
     const result: { approvalTxHash?: string; swapTxHash: string } = {
@@ -427,7 +378,7 @@ export class OneInchService {
           params.amount
         );
 
-        const approvalTxHash = await this.signAndSendTransaction({
+        const approvalTxHash = await this.sendTransaction({
           to: approveTx.to,
           data: approveTx.data,
           value: approveTx.value,
@@ -446,7 +397,7 @@ export class OneInchService {
     console.log("Fetching swap transaction...");
     const swapTx = await this.getSwapTransaction(params);
 
-    const swapTxHash = await this.signAndSendTransaction(swapTx.tx);
+    const swapTxHash = await this.sendTransaction(swapTx.tx);
     result.swapTxHash = swapTxHash;
     console.log("Swap transaction sent. Hash:", swapTxHash);
 
@@ -462,7 +413,7 @@ export class OneInchService {
     const whole = value / divisor;
     const remainder = value % divisor;
 
-    if (remainder === 0n) {
+    if (remainder === BigInt(0)) {
       return whole.toString();
     }
 
@@ -481,8 +432,18 @@ export class OneInchService {
     const paddedFractional = fractional
       .padEnd(decimals, "0")
       .slice(0, decimals);
+    
+    // Helper function for BigInt exponentiation
+    const pow10 = (exp: number): bigint => {
+      let result = BigInt(1);
+      for (let i = 0; i < exp; i++) {
+        result *= BigInt(10);
+      }
+      return result;
+    };
+    
     return (
-      BigInt(whole) * BigInt(10 ** decimals) +
+      BigInt(whole) * pow10(decimals) +
       BigInt(paddedFractional)
     ).toString();
   }
