@@ -12,6 +12,16 @@ import path from 'path';
 import { LimitOrder, MakerTraits, Address, Sdk, randBigInt, FetchProviderConnector, ExtensionBuilder } from '@1inch/limit-order-sdk';
 import { Wallet, ethers } from 'ethers';
 
+// Gas estimation utility
+import { 
+  estimateApprovalGas, 
+  estimateOrderGas, 
+  checkGasBalance, 
+  calculateTotalTransactionCost,
+  formatGasEstimate,
+  getFundingInstructions 
+} from '@/lib/gas-estimator';
+
 export const dynamic = 'force-dynamic';
 
 // ===================================================================

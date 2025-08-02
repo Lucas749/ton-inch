@@ -9,6 +9,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Web3 } from 'web3';
 import { CONTRACTS, ABIS, ORACLE_TYPES } from '@/lib/blockchain-constants';
 
+// Gas estimation utility
+import { 
+  estimateOracleGas, 
+  checkGasBalance, 
+  formatGasEstimate,
+  getFundingInstructions 
+} from '@/lib/gas-estimator';
+
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
@@ -52,15 +60,23 @@ export async function POST(request: NextRequest) {
           oracleType: 'CHAINLINK'
         });
 
-        // Estimate gas
-        const gasEstimate = await contract.methods
-          .createCustomIndex(
-            initialValue.toString(),
-            sourceUrl,
-            ORACLE_TYPES.CHAINLINK, // Use Chainlink oracle type
-            '0x0000000000000000000000000000000000000000' // null address for chainlink oracle
-          )
-          .estimateGas({ from: wallet.address });
+        // Get comprehensive gas estimation
+        console.log('💰 Estimating gas costs...');
+        const gasEstimate = await estimateOracleGas('create', wallet.address, initialValue, sourceUrl);
+        console.log(`📊 Oracle creation gas estimate: ${formatGasEstimate(gasEstimate)}`);
+        
+        // Check wallet balance
+        const balanceCheck = await checkGasBalance(wallet.address, gasEstimate.totalCostWei);
+        console.log('💰 WALLET BALANCE CHECK:');
+        console.log('========================');
+        console.log(`Current Balance: ${balanceCheck.currentBalanceEth} ETH`);
+        console.log(`Required for Gas: ${balanceCheck.requiredBalanceEth} ETH`);
+        console.log(`Status: ${balanceCheck.hasEnoughGas ? '✅ Sufficient' : '⚠️  Insufficient'}`);
+        
+        if (!balanceCheck.hasEnoughGas && balanceCheck.shortfallEth) {
+          console.log(`Shortfall: ${balanceCheck.shortfallEth} ETH`);
+          console.log(getFundingInstructions(wallet.address, balanceCheck.shortfallEth));
+        }
 
         // Build transaction
         const tx = contract.methods.createCustomIndex(
@@ -69,26 +85,13 @@ export async function POST(request: NextRequest) {
           ORACLE_TYPES.CHAINLINK,
           '0x0000000000000000000000000000000000000000'
         );
-
-        // Use reasonable gas price for Base network (much lower than mainnet)
-        const networkGasPrice = await web3.eth.getGasPrice();
-        const baseGasPrice = Math.min(Number(networkGasPrice), 100000000); // Cap at 0.1 gwei for Base
-        
-        console.log(`⛽ Gas estimate: ${gasEstimate}`);
-        console.log(`💰 Network gas price: ${networkGasPrice} wei`);
-        console.log(`💰 Using gas price: ${baseGasPrice} wei`);
-        
-        const gasLimit = Math.floor(Number(gasEstimate) * 1.2);
-        const totalCost = gasLimit * baseGasPrice;
-        
-        console.log(`📊 Transaction cost: ${totalCost} wei (${web3.utils.fromWei(totalCost.toString(), 'ether')} ETH)`);
         
         const txData = {
           from: wallet.address,
           to: CONTRACTS.IndexOracle,
           data: tx.encodeABI(),
-          gas: gasLimit,
-          gasPrice: baseGasPrice.toString(),
+          gas: gasEstimate.gasLimit,
+          gasPrice: gasEstimate.gasPrice,
         };
 
         // Sign and send transaction
