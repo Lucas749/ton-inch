@@ -266,7 +266,7 @@ export function IndicesExplorer() {
                         'BTCUSD': 3
                       };
                       const indexId = symbolToIndexId[index.symbol];
-                      router.push(`/create-index?indexId=${indexId}`);
+                      router.push(`/create-index?selectedIndex=${indexId}`);
                     }}
                   >
                     <Plus className="w-4 h-4 mr-1" />
