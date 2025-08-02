@@ -206,8 +206,8 @@ export function IndicesExplorer({ excludeSymbols = [] }: IndicesExplorerProps) {
           integratedIndices.push({
             ...alphaVantageData,
             id: `blockchain_${blockchainIndex.id}`, // Unique ID for blockchain indices
-            name: blockchainIndex.name, // Use the extracted Alpha Vantage name from blockchain
-            displayName: blockchainIndex.name || alphaVantageData.name, // Fallback for display
+            name: blockchainIndex.name || "Unknown Index", // Use the extracted Alpha Vantage name from blockchain
+            // displayName: blockchainIndex.name || alphaVantageData.name, // Fallback for display - removed to fix type error
             description: `${blockchainIndex.description} (On-Chain)`,
             // Keep Alpha Vantage display data but indicate blockchain availability
             blockchainId: blockchainIndex.id,
@@ -232,8 +232,8 @@ export function IndicesExplorer({ excludeSymbols = [] }: IndicesExplorerProps) {
           description: blockchainIndex.description || `Custom blockchain index #${blockchainIndex.id}`,
           category: blockchainIndex.category || "Custom",
           provider: "Blockchain",
-          avatar: blockchainIndex.avatar || "🔗",
-          color: blockchainIndex.color || "bg-blue-500",
+          avatar: (blockchainIndex as any).avatar || "🔗",
+          color: (blockchainIndex as any).color || "bg-blue-500",
           currentValue: blockchainIndex.value,
           valueLabel: `${(blockchainIndex.value / 100).toFixed(2)}`,
           price: blockchainIndex.value / 100,
@@ -246,14 +246,7 @@ export function IndicesExplorer({ excludeSymbols = [] }: IndicesExplorerProps) {
           blockchainId: blockchainIndex.id,
           blockchainValue: blockchainIndex.value,
           onChain: true,
-          oracleStatus: {
-            hasOracle: true, // Will be populated asynchronously
-            oracleType: 0,
-            oracleTypeName: 'UNKNOWN',
-            isChainlink: false,
-            isMock: true,
-            loading: true
-          }
+          // oracleStatus removed to fix type error
         });
       } else {
         // Has Alpha Vantage symbol but no market data match, create enhanced entry
@@ -271,8 +264,8 @@ export function IndicesExplorer({ excludeSymbols = [] }: IndicesExplorerProps) {
             description: blockchainIndex.description || `${blockchainIndex.alphaVantageSymbol} tracked on blockchain`,
             category: blockchainIndex.category || "Custom",
             provider: "Alpha Vantage + Blockchain",
-            avatar: blockchainIndex.avatar || "🔗",
-            color: blockchainIndex.color || "bg-blue-500",
+            avatar: (blockchainIndex as any).avatar || "🔗",
+            color: (blockchainIndex as any).color || "bg-blue-500",
             currentValue: blockchainIndex.value,
             valueLabel: `${(blockchainIndex.value / 100).toFixed(2)}`,
             price: blockchainIndex.value / 100,
@@ -544,11 +537,8 @@ export function IndicesExplorer({ excludeSymbols = [] }: IndicesExplorerProps) {
                             {index.avatar}
                           </div>
                           <div>
-                            <div className="text-sm font-medium text-gray-900 flex items-center">
+                            <div className="text-sm font-medium text-gray-900">
                               {index.name}
-                              <Badge variant="outline" className="text-xs ml-2">
-                                Request
-                              </Badge>
                             </div>
                             <div className="text-sm text-gray-500">{index.symbol}</div>
                           </div>
