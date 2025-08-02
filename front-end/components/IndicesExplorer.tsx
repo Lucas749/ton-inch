@@ -36,38 +36,82 @@ const categories = ["All", "Stocks", "Crypto", "Commodities", "Forex", "ETFs", "
  */
 function createAlphaVantageUrl(index: RealIndexData): string {
   const apiKey = process.env.NEXT_PUBLIC_ALPHAVANTAGE || '123';
+  const baseUrl = 'https://www.alphavantage.co/query';
   
-  // Handle different index categories with their respective Alpha Vantage functions
-  switch (index.category) {
-    case 'Commodities':
-      // Commodities use their symbol as the function name
-      return `https://www.alphavantage.co/query?function=${index.symbol}&apikey=${apiKey}`;
-      
-    case 'Crypto':
-      // Crypto uses DIGITAL_CURRENCY_DAILY
-      return `https://www.alphavantage.co/query?function=DIGITAL_CURRENCY_DAILY&symbol=${index.symbol}&market=USD&apikey=${apiKey}`;
-      
-    case 'Forex':
-      // Forex uses FX_DAILY with from/to currency
-      const fromCurrency = index.symbol.substring(0, 3);
-      const toCurrency = index.symbol.substring(3, 6);
-      return `https://www.alphavantage.co/query?function=FX_DAILY&from_symbol=${fromCurrency}&to_symbol=${toCurrency}&apikey=${apiKey}`;
-      
-    case 'Economics':
-      // Economic indicators use their symbol as function name
-      return `https://www.alphavantage.co/query?function=${index.symbol}&apikey=${apiKey}`;
-      
-    case 'Intelligence':
-      // Intelligence data uses TOP_GAINERS_LOSERS
-      return `https://www.alphavantage.co/query?function=TOP_GAINERS_LOSERS&apikey=${apiKey}`;
-      
-    case 'Stocks':
-    case 'ETFs':
-    case 'Indices':
-    default:
-      // Stocks, ETFs, and Indices use GLOBAL_QUOTE
-      return `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${index.symbol}&apikey=${apiKey}`;
-  }
+  // Generic Alpha Vantage URL builder - works with any symbol/category combination
+  const buildUrl = (symbol: string, category: string) => {
+    const params = new URLSearchParams();
+    params.set('apikey', apiKey);
+    
+    // Smart function detection based on symbol patterns
+    
+    // 1. Check if symbol contains slash (forex pairs like EUR/USD)
+    if (symbol.includes('/')) {
+      const [from, to] = symbol.split('/');
+      params.set('function', 'FX_DAILY');
+      params.set('from_symbol', from);
+      params.set('to_symbol', to);
+      return `${baseUrl}?${params.toString()}`;
+    }
+    
+    // 2. Check for 6-character currency pairs (EURUSD, GBPJPY)
+    if (symbol.length === 6 && symbol.match(/^[A-Z]{6}$/)) {
+      params.set('function', 'FX_DAILY');
+      params.set('from_symbol', symbol.slice(0, 3));
+      params.set('to_symbol', symbol.slice(3));
+      return `${baseUrl}?${params.toString()}`;
+    }
+    
+    // 3. Known cryptocurrency patterns
+    const cryptoPatterns = /^(BTC|ETH|LTC|XRP|ADA|DOT|LINK|UNI|MATIC|SOL|DOGE|SHIB|AVAX|ATOM|ALGO|XLM)$/i;
+    if (category === 'Crypto' || cryptoPatterns.test(symbol)) {
+      params.set('function', 'DIGITAL_CURRENCY_DAILY');
+      params.set('symbol', symbol);
+      params.set('market', 'USD');
+      return `${baseUrl}?${params.toString()}`;
+    }
+    
+    // 4. Commodity function names (symbol IS the function)
+    const commodityFunctions = [
+      'CORN', 'WHEAT', 'WTI', 'BRENT', 'NATURAL_GAS', 'COPPER', 'ALUMINUM', 
+      'ZINC', 'NICKEL', 'GOLD', 'SILVER', 'PLATINUM', 'PALLADIUM'
+    ];
+    if (category === 'Commodities' || commodityFunctions.includes(symbol.toUpperCase())) {
+      params.set('function', symbol.toUpperCase());
+      return `${baseUrl}?${params.toString()}`;
+    }
+    
+    // 5. Economic indicators (function names)
+    const economicFunctions = [
+      'GDP', 'INFLATION', 'UNEMPLOYMENT', 'FEDERAL_FUNDS_RATE', 'TREASURY_YIELD',
+      'CPI', 'RETAIL_SALES', 'DURABLES', 'CONSUMER_SENTIMENT'
+    ];
+    if (category === 'Economics' || economicFunctions.includes(symbol.toUpperCase())) {
+      params.set('function', symbol.toUpperCase());
+      return `${baseUrl}?${params.toString()}`;
+    }
+    
+    // 6. Special functions that need specific handling
+    if (symbol.toLowerCase().includes('earnings')) {
+      params.set('function', 'EARNINGS_ESTIMATES');
+      // Extract actual symbol from earnings notation (e.g., "MSTR EPS" -> "MSTR")
+      const actualSymbol = symbol.replace(/\s*(EPS|EARNINGS).*$/i, '');
+      params.set('symbol', actualSymbol);
+      return `${baseUrl}?${params.toString()}`;
+    }
+    
+    if (category === 'Intelligence' || symbol.toLowerCase().includes('gainers') || symbol.toLowerCase().includes('losers')) {
+      params.set('function', 'TOP_GAINERS_LOSERS');
+      return `${baseUrl}?${params.toString()}`;
+    }
+    
+    // 7. Default to GLOBAL_QUOTE for stocks, ETFs, indices, and unknown types
+    params.set('function', 'GLOBAL_QUOTE');
+    params.set('symbol', symbol);
+    return `${baseUrl}?${params.toString()}`;
+  };
+  
+  return buildUrl(index.symbol, index.category);
 }
 
 export function IndicesExplorer() {
