@@ -13,12 +13,12 @@ export async function GET(request: NextRequest) {
   const walletAddress = searchParams.get('walletAddress');
   const preset = searchParams.get('preset');
   
-  console.log('🔍 Fusion API received params:', {
+  console.log('🔍 Intent Swap API received params:', {
     srcToken, dstToken, amount, walletAddress, preset, chainId
   });
   
   if (!srcToken || !dstToken || !amount || !walletAddress) {
-    console.error('❌ Missing fusion parameters:', { 
+    console.error('❌ Missing intent swap parameters:', { 
       srcToken: !!srcToken, 
       dstToken: !!dstToken, 
       amount: !!amount, 
@@ -30,19 +30,19 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Build the 1inch fusion API URL
-    const fusionUrl = new URL(`https://api.1inch.dev/fusion/v1.0/${chainId}/quote/receive`);
+    // Build the 1inch Intent Swap API URL (part of Swap API v6.1)
+    const intentUrl = new URL(`https://api.1inch.dev/swap/v6.1/${chainId}/intent-swap`);
     
-    fusionUrl.searchParams.set('srcToken', srcToken);
-    fusionUrl.searchParams.set('dstToken', dstToken);
-    fusionUrl.searchParams.set('amount', amount);
-    fusionUrl.searchParams.set('walletAddress', walletAddress);
+    intentUrl.searchParams.set('src', srcToken);
+    intentUrl.searchParams.set('dst', dstToken);
+    intentUrl.searchParams.set('amount', amount);
+    intentUrl.searchParams.set('from', walletAddress);
     
-    if (preset) fusionUrl.searchParams.set('preset', preset);
+    if (preset) intentUrl.searchParams.set('preset', preset);
 
-    console.log('🌐 Proxying 1inch fusion request:', fusionUrl.toString());
+    console.log('🌐 Proxying 1inch intent swap request:', intentUrl.toString());
 
-    const response = await fetch(fusionUrl.toString(), {
+    const response = await fetch(intentUrl.toString(), {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${process.env.NEXT_PUBLIC_ONEINCH_API_KEY}`,
@@ -53,8 +53,8 @@ export async function GET(request: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('1inch fusion API error:', response.status, errorText);
-      throw new Error(`1inch Fusion API error: ${response.status}`);
+      console.error('1inch Intent Swap API error:', response.status, errorText);
+      throw new Error(`1inch Intent Swap API error: ${response.status}`);
     }
 
     const data = await response.json();
@@ -67,9 +67,9 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('1inch fusion API proxy error:', error);
+    console.error('1inch Intent Swap API proxy error:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch from 1inch fusion API' },
+      { error: 'Failed to fetch from 1inch Intent Swap API' },
       { status: 500 }
     );
   }
