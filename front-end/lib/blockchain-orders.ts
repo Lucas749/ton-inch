@@ -453,98 +453,51 @@ export class BlockchainOrders {
       const result = await response.json();
       console.log('📋 Cancellation prepared:', result);
 
-      console.log('⚠️ Order cancellation requires additional 1inch API integration');
-      console.log('🔧 For now, simulating cancellation success and updating cache');
+      console.log('⚠️ Order cancellation requires MetaMask signature for 1inch API');
+      console.log('🔧 Currently simulating successful cancellation after API preparation');
       
       // TODO: Implement actual MetaMask transaction for order cancellation
-      // For now, simulate successful cancellation after API preparation
+      // This would require:
+      // 1. Creating cancellation transaction data using result.cancellationData
+      // 2. Prompting user to sign with MetaMask
+      // 3. Submitting signed transaction to 1inch API
+      // For now, we simulate success since API preparation indicates cancellation is possible
       
       // Check if the API preparation was successful
       if (result.success) {
-        console.log('✅ API cancellation preparation successful, updating both caches');
+        console.log('✅ API cancellation preparation successful, updating persistent storage');
         
-        // Update in-memory cache
-        let orderFound = false;
-        let cancelledOrder = null;
+        // First try to update the order in persistent storage
+        let persistentCacheUpdated = false;
+        try {
+          persistentCacheUpdated = OrderCacheService.updateOrderStatus(orderHash, 'cancelled');
+          
+          if (persistentCacheUpdated) {
+            console.log('✅ Updated order status in persistent localStorage cache');
+          } else {
+            console.warn(`⚠️ Order ${orderHash} not found in persistent cache - may already be cancelled or doesn't exist`);
+            return false;
+          }
+        } catch (cacheError) {
+          console.error('❌ Failed to update persistent cache:', cacheError);
+          throw new Error('Failed to update order status in persistent storage');
+        }
+        
+        // Also update in-memory cache if the order exists there (optional optimization)
+        let orderFoundInMemory = false;
         for (const [indexId, cacheData] of Array.from(this.orderCache.entries())) {
           const order = cacheData.orders.find((o: any) => o.hash === orderHash);
           if (order) {
             order.status = 'cancelled' as const;
             order.cancelledAt = Date.now(); // Track when it was cancelled
-            cancelledOrder = order;
-            console.log(`✅ Marked order ${orderHash} as cancelled in in-memory cache for index ${indexId}`);
-            orderFound = true;
+            console.log(`✅ Also updated order ${orderHash} status in in-memory cache for index ${indexId}`);
+            orderFoundInMemory = true;
             break;
           }
         }
         
-        if (!orderFound) {
-          console.warn(`⚠️ Order ${orderHash} not found in in-memory cache - may already be cancelled or doesn't exist`);
-          return false;
-        }
-        
-        // Update persistent localStorage cache
-        try {
-          const persistentCacheUpdated = OrderCacheService.updateOrderStatus(orderHash, 'cancelled');
-          
-          if (persistentCacheUpdated) {
-            console.log('✅ Updated order status in persistent localStorage cache');
-          } else {
-            // Order might not exist in persistent cache, try to create it
-            if (cancelledOrder && this.wallet.currentAccount) {
-              console.log('📝 Order not found in persistent cache, creating cancelled order entry');
-              
-              const fromTokenInfo = this.getTokenInfo(cancelledOrder.fromToken);
-              const toTokenInfo = this.getTokenInfo(cancelledOrder.toToken);
-              
-              const savedOrder = {
-                orderHash: cancelledOrder.hash,
-                type: 'limit' as const,
-                timestamp: cancelledOrder.cancelledAt || Date.now(),
-                date: new Date(cancelledOrder.cancelledAt || Date.now()).toISOString(),
-                status: 'cancelled' as const,
-                
-                // Preserve the meaningful description (e.g., "bitcoin", "vix")
-                description: cancelledOrder.description,
-                
-                fromToken: {
-                  address: cancelledOrder.fromToken,
-                  symbol: fromTokenInfo.symbol,
-                  name: fromTokenInfo.symbol,
-                  decimals: fromTokenInfo.decimals
-                },
-                toToken: {
-                  address: cancelledOrder.toToken,
-                  symbol: toTokenInfo.symbol,
-                  name: toTokenInfo.symbol,
-                  decimals: toTokenInfo.decimals
-                },
-                fromAmount: cancelledOrder.makingAmount || '0',
-                toAmount: cancelledOrder.takingAmount || '0',
-                fromAmountFormatted: `${cancelledOrder.fromAmount || '0'} ${fromTokenInfo.symbol}`,
-                toAmountFormatted: `${cancelledOrder.toAmount || '0'} ${toTokenInfo.symbol}`,
-                
-                walletAddress: this.wallet.currentAccount,
-                chainId: CONFIG.CHAIN_ID.toString(),
-                
-                limitOrderData: {
-                  maker: cancelledOrder.maker || this.wallet.currentAccount,
-                  receiver: cancelledOrder.receiver || this.wallet.currentAccount,
-                  makerAsset: cancelledOrder.makerAsset || cancelledOrder.fromToken,
-                  takerAsset: cancelledOrder.takerAsset || cancelledOrder.toToken,
-                  makingAmount: cancelledOrder.makingAmount || '0',
-                  takingAmount: cancelledOrder.takingAmount || '0',
-                  salt: '0'
-                }
-              };
-              
-              OrderCacheService.saveOrder(savedOrder);
-              console.log('✅ Created cancelled order entry in persistent cache');
-            }
-          }
-        } catch (cacheError) {
-          console.error('⚠️ Failed to update persistent cache, but in-memory cache updated:', cacheError);
-          // Don't fail the whole operation if persistent cache update fails
+        if (!orderFoundInMemory) {
+          console.log('ℹ️ Order not found in in-memory cache, but that\'s okay - persistent storage was updated');
         }
         
         return true;
