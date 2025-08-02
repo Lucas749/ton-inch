@@ -122,18 +122,34 @@ export async function POST(request: NextRequest) {
 
       const quoteData = await quoteResponse.json();
       
+      console.log('📊 Quote data received:', {
+        toAmount: quoteData.toAmount,
+        dstAmount: quoteData.dstAmount,
+        estimatedGas: quoteData.estimatedGas
+      });
+
+      // Ensure we have a valid toAmount - try multiple possible fields
+      const toAmount = quoteData.toAmount || quoteData.dstAmount || quoteData.toTokenAmount;
+      
+      if (!toAmount) {
+        console.error('❌ No toAmount found in quote data:', quoteData);
+        throw new Error('Unable to determine output amount from quote');
+      }
+      
       // Create order structure that requires signing
       const orderToSign = {
         fromToken: fromTokenAddress,
         toToken: toTokenAddress,
-        fromAmount: amount,
-        toAmount: quoteData.toAmount,
+        fromAmount: amount.toString(), // Ensure it's a string
+        toAmount: toAmount.toString(), // Ensure it's a string
         maker: walletAddress,
         receiver: walletAddress,
         validUntil: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
         preset: preset,
         nonce: Date.now().toString()
       };
+
+      console.log('📝 Order structure for signing:', orderToSign);
 
       // Generate EIP-712 domain and types for signing
       const domain = {
@@ -165,8 +181,8 @@ export async function POST(request: NextRequest) {
         domain,
         types,
         message: 'Please sign this Fusion order with your wallet. This creates a gasless intent that resolvers will compete to fill.',
-        estimatedOutput: quoteData.toAmount,
-        minOutput: quoteData.toAmountMin || quoteData.toAmount
+        estimatedOutput: toAmount,
+        minOutput: quoteData.toAmountMin || toAmount
       }, {
         headers: {
           'Access-Control-Allow-Origin': '*',
