@@ -38,6 +38,100 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
+// Map strategy IDs to their corresponding Alpha Vantage symbols
+const getAlphaVantageSymbol = (strategyId: string): string => {
+  const symbolMap: Record<string, string> = {
+    // Major stocks
+    'eth-whale-watch': 'AAPL',  // Default to AAPL for ETH whale watch (mentioned in description)
+    'btc-momentum': 'BTCUSD',
+    'tesla-volatility': 'TSLA',
+    'apple-breakout': 'AAPL',
+    'amazon-dca': 'AMZN',
+    'msft-growth': 'MSFT',
+    'googl-momentum': 'GOOGL',
+    'meta-reversal': 'META',
+    'nvda-trend': 'NVDA',
+    
+    // ETFs and indices
+    'spy-tracker': 'SPY',
+    'qqq-tech': 'QQQ',
+    'vix-volatility': 'VIX',
+    
+    // Crypto
+    'btc-strategy': 'BTCUSD',
+    'eth-strategy': 'ETHUSD',
+    
+    // Commodities
+    'gold-hedge': 'GLD',
+    'oil-momentum': 'WTI',
+    'wheat-seasonal': 'WHEAT',
+    'corn-cycle': 'CORN',
+    
+    // Forex
+    'eur-usd-carry': 'EUR/USD',
+    'gbp-usd-momentum': 'GBP/USD',
+    'usd-jpy-trend': 'USD/JPY',
+  };
+  
+  console.log(`🔍 Looking up symbol for strategyId: "${strategyId}", found: "${symbolMap[strategyId] || 'AAPL (default)'}"`);
+  return symbolMap[strategyId] || 'AAPL'; // Default to AAPL if not found
+};
+
+// Map strategy IDs to their metadata
+const getStrategyMetadata = (strategyId: string) => {
+  const strategyMap: Record<string, {
+    name: string;
+    tokenPair: string;
+    trigger: string;
+    icon: string;
+    description: string;
+    targetSymbol: string;
+  }> = {
+    'eth-whale-watch': {
+      name: 'ETH Whale Watch',
+      tokenPair: 'ETH/USDC',
+      trigger: 'Alpha Vantage Data',
+      icon: '🐋',
+      description: 'Automatically execute swaps when AAPL stock price crosses above $150 using real blockchain indices.',
+      targetSymbol: 'AAPL'
+    },
+    'btc-momentum': {
+      name: 'BTC Momentum Strategy',
+      tokenPair: 'BTC/USDT',
+      trigger: 'Bitcoin Price Movement',
+      icon: '₿',
+      description: 'Trade based on Bitcoin momentum indicators and price action signals.',
+      targetSymbol: 'BTCUSD'
+    },
+    'tesla-volatility': {
+      name: 'Tesla Volatility Play',
+      tokenPair: 'TSLA/USD',
+      trigger: 'TSLA Stock Volatility',
+      icon: '🚗',
+      description: 'Capitalize on Tesla stock volatility using Alpha Vantage real-time data.',
+      targetSymbol: 'TSLA'
+    },
+    'apple-breakout': {
+      name: 'Apple Breakout Strategy',
+      tokenPair: 'AAPL/USD',
+      trigger: 'AAPL Technical Breakout',
+      icon: '🍎',
+      description: 'Execute trades when Apple stock breaks key resistance levels.',
+      targetSymbol: 'AAPL'
+    },
+    'vix-volatility': {
+      name: 'VIX Volatility Strategy',
+      tokenPair: 'VIX/USD',
+      trigger: 'Market Fear Index',
+      icon: '📊',
+      description: 'Trade based on market volatility spikes using the VIX index.',
+      targetSymbol: 'VIX'
+    }
+  };
+  
+  return strategyMap[strategyId] || strategyMap['eth-whale-watch']; // Default fallback
+};
+
 interface StrategyDetailClientProps {
   strategyId: string;
 }

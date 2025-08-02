@@ -35,16 +35,19 @@ export async function POST(request: NextRequest) {
         const backendPath = path.join(process.cwd(), '../backend/src/oracle-manager.js');
         const oracleManager = require(backendPath);
 
-        console.log('📋 Creating blockchain index:', {
+        console.log('📋 Creating blockchain index with oracle:', {
           name,
           initialValue,
-          sourceUrl
+          sourceUrl,
+          oracleType: 'CHAINLINK'
         });
 
-        // Create the index using the backend oracle manager
-        const result = await oracleManager.createNewIndex(
+        // Create the index using the backend oracle manager with Chainlink oracle type 
+        const result = await oracleManager.createNewIndexWithOracleType(
+          name,
           initialValue,
           sourceUrl,
+          oracleManager.ORACLE_TYPES.CHAINLINK, // Use Chainlink for real data
           privateKey
         );
 
