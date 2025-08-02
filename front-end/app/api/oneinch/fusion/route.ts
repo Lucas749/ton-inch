@@ -91,9 +91,10 @@ export async function POST(request: NextRequest) {
 
     console.log('🚀 FUSION ORDER API:', { action, fromTokenAddress, toTokenAddress, amount, walletAddress, preset });
 
-    if (!fromTokenAddress || !toTokenAddress || !amount || !walletAddress) {
+    // Only validate these parameters for create-order action
+    if (action === 'create-order' && (!fromTokenAddress || !toTokenAddress || !amount || !walletAddress)) {
       return NextResponse.json({ 
-        error: 'Missing required parameters: fromTokenAddress, toTokenAddress, amount, walletAddress' 
+        error: 'Missing required parameters for create-order: fromTokenAddress, toTokenAddress, amount, walletAddress' 
       }, { status: 400 });
     }
 
@@ -195,17 +196,27 @@ export async function POST(request: NextRequest) {
       // Step 2: Submit signed order to Fusion system
       if (!signature || !order) {
         return NextResponse.json({ 
-          error: 'Missing signature or order data for submission' 
+          error: 'Missing required parameters for submit-order: signature and order data' 
         }, { status: 400 });
       }
 
-      console.log('📡 FUSION - Submitting signed order...');
+      console.log('📡 FUSION - Submitting signed order...', {
+        orderNonce: order.nonce,
+        signatureLength: signature.length,
+        chainId
+      });
 
       // Here we would normally submit to the real Fusion API
       // For now, simulate the submission process
       const orderHash = `0x${Date.now().toString(16)}${Math.random().toString(16).substr(2, 8)}`;
       
-      console.log('✅ FUSION - Order submitted successfully:', orderHash);
+      console.log('✅ FUSION - Order submitted successfully:', {
+        orderHash,
+        fromToken: order.fromToken,
+        toToken: order.toToken,
+        fromAmount: order.fromAmount,
+        toAmount: order.toAmount
+      });
 
       return NextResponse.json({
         success: true,
