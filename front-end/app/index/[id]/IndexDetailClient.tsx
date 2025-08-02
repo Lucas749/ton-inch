@@ -33,6 +33,7 @@ import { useBlockchain } from "@/hooks/useBlockchain";
 import { blockchainService } from "@/lib/blockchain-service";
 import AlphaVantageService, { TimeSeriesResponse } from "@/lib/alphavantage-service";
 import { RealIndicesService } from "@/lib/real-indices-service";
+import { SwapBox } from "@/components/SwapBox";
 
 interface IndexDetailClientProps {
   indexData: any;
@@ -439,8 +440,19 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
             </Card>
           </div>
 
-          {/* Right Column - Social Feed */}
+          {/* Right Column - Swap & Social Feed */}
           <div className="space-y-6">
+            {/* Quick Swap Box */}
+            <SwapBox 
+              walletAddress={walletAddress}
+              apiKey={process.env.NEXT_PUBLIC_ONEINCH_API_KEY}
+              rpcUrl={process.env.NEXT_PUBLIC_ALCHEMY_API_KEY 
+                ? `https://base-sepolia.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`
+                : "https://sepolia.base.org"
+              }
+              indexName={realIndexData.name}
+            />
+            
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
