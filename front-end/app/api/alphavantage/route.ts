@@ -5,7 +5,7 @@ import { ServerCSVCacheService } from '@/lib/server-csv-cache';
 export const dynamic = 'force-dynamic';
 
 // Initialize the cache service with a proper cache directory for Next.js
-const cacheService = new ServerCSVCacheService(process.cwd() + '/front-end/cache');
+const cacheService = new ServerCSVCacheService(process.cwd() + '/cache');
 
 // Validation function to check if AlphaVantage response is valid
 function validateResponseData(data: any, functionName: string): void {

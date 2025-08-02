@@ -1,0 +1,16 @@
+symbol,function,interval,lastFetched,success,retryCount,nextRetry
+TSLA_GLOBAL_QUOTE,GLOBAL_QUOTE,,2025-08-02T13:51:48.394Z,true,0,
+{
+  "Global Quote": {
+    "01. symbol": "TSLA",
+    "02. open": "306.2050",
+    "03. high": "309.3100",
+    "04. low": "297.8200",
+    "05. price": "302.6300",
+    "06. volume": "89121446",
+    "07. latest trading day": "2025-08-01",
+    "08. previous close": "308.2700",
+    "09. change": "-5.6400",
+    "10. change percent": "-1.8296%"
+  }
+}

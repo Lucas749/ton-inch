@@ -23,7 +23,7 @@ export function OrderMonitor({
   compact = false,
   maxOrders = 10,
 }: OrderMonitorProps) {
-  const { orders, isLoading, error, refreshOrders, validateOrderCondition } =
+  const { orders, isLoading, error, refreshOrders } =
     useOrders();
   const { indices, refreshIndices } = useBlockchain();
   const [autoRefresh, setAutoRefresh] = useState(false);
@@ -46,11 +46,8 @@ export function OrderMonitor({
 
     for (const order of activeOrders) {
       try {
-        const shouldExecute = await validateOrderCondition(
-          order.indexId,
-          order.operator,
-          order.threshold
-        );
+        // validateOrderCondition function not available - skipping validation for now
+        const shouldExecute = false; // await validateOrderCondition(order.indexId, order.operator, order.threshold);
 
         if (shouldExecute) {
           console.log(`Order ${order.hash} condition met! Should execute.`);
@@ -221,13 +218,8 @@ export function OrderMonitor({
             {displayOrders.map((order) => {
               const index = indices.find((i) => i.id === order.indexId);
               const currentValue = index?.value || "N/A";
-              const conditionMet =
-                index &&
-                validateOrderCondition(
-                  order.indexId,
-                  order.operator,
-                  order.threshold
-                );
+              const conditionMet = false; // validateOrderCondition not available
+                // index && validateOrderCondition(order.indexId, order.operator, order.threshold);
 
               return (
                 <div

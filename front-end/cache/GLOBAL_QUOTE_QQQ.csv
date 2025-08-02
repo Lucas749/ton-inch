@@ -1,0 +1,16 @@
+symbol,function,interval,lastFetched,success,retryCount,nextRetry
+QQQ,GLOBAL_QUOTE,,2025-08-02T23:06:35.163Z,true,0,
+{
+  "Global Quote": {
+    "01. symbol": "QQQ",
+    "02. open": "558.8300",
+    "03. high": "559.0200",
+    "04. low": "551.6800",
+    "05. price": "553.8800",
+    "06. volume": "69400789",
+    "07. latest trading day": "2025-08-01",
+    "08. previous close": "565.0100",
+    "09. change": "-11.1300",
+    "10. change percent": "-1.9699%"
+  }
+}

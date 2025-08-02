@@ -155,7 +155,7 @@ export default function Home() {
                       <div className="space-y-4">
                         <div className="bg-gray-800/50 rounded-xl p-4 hover:bg-gray-800/70 transition-all duration-300 transform hover:scale-105 hover:-translate-y-1">
                           <div className="text-gray-400 text-sm mb-1">Condition</div>
-                          <div className="text-white font-mono group-hover:text-blue-300 transition-colors duration-300">IF VIX Index > 25.0</div>
+                          <div className="text-white font-mono group-hover:text-blue-300 transition-colors duration-300">IF VIX Index &gt; 25.0</div>
                           <div className="text-blue-300 text-sm mt-1 flex items-center">
                             <span className="animate-pulse">Current: 22.57</span>
                             <span className="ml-2 animate-bounce">⬇</span>

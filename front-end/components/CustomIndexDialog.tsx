@@ -123,7 +123,7 @@ export function CustomIndexDialog({ onIndexCreated, trigger }: CustomIndexDialog
       if (result.success && result.indexId) {
         const oracleTypeName = formData.oracleType === "custom" 
           ? "Chainlink (Custom Address)" 
-          : ORACLE_TYPE_NAMES[oracleType];
+          : ORACLE_TYPE_NAMES[oracleType as keyof typeof ORACLE_TYPE_NAMES];
         
         setSuccess(`✅ Successfully created "${formData.name}" with ID ${result.indexId} using ${oracleTypeName}!`);
         

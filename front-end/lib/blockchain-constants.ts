@@ -3,6 +3,17 @@
  * Contract addresses, ABIs, and operator definitions
  */
 
+// Oracle types (matching backend system)
+export const ORACLE_TYPES = {
+  MOCK: 0,
+  CHAINLINK: 1
+};
+
+export const ORACLE_TYPE_NAMES = {
+  0: 'Mock Oracle',
+  1: 'Chainlink Functions'
+} as const;
+
 // Order operators (matching new backend system)
 export const OPERATORS = {
   GT: 1, // Greater Than
@@ -54,17 +65,6 @@ export const INDICES = {
 };
 
 // Contract addresses - Base Mainnet (New Architecture)
-// Oracle Types (matching backend oracle-manager.js)
-export const ORACLE_TYPES = {
-  MOCK: 0,
-  CHAINLINK: 1
-};
-
-export const ORACLE_TYPE_NAMES = {
-  0: 'Mock Oracle',
-  1: 'Chainlink Functions'
-};
-
 export const CONTRACTS = {
   // ONLY contract we need - Hybrid Oracle for index data
   IndexOracle: "0x8a585F9B2359Ef093E8a2f5432F387960e953BD2", // Hybrid Oracle (Base Mainnet)

@@ -237,17 +237,14 @@ async function checkWalletBalancesAndGas(wallet: WalletLike, token: any, amount:
   console.log('💰 Comprehensive balance and gas check...');
   
   try {
-    // Calculate total gas cost for the entire operation (approval + order creation)
+    // Calculate gas cost only for token approval (limit orders are off-chain signatures)
     const operations = [
       {
         type: 'approval' as const,
         tokenAddress: token.address,
         walletAddress: wallet.address
-      },
-      {
-        type: 'order-create' as const,
-        walletAddress: wallet.address
       }
+      // Note: 1inch limit orders don't require gas - they're signed messages stored off-chain
     ];
     
     const gasEstimate = await calculateTotalTransactionCost(operations);

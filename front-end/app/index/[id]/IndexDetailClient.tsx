@@ -1497,39 +1497,6 @@ This matches the backend test-index-order-creator.js values exactly!`);
                         )}
                       </div>
                     </div>
-                    
-                    {/* Preset Amount Buttons for From Token */}
-                    {fromToken && !isCreatingOrder && (
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        <span className="text-xs text-gray-500 mr-2 self-center">Quick amounts:</span>
-                        {(() => {
-                          // Define preset amounts based on token type
-                          const getPresetAmounts = (tokenSymbol: string) => {
-                            const symbol = tokenSymbol.toUpperCase();
-                            if (symbol === 'USDC' || symbol === 'USDT' || symbol === 'DAI') {
-                              return [1, 5, 10, 25, 100];
-                            } else if (symbol === 'ETH' || symbol === 'WETH') {
-                              return [0.01, 0.1, 0.5, 1];
-                            } else {
-                              return [0.01, 0.1, 1, 10];
-                            }
-                          };
-                          
-                          const presets = getPresetAmounts(fromToken.symbol);
-                          return presets.map((amount) => (
-                            <Button
-                              key={amount}
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setOrderForm(prev => ({ ...prev, fromAmount: amount.toString() }))}
-                              className="h-6 px-2 text-xs"
-                            >
-                              {amount}
-                            </Button>
-                          ));
-                        })()}
-                      </div>
-                    )}
                   </div>
 
                   {/* Swap Button */}
@@ -1579,39 +1546,6 @@ This matches the backend test-index-order-creator.js values exactly!`);
                         />
                       </div>
                     </div>
-                    
-                    {/* Preset Amount Buttons for To Token */}
-                    {toToken && !isCreatingOrder && (
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        <span className="text-xs text-gray-500 mr-2 self-center">Quick amounts:</span>
-                        {(() => {
-                          // Define preset amounts based on token type
-                          const getPresetAmounts = (tokenSymbol: string) => {
-                            const symbol = tokenSymbol.toUpperCase();
-                            if (symbol === 'USDC' || symbol === 'USDT' || symbol === 'DAI') {
-                              return [1, 5, 10, 25, 100];
-                            } else if (symbol === 'ETH' || symbol === 'WETH') {
-                              return [0.01, 0.1, 0.5, 1];
-                            } else {
-                              return [0.01, 0.1, 1, 10];
-                            }
-                          };
-                          
-                          const presets = getPresetAmounts(toToken.symbol);
-                          return presets.map((amount) => (
-                            <Button
-                              key={amount}
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setOrderForm(prev => ({ ...prev, toAmount: amount.toString() }))}
-                              className="h-6 px-2 text-xs"
-                            >
-                              {amount}
-                            </Button>
-                          ));
-                        })()}
-                      </div>
-                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">

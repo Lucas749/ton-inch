@@ -1,0 +1,15 @@
+symbol,function,interval,lastFetched,success,retryCount,nextRetry
+USD,CURRENCY_EXCHANGE_RATE,USD_JPY,2025-08-02T21:45:49.923Z,true,0,
+{
+  "Realtime Currency Exchange Rate": {
+    "1. From_Currency Code": "USD",
+    "2. From_Currency Name": "United States Dollar",
+    "3. To_Currency Code": "JPY",
+    "4. To_Currency Name": "Japanese Yen",
+    "5. Exchange Rate": "147.37500000",
+    "6. Last Refreshed": "2025-08-02 21:45:24",
+    "7. Time Zone": "UTC",
+    "8. Bid Price": "147.37220000",
+    "9. Ask Price": "147.38210000"
+  }
+}

@@ -1,0 +1,16 @@
+symbol,function,interval,lastFetched,success,retryCount,nextRetry
+AMZN,GLOBAL_QUOTE,,2025-08-02T23:06:34.790Z,true,0,
+{
+  "Global Quote": {
+    "01. symbol": "AMZN",
+    "02. open": "217.2100",
+    "03. high": "220.4399",
+    "04. low": "212.8000",
+    "05. price": "214.7500",
+    "06. volume": "122258801",
+    "07. latest trading day": "2025-08-01",
+    "08. previous close": "234.1100",
+    "09. change": "-19.3600",
+    "10. change percent": "-8.2696%"
+  }
+}

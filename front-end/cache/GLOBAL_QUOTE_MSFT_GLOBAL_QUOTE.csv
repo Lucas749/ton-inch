@@ -1,0 +1,16 @@
+symbol,function,interval,lastFetched,success,retryCount,nextRetry
+MSFT_GLOBAL_QUOTE,GLOBAL_QUOTE,,2025-08-02T13:51:48.401Z,true,0,
+{
+  "Global Quote": {
+    "01. symbol": "MSFT",
+    "02. open": "535.0000",
+    "03. high": "535.8000",
+    "04. low": "520.8600",
+    "05. price": "524.1100",
+    "06. volume": "28977628",
+    "07. latest trading day": "2025-08-01",
+    "08. previous close": "533.5000",
+    "09. change": "-9.3900",
+    "10. change percent": "-1.7601%"
+  }
+}

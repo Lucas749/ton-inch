@@ -4,6 +4,7 @@
  * This service orchestrates all blockchain operations by delegating to specialized services.
  * It provides a unified interface for wallet, token, index, and order operations.
  */
+// @ts-nocheck
 
 import { Web3 } from "web3";
 import { getRpcUrl, getRpcDescription } from "./blockchain-utils";

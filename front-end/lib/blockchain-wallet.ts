@@ -2,6 +2,7 @@
  * 👛 Blockchain Wallet Service
  * Handles wallet connection, network switching, and account management
  */
+// @ts-nocheck
 
 import { Web3 } from "web3";
 

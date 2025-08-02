@@ -1,0 +1,16 @@
+symbol,function,interval,lastFetched,success,retryCount,nextRetry
+META_GLOBAL_QUOTE,GLOBAL_QUOTE,,2025-08-02T13:51:48.413Z,true,0,
+{
+  "Global Quote": {
+    "01. symbol": "META",
+    "02. open": "760.7300",
+    "03. high": "765.9999",
+    "04. low": "745.3100",
+    "05. price": "750.0100",
+    "06. volume": "19028710",
+    "07. latest trading day": "2025-08-01",
+    "08. previous close": "773.4400",
+    "09. change": "-23.4300",
+    "10. change percent": "-3.0293%"
+  }
+}

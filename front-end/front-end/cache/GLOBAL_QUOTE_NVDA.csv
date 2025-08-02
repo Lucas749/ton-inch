@@ -1,0 +1,16 @@
+symbol,function,interval,lastFetched,success,retryCount,nextRetry
+NVDA,GLOBAL_QUOTE,,2025-08-02T21:45:49.129Z,true,0,
+{
+  "Global Quote": {
+    "01. symbol": "NVDA",
+    "02. open": "174.0900",
+    "03. high": "176.5400",
+    "04. low": "170.8900",
+    "05. price": "173.7200",
+    "06. volume": "204528985",
+    "07. latest trading day": "2025-08-01",
+    "08. previous close": "177.8700",
+    "09. change": "-4.1500",
+    "10. change percent": "-2.3332%"
+  }
+}

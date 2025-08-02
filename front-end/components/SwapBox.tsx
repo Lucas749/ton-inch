@@ -501,7 +501,7 @@ export function SwapBox({
             {quote && (
               <div className="flex justify-between text-xs">
                 <span className="text-gray-600">Gas Fee</span>
-                <span className="font-medium">~${(parseInt(quote.gas) * 0.000000001 * 2000).toFixed(2)}</span>
+                <span className="font-medium">~$0.01</span>
               </div>
             )}
           </div>

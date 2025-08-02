@@ -13,7 +13,7 @@ import Web3 from 'web3';
 const BASE_CONFIG = {
   CHAIN_ID: 8453,
   RPC_URL: 'https://base.llamarpc.com',
-  MAX_GAS_PRICE_GWEI: 0.0003, // 0.0003 gwei cap to match MetaMask aggressive rates
+  MAX_GAS_PRICE_GWEI: 0.01, // 0.01 gwei cap for reasonable Base L2 rates
   SAFETY_MARGIN: 1.01, // 1% safety margin (minimal for Base L2)
   
   // Contract addresses
@@ -94,11 +94,11 @@ export async function getOptimizedGasPrice(): Promise<{
     
   } catch (error) {
     console.warn('⚠️ Failed to fetch gas price, using fallback');
-    const fallbackGasPrice = ethers.utils.parseUnits('0.0001', 'gwei'); // MetaMask-aggressive fallback for Base L2
+    const fallbackGasPrice = ethers.utils.parseUnits('0.002', 'gwei'); // Reasonable fallback for Base L2
     
     return {
       gasPrice: fallbackGasPrice.toString(),
-      gasPriceGwei: '0.0001',
+      gasPriceGwei: '0.002',
       isOptimized: true
     };
   }

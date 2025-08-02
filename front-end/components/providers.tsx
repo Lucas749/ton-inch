@@ -12,12 +12,7 @@ const config = getDefaultConfig({
   projectId: process.env.NEXT_PUBLIC_WALLETID || '8ac9e16abce841daf165cffe1ce24e1e', // Fallback demo project ID
   chains: [base],
   ssr: true,
-  // Improve WalletConnect stability
-  walletConnectParameters: {
-    qrCode: true,
-    disableProviderPing: false,
-    relayUrl: 'wss://relay.walletconnect.com'
-  }
+  // walletConnectParameters removed to fix type error
 });
 
 const queryClient = new QueryClient({

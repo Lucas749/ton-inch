@@ -81,7 +81,7 @@ export function SwapInterface({
 
   // Initialize with popular tokens
   useEffect(() => {
-    const popularTokens = tokenService.getPopularTokens();
+    const popularTokens = tokenService.getPopularTokensSync();
     if (popularTokens.length >= 2 && !fromToken && !toToken) {
       setFromToken(popularTokens[0]); // ETH
       setToToken(popularTokens[1]); // WETH

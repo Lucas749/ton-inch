@@ -243,10 +243,8 @@ export function useBlockchain(): UseBlockchainReturn {
       const success = await blockchainService.switchToBaseMainnet();
       
       if (success) {
-        // Refresh network info after switching
-        const networkInfo = await blockchainService.getNetworkInfo();
-        setChainId(networkInfo.chainId);
-        setNetworkName(networkInfo.networkName);
+        // Network info will be automatically updated by wagmi hooks
+        console.log('Network switched successfully');
       }
       
       return success;

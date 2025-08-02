@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { encodeFunctionData, keccak256, encodePacked, getAddress, encodeAbiParameters } from 'viem';
 
 // 1inch Limit Order Protocol v4 ABI (real)

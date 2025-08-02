@@ -1,0 +1,16 @@
+symbol,function,interval,lastFetched,success,retryCount,nextRetry
+GOOGL,GLOBAL_QUOTE,,2025-08-02T21:42:26.825Z,true,0,
+{
+  "Global Quote": {
+    "01. symbol": "GOOGL",
+    "02. open": "189.0250",
+    "03. high": "190.8300",
+    "04. low": "187.8200",
+    "05. price": "189.1300",
+    "06. volume": "34832181",
+    "07. latest trading day": "2025-08-01",
+    "08. previous close": "191.9000",
+    "09. change": "-2.7700",
+    "10. change percent": "-1.4435%"
+  }
+}

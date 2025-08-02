@@ -1,0 +1,15 @@
+symbol,function,interval,lastFetched,success,retryCount,nextRetry
+GBP,CURRENCY_EXCHANGE_RATE,GBP_USD,2025-08-02T23:06:35.838Z,true,0,
+{
+  "Realtime Currency Exchange Rate": {
+    "1. From_Currency Code": "GBP",
+    "2. From_Currency Name": "British Pound Sterling",
+    "3. To_Currency Code": "USD",
+    "4. To_Currency Name": "United States Dollar",
+    "5. Exchange Rate": "1.32740000",
+    "6. Last Refreshed": "2025-08-02 23:06:26",
+    "7. Time Zone": "UTC",
+    "8. Bid Price": "1.32738000",
+    "9. Ask Price": "1.32740000"
+  }
+}

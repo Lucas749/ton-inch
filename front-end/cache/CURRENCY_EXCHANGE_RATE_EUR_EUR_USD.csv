@@ -1,0 +1,15 @@
+symbol,function,interval,lastFetched,success,retryCount,nextRetry
+EUR,CURRENCY_EXCHANGE_RATE,EUR_USD,2025-08-02T23:06:35.933Z,true,0,
+{
+  "Realtime Currency Exchange Rate": {
+    "1. From_Currency Code": "EUR",
+    "2. From_Currency Name": "Euro",
+    "3. To_Currency Code": "USD",
+    "4. To_Currency Name": "United States Dollar",
+    "5. Exchange Rate": "1.15940000",
+    "6. Last Refreshed": "2025-08-02 23:06:31",
+    "7. Time Zone": "UTC",
+    "8. Bid Price": "1.15935000",
+    "9. Ask Price": "1.15943000"
+  }
+}

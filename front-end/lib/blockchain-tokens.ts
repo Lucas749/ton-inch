@@ -47,63 +47,9 @@ export class BlockchainTokens {
     }
   }
 
-  /**
-   * Mint test tokens for the user (Base Sepolia only)
-   */
-  async mintTestTokens(amount: number = 1000): Promise<boolean> {
-    try {
-      if (!this.wallet.isWalletConnected() || !this.wallet.currentAccount) {
-        throw new Error("Wallet not connected");
-      }
+  // Removed mintTestTokens function - TestUSDC not available in production
 
-      const testUSDC = new this.web3.eth.Contract(
-        ABIS.TestToken,
-        CONTRACTS.TestUSDC
-      );
-
-      // Convert amount to proper decimals (USDC has 6 decimals)
-      const mintAmount = amount * Math.pow(10, 6);
-
-      console.log(`🪙 Minting ${amount} Test USDC...`);
-      
-      const tx = await testUSDC.methods
-        .mint(this.wallet.currentAccount, mintAmount.toString())
-        .send({
-          from: this.wallet.currentAccount,
-          gas: "100000",
-        });
-
-      console.log("✅ Test tokens minted!", tx.transactionHash);
-      return true;
-    } catch (error) {
-      console.error("❌ Error minting test tokens:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get test USDC balance
-   */
-  async getTestUSDCBalance(): Promise<string> {
-    try {
-      if (!this.wallet.isWalletConnected() || !this.wallet.currentAccount) {
-        return "0";
-      }
-
-      const testUSDC = new this.web3.eth.Contract(
-        ABIS.TestToken,
-        CONTRACTS.TestUSDC
-      );
-
-      const balance = await testUSDC.methods.balanceOf(this.wallet.currentAccount).call();
-      // USDC has 6 decimals - properly handle the balance as string
-      const balanceStr = String(balance);
-      return (parseInt(balanceStr) / Math.pow(10, 6)).toString();
-    } catch (error) {
-      console.error("❌ Error getting test USDC balance:", error);
-      return "0";
-    }
-  }
+  // Removed getTestUSDCBalance function - TestUSDC not available in production
 
   /**
    * Approve token spending
