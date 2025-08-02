@@ -431,10 +431,10 @@ async function createIndexBasedOrderStandalone(params: any) {
     console.log(`📋 Condition: ${params.condition.description}`);
     console.log('');
     
-    // Check wallet balances before proceeding
-    console.log('💰 Checking wallet balances...');
-    await checkWalletBalances(wallet, fromToken, makingAmount);
-    console.log('✅ Wallet balance check passed');
+    // Check wallet balances and estimate gas costs
+    console.log('💰 Comprehensive wallet analysis...');
+    const walletAnalysis = await checkWalletBalancesAndGas(wallet, fromToken, makingAmount);
+    console.log('✅ Wallet analysis completed');
     
     // Create predicate
     console.log('🔮 Creating index predicate...');
@@ -484,14 +484,45 @@ async function createIndexBasedOrderStandalone(params: any) {
     console.log('✅ Order signed');
     
     // Check and handle token approval before submitting
-    console.log('🔍 Checking token allowance...');
+    console.log('🔍 Checking token allowance with precise gas estimation...');
+    let approvalGasInfo = null;
+    let approvalSuccessful = false;
+    
     try {
-      await ensureTokenApproval(wallet, fromToken, makingAmount);
+      // Get accurate gas estimate for approval
+      approvalGasInfo = await estimateApprovalGas(fromToken.address, wallet.address);
+      console.log(`📊 Approval gas estimate: ${formatGasEstimate(approvalGasInfo)}`);
+      
+      // Check if wallet has enough ETH for approval
+      const approvalBalanceCheck = await checkGasBalance(wallet.address, approvalGasInfo.totalCostWei);
+      
+      if (!approvalBalanceCheck.hasEnoughGas) {
+        console.log('❌ CRITICAL: Insufficient ETH for token approval');
+        console.log(`💰 Need: ${approvalBalanceCheck.requiredBalanceEth} ETH`);
+        console.log(`💰 Have: ${approvalBalanceCheck.currentBalanceEth} ETH`);
+        console.log(`💰 Shortfall: ${approvalBalanceCheck.shortfallEth} ETH`);
+        console.log(getFundingInstructions(wallet.address, approvalBalanceCheck.shortfallEth!));
+        console.log('📝 Order will be created but CANNOT be submitted without funding');
+      } else {
+        await ensureTokenApproval(wallet, fromToken, makingAmount);
+        approvalSuccessful = true;
+        console.log('✅ Token approval completed successfully');
+      }
+      
     } catch (approvalError: any) {
-      console.log('⚠️  Token approval failed, but order will still be created');
-      console.log('📝 Order can be submitted later after resolving approval issues');
+      console.log('⚠️  Token approval failed');
       console.log(`💡 Error: ${approvalError.message}`);
-      // Continue with order creation - it will fail on submission but the order hash will be valid
+      
+      if (approvalGasInfo) {
+        console.log(`💡 Approval would cost: ${formatGasEstimate(approvalGasInfo)}`);
+      }
+      
+      // If it's a gas/funding issue, be very clear about it
+      if (approvalError.message.includes('insufficient') || approvalError.message.includes('gas')) {
+        console.log('❌ FUNDING ISSUE: Order will fail due to insufficient ETH for approval');
+      } else {
+        console.log('📝 Order will be created but may fail during submission');
+      }
     }
     
     // Submit order
@@ -532,7 +563,25 @@ async function createIndexBasedOrderStandalone(params: any) {
       },
       wallet: {
         address: wallet.address,
-        fundingNote: submitError ? `To enable order submission, send ETH for gas fees to: ${wallet.address}` : null
+        fundingNote: submitError ? `To enable order submission, send ETH for gas fees to: ${wallet.address}` : null,
+        approvalStatus: {
+          successful: approvalSuccessful,
+          gasEstimate: approvalGasInfo ? {
+            cost: approvalGasInfo.totalCostEth,
+            gasLimit: approvalGasInfo.gasLimit,
+            gasPriceGwei: approvalGasInfo.gasPriceGwei
+          } : null
+        },
+        gasAnalysis: walletAnalysis.gasEstimate ? {
+          totalEstimatedCost: walletAnalysis.gasEstimate.totalCostEth,
+          hasEnoughGas: walletAnalysis.hasEnoughGas,
+          breakdown: walletAnalysis.gasEstimate.breakdown.map(b => ({
+            operation: b.recommendation,
+            cost: b.totalCostEth,
+            gasLimit: b.gasLimit,
+            gasPriceGwei: b.gasPriceGwei
+          }))
+        } : null
       },
       technical: {
         orderHash: order.getOrderHash(),
@@ -551,10 +600,18 @@ async function createIndexBasedOrderStandalone(params: any) {
     if (!result.success && submitError) {
       console.log('\n💡 TO ENABLE ORDER SUBMISSION:');
       console.log('===============================');
+      console.log(`Approval Status: ${approvalSuccessful ? '✅ Success' : '❌ Failed'}`);
+      if (approvalGasInfo) {
+        console.log(`Approval Cost: ${formatGasEstimate(approvalGasInfo)}`);
+      }
       console.log(`1. Send Base ETH to wallet: ${wallet.address}`);
       console.log(`2. Get Base ETH from: https://bridge.base.org or faucets`);
       console.log(`3. Ensure wallet has tokens to trade (${fromToken.symbol})`);
-      console.log(`4. Retry order creation or use approve-token API first`);
+      console.log(`4. ${approvalSuccessful ? 'Retry order submission' : 'First approve tokens, then retry order creation'}`);
+      
+      if (walletAnalysis.gasEstimate) {
+        console.log(`💰 Total gas needed: ${walletAnalysis.gasEstimate.totalCostEth} ETH`);
+      }
     }
     
     return result;
