@@ -329,27 +329,27 @@ class TokenService {
   }
 
   /**
-   * Get top 3 most popular tokens from single API request
+   * Get top 25 popular tokens from single API request (performance optimized)
    * Uses 1inch Token API v1.3 multi-chain endpoint: GET /token/v1.3/{chainId}
    */
-  async getTop3PopularTokens(): Promise<Token[]> {
+  async getTop25PopularTokens(): Promise<Token[]> {
     try {
-      console.log('🔥 Fetching all supported tokens from 1inch API (single request)...');
+      console.log('🔥 Fetching top 25 popular tokens from 1inch API...');
       
-      // Single API call to get ALL supported tokens for Base mainnet
+      // Single API call to get supported tokens for Base mainnet
       const tokenList = await this.getSupportedTokens();
       
-      if (tokenList && tokenList.tokens && tokenList.tokens.length > 0) {
-        console.log(`✅ Loaded ${tokenList.tokens.length} total tokens, returning top 3 popular`);
-        // Return top 3 tokens (1inch API returns tokens in popularity order)
-        return tokenList.tokens.slice(0, 3);
+      if (tokenList?.tokens && Array.isArray(tokenList.tokens) && tokenList.tokens.length > 0) {
+        const top25 = tokenList.tokens.slice(0, 25);
+        console.log(`✅ Loaded ${top25.length} popular tokens from ${tokenList.tokens.length} total`);
+        return top25;
       }
     } catch (error) {
       console.warn('⚠️ Failed to fetch tokens from 1inch API, using fallback:', error);
     }
     
-    // Fallback to top 3 hardcoded popular tokens
-    return POPULAR_BASE_MAINNET_TOKENS.slice(0, 3);
+    // Fallback to hardcoded popular tokens (limited to prevent crashes)
+    return POPULAR_BASE_MAINNET_TOKENS.slice(0, Math.min(25, POPULAR_BASE_MAINNET_TOKENS.length));
   }
 
   /**

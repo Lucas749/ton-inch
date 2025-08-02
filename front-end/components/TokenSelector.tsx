@@ -62,15 +62,26 @@ export function TokenSelector({
   const [tokenDetails, setTokenDetails] = useState<Record<string, TokenDetails>>({});
   const [apiTokensLoaded, setApiTokensLoaded] = useState(false);
 
-  // Load top 3 popular tokens from API on mount
+  // Load top 25 popular tokens from API on mount
   useEffect(() => {
-    const loadTop3Tokens = async () => {
+    const loadPopularTokens = async () => {
       try {
         setIsLoading(true);
-        console.log('🚀 Loading top 3 popular tokens...');
+        setError(null);
+        console.log('🚀 Loading top 25 popular tokens...');
         
-        const top3Tokens = await tokenService.getTop3PopularTokens();
-        const filtered = top3Tokens.filter(token => 
+        const popularTokens = await tokenService.getTop25PopularTokens();
+        
+        // Safety check - ensure we have valid tokens array
+        if (!Array.isArray(popularTokens)) {
+          throw new Error('Invalid tokens response');
+        }
+        
+        const filtered = popularTokens.filter(token => 
+          token && 
+          typeof token === 'object' && 
+          token.address && 
+          token.symbol && 
           !excludeTokens.includes(token.address.toLowerCase())
         );
         
@@ -80,20 +91,33 @@ export function TokenSelector({
         console.log(`✅ Loaded ${filtered.length} popular tokens`);
       } catch (error) {
         console.error('❌ Failed to load popular tokens:', error);
-        // Fallback to hardcoded tokens
-        const fallbackTokens = tokenService.getPopularTokensSync().slice(0, 3);
-        const filtered = fallbackTokens.filter(token => 
-          !excludeTokens.includes(token.address.toLowerCase())
-        );
-        setPopularTokens(filtered);
-        setSearchResults(filtered);
-        setError('Using fallback tokens');
+        
+        // Safe fallback to hardcoded tokens
+        try {
+          const fallbackTokens = tokenService.getPopularTokensSync() || [];
+          const safeTokens = fallbackTokens.slice(0, 25).filter(token => 
+            token && 
+            typeof token === 'object' && 
+            token.address && 
+            token.symbol &&
+            !excludeTokens.includes(token.address.toLowerCase())
+          );
+          
+          setPopularTokens(safeTokens);
+          setSearchResults(safeTokens);
+          setError(safeTokens.length > 0 ? 'Using fallback tokens' : 'No tokens available');
+        } catch (fallbackError) {
+          console.error('❌ Fallback failed:', fallbackError);
+          setPopularTokens([]);
+          setSearchResults([]);
+          setError('Failed to load tokens');
+        }
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadTop3Tokens();
+    loadPopularTokens();
   }, [excludeTokens]);
 
   // Search tokens - only call API when user searches by address
@@ -132,10 +156,11 @@ export function TokenSelector({
     } else {
       // It's a symbol/name - search locally in popular tokens only
       console.log(`🔍 Local search for: ${query}`);
-      const filtered = popularTokens.filter(token =>
-        token.symbol.toLowerCase().includes(query.toLowerCase()) ||
-        token.name.toLowerCase().includes(query.toLowerCase())
-      );
+      const filtered = popularTokens.filter(token => {
+        if (!token || !token.symbol || !token.name) return false;
+        return token.symbol.toLowerCase().includes(query.toLowerCase()) ||
+               token.name.toLowerCase().includes(query.toLowerCase());
+      });
       setSearchResults(filtered);
       setError(filtered.length === 0 ? 'No tokens found. Try entering a token address (0x...)' : null);
     }
@@ -168,9 +193,22 @@ export function TokenSelector({
   };
 
   const handleTokenSelect = (token: Token) => {
-    onTokenSelect(token);
-    setIsOpen(false);
-    setSearchQuery('');
+    try {
+      // Safety check - ensure token has required properties
+      if (!token || !token.address || !token.symbol) {
+        console.error('❌ Invalid token selected:', token);
+        setError('Invalid token selected');
+        return;
+      }
+      
+      console.log('✅ Token selected:', token.symbol, token.address);
+      onTokenSelect(token);
+      setIsOpen(false);
+      setSearchQuery('');
+    } catch (error) {
+      console.error('❌ Error selecting token:', error);
+      setError('Failed to select token');
+    }
   };
 
   const handleDialogOpen = (open: boolean) => {
@@ -186,6 +224,12 @@ export function TokenSelector({
   };
 
   const TokenItem = ({ token }: { token: Token }) => {
+    // Safety checks to prevent crashes
+    if (!token || !token.address || !token.symbol) {
+      console.warn('⚠️ Invalid token props:', token);
+      return null;
+    }
+
     const details = tokenDetails[token.address];
     const logoUrl = getTokenLogoUrl(token);
     const isStable = isStablecoin(token);
@@ -219,7 +263,7 @@ export function TokenSelector({
           
           <div className="flex-1 min-w-0">
             <div className="flex items-center space-x-2">
-              <span className="font-medium text-gray-900">{token.symbol}</span>
+              <span className="font-medium text-gray-900">{token.symbol || 'Unknown'}</span>
               {details?.rating && details.rating > 90 && (
                 <Star className="w-4 h-4 text-yellow-500 fill-current" />
               )}
@@ -234,7 +278,7 @@ export function TokenSelector({
                 </Badge>
               )}
             </div>
-            <p className="text-sm text-gray-500 truncate">{token.name}</p>
+            <p className="text-sm text-gray-500 truncate">{token.name || 'Unknown Token'}</p>
           </div>
         </div>
 
@@ -337,9 +381,11 @@ export function TokenSelector({
                 )}
                 
                 {searchResults.length > 0 ? (
-                  searchResults.map((token) => (
-                    <TokenItem key={token.address} token={token} />
-                  ))
+                  searchResults
+                    .filter(token => token && token.address && token.symbol) // Safety filter
+                    .map((token) => (
+                      <TokenItem key={token.address} token={token} />
+                    ))
                 ) : (
                   <div className="text-center py-8 text-gray-500">
                     {searchQuery ? 'No tokens found' : 'No tokens available'}
