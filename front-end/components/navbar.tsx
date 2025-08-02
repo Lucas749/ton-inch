@@ -1,12 +1,12 @@
 "use client";
 
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { Search, Bell, TrendingUp, BarChart3, Settings, X, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import { useBlockchain } from "@/hooks/useBlockchain";
-import { NavbarWalletConnect } from "@/components/NavbarWalletConnect";
 
 // Define predefined indices from the app router
 const PREDEFINED_INDICES = [
@@ -262,7 +262,7 @@ export function Navbar() {
               <Bell className="w-4 h-4 text-gray-500" />
             </Button>
 
-            <NavbarWalletConnect />
+            <ConnectButton />
           </div>
         </div>
       </div>
