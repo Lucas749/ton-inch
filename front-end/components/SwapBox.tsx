@@ -420,8 +420,11 @@ export function SwapBox({
                   variant="ghost"
                   size="sm"
                   onClick={() => {
-                    const maxAmount = Math.max(0, parseFloat(ethBalance) - 0.001); // Reserve for gas
-                    setFromAmount(maxAmount.toString());
+                    const userBalance = parseFloat(ethBalance);
+                    // For MAX button, use minimum gas buffer (0.0002 ETH) to maximize swappable amount
+                    const gasBuffer = 0.0002;
+                    const maxAmount = Math.max(0, userBalance - gasBuffer);
+                    setFromAmount(maxAmount.toFixed(6)); // Use 6 decimals for precision
                   }}
                   className="absolute right-1 top-1/2 -translate-y-1/2 h-6 px-2 text-xs text-blue-600 hover:text-blue-800"
                 >
