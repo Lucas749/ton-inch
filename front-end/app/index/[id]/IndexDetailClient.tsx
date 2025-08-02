@@ -939,17 +939,6 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
         const isApproved = await checkTokenApproval(fromToken.address, orderForm.fromAmount);
         
         if (!isApproved) {
-          const shouldApprove = confirm(
-            `🔐 Token Approval Required\n\n` +
-            `You need to approve ${fromToken.symbol} spending before creating the order.\n\n` +
-            `Click OK to approve ${fromToken.symbol} for 1inch trading.`
-          );
-          
-          if (!shouldApprove) {
-            alert('Order creation cancelled. Token approval is required.');
-            return;
-          }
-          
           console.log('⏳ Requesting token approval...');
           const approvalSuccess = await approveToken(fromToken.address, orderForm.fromAmount);
           
