@@ -164,51 +164,47 @@ export function Navbar() {
 
   return (
     <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <div className="flex items-center space-x-4">
+      <div className="container mx-auto px-6">
+        <div className="flex items-center justify-between h-14">
+          {/* Logo - Cookie.fun style minimal */}
+          <div className="flex items-center space-x-6">
             <div
               className="flex items-center space-x-2 cursor-pointer"
               onClick={() => router.push("/")}
             >
-              <div className="w-8 h-8 gradient-primary rounded-lg flex items-center justify-center">
-                <TrendingUp className="w-5 h-5 text-white" />
+              <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center">
+                <TrendingUp className="w-4 h-4 text-white" />
               </div>
-              <span className="text-xl font-bold text-gray-900">
+              <span className="text-lg font-bold text-gray-900">
                 c1nch
               </span>
             </div>
-            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-              v1.0 alpha
-            </span>
+            
+            {/* Simple navigation links */}
+            <div className="hidden md:flex items-center space-x-6">
+              <button
+                onClick={() => router.push("/")}
+                className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                Markets
+              </button>
+              <button
+                onClick={() => router.push("/dashboard")}
+                className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                Portfolio
+              </button>
+            </div>
           </div>
 
-          {/* Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
-            <button
-              onClick={() => router.push("/")}
-              className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors"
-            >
-              Home
-            </button>
-            <button
-              onClick={() => router.push("/dashboard")}
-              className="text-sm font-medium text-gray-900 hover:text-blue-600 transition-colors"
-            >
-              Dashboard
-            </button>
-
-
-          </div>
-
-          {/* Search and Actions */}
+          {/* Right side - Search and Wallet */}
           <div className="flex items-center space-x-4">
+            {/* Compact search */}
             <div className="relative hidden sm:block" ref={searchRef}>
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <Input
-                placeholder="Search indices..."
-                className="pl-10 pr-10 py-2 w-80 text-sm"
+                placeholder="Search..."
+                className="pl-10 pr-10 py-1.5 w-64 text-sm border-gray-300 rounded-lg"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => searchQuery && setIsSearchOpen(true)}
@@ -224,7 +220,7 @@ export function Navbar() {
               
               {/* Search Results Dropdown */}
               {isSearchOpen && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-80 overflow-y-auto">
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
                   {isLoading ? (
                     <div className="p-4 text-center text-gray-500">
                       <div className="animate-spin inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full mr-2"></div>
@@ -260,6 +256,11 @@ export function Navbar() {
                 </div>
               )}
             </div>
+
+            {/* Notification button - Cookie.fun style */}
+            <Button variant="ghost" size="sm" className="p-2">
+              <Bell className="w-4 h-4 text-gray-500" />
+            </Button>
 
             <ConnectButton />
           </div>

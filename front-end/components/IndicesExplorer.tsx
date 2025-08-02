@@ -505,181 +505,193 @@ export function IndicesExplorer() {
         </div>
       )}
 
-      {/* Available Contract Indices */}
-      {!isLoading && filteredContractIndices.length > 0 && (
-        <div className="space-y-4">
-          <div className="text-center">
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">⚡ Available</h3>
-            <p className="text-md text-gray-600 max-w-2xl mx-auto">
-              These indices are available on the blockchain. Click any card to view details and create conditional orders.
-            </p>
+      {/* Main Indices Table - Cookie.fun style */}
+      {!isLoading && (filteredContractIndices.length > 0 || filteredIndices.length > 0) && (
+        <div className="space-y-6">
+          {/* Table Header */}
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold text-gray-900">Market Overview</h2>
+            <div className="text-sm text-gray-500">
+              {filteredContractIndices.length + filteredIndices.length} indices
+            </div>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredContractIndices.map((index) => (
-            <Card 
-              key={index.id} 
-              className="hover:shadow-lg transition-all duration-200 cursor-pointer"
-              onClick={() => {
-                const extendedIndex = index as ExtendedRealIndexData;
-                if (extendedIndex.onChain && extendedIndex.blockchainId !== undefined) {
-                  router.push(`/index/blockchain_${extendedIndex.blockchainId}`);
-                } else {
-                  handleViewIndex(index);
-                }
-              }}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-3">
-                  {/* Left side - Avatar and info */}
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-10 h-10 rounded-full ${index.color} flex items-center justify-center text-white text-lg font-bold`}>
-                      {index.avatar}
-                    </div>
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <div className="font-semibold text-gray-900">{index.name}</div>
-                        {/* Owner badge */}
-                        {(index as ExtendedRealIndexData).blockchainId && isConnected && isIndexOwned((index as ExtendedRealIndexData).blockchainId!) && (
-                          <Badge variant="default" className="text-xs bg-orange-500 hover:bg-orange-600">
-                            👑 Owner
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="text-sm text-gray-500">{index.handle}</div>
-                    </div>
-                  </div>
 
-                  {/* Right side - Price change and sparkline */}
-                  <div className="flex items-center space-x-3">
-                    <div className="text-right">
-                      <div className={`text-sm font-medium ${
-                        index.isPositive ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {index.change}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {index.isPositive ? '▲' : '▼'} {index.changeValue}
-                      </div>
-                    </div>
-                    <div className="w-20">
-                      <Sparkline 
-                        data={index.sparklineData} 
-                        isPositive={index.isPositive}
-                        width={80}
-                        height={24}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Bottom row - Current value and mindshare */}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-lg font-bold text-gray-900">{index.valueLabel}</div>
-                    <div className="text-xs text-gray-500">Current Price</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-medium text-gray-700">{index.mindshare}</div>
-                    <div className="text-xs text-gray-500">Mindshare</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-          </div>
-        </div>
-      )}
-
-      {/* Market Indices Section */}
-      {!isLoading && (
-        <div className="space-y-4">
-          <div className="text-center">
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">Market Indices (Request Data)</h3>
-            <p className="text-md text-gray-600 max-w-2xl mx-auto">
-              Real-time market data from Alpha Vantage. Click &ldquo;Request&rdquo; to request adding these indices to the system.
-            </p>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredIndices.map((index) => (
-            <Card 
-              key={index.id} 
-              className="hover:shadow-lg transition-all duration-200 cursor-pointer border border-gray-200 rounded-xl"
-              onClick={() => handleViewIndex(index)}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-3">
-                  {/* Left side - Avatar and info */}
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-10 h-10 rounded-full ${index.color} flex items-center justify-center text-white text-lg font-bold`}>
-                      {index.avatar}
-                    </div>
-                    <div>
-                      <div className="font-semibold text-gray-900">{index.name}</div>
-                      <div className="text-sm text-gray-500">{index.handle}</div>
-                    </div>
-                  </div>
-
-                  {/* Right side - Price change and sparkline */}
-                  <div className="flex items-center space-x-3">
-                    <div className="text-right">
-                      <div className={`text-sm font-medium ${
-                        index.isPositive ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {index.change}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {index.isPositive ? '▲' : '▼'} {index.changeValue}
-                      </div>
-                    </div>
-                    <div className="w-20">
-                      <Sparkline 
-                        data={index.sparklineData} 
-                        isPositive={index.isPositive}
-                        width={80}
-                        height={24}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Bottom row - Current value and mindshare */}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-lg font-bold text-gray-900">{index.valueLabel}</div>
-                    <div className="text-xs text-gray-500">Current Price</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-medium text-gray-700">{index.mindshare}</div>
-                    <div className="text-xs text-gray-500">Mindshare</div>
-                  </div>
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    className="ml-4"
-                    disabled={requestingIndexId === index.id || !isConnected}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleRequestIndex(index);
-                    }}
-                  >
-                    {requestingIndexId === index.id ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                        Creating...
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="w-4 h-4 mr-1" />
-                        Request
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+          {/* Cookie.fun style table */}
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">24h %</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Market Share</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Volume</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Last 7 Days</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {/* Available Contract Indices */}
+                  {filteredContractIndices.map((index, idx) => (
+                    <tr 
+                      key={index.id} 
+                      className="hover:bg-gray-50 cursor-pointer transition-colors"
+                      onClick={() => {
+                        const extendedIndex = index as ExtendedRealIndexData;
+                        if (extendedIndex.onChain && extendedIndex.blockchainId !== undefined) {
+                          router.push(`/index/blockchain_${extendedIndex.blockchainId}`);
+                        } else {
+                          handleViewIndex(index);
+                        }
+                      }}
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {idx + 1}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className={`w-8 h-8 rounded-full ${index.color} flex items-center justify-center text-white text-sm font-bold mr-3`}>
+                            {index.avatar}
+                          </div>
+                          <div>
+                            <div className="text-sm font-medium text-gray-900 flex items-center">
+                              {index.name}
+                              {(index as ExtendedRealIndexData).blockchainId && isConnected && isIndexOwned((index as ExtendedRealIndexData).blockchainId!) && (
+                                <Badge variant="default" className="text-xs bg-orange-500 hover:bg-orange-600 ml-2">
+                                  👑
+                                </Badge>
+                              )}
+                              <Badge variant="secondary" className="text-xs ml-2">
+                                Available
+                              </Badge>
+                            </div>
+                            <div className="text-sm text-gray-500">{index.symbol}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-gray-900">
+                        {index.valueLabel}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                        <span className={`font-medium ${index.isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                          {index.change}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-500">
+                        {index.mindshare}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-500">
+                        {index.volume24h || 'N/A'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <div className="w-20 h-8 flex items-center justify-end">
+                          <Sparkline 
+                            data={index.sparklineData} 
+                            isPositive={index.isPositive}
+                            width={60}
+                            height={20}
+                          />
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="px-3 py-1 text-xs"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const extendedIndex = index as ExtendedRealIndexData;
+                            if (extendedIndex.onChain && extendedIndex.blockchainId !== undefined) {
+                              router.push(`/index/blockchain_${extendedIndex.blockchainId}`);
+                            } else {
+                              handleViewIndex(index);
+                            }
+                          }}
+                        >
+                          Trade
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                  
+                  {/* Market Indices */}
+                  {filteredIndices.map((index, idx) => (
+                    <tr 
+                      key={index.id} 
+                      className="hover:bg-gray-50 cursor-pointer transition-colors"
+                      onClick={() => handleViewIndex(index)}
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {filteredContractIndices.length + idx + 1}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className={`w-8 h-8 rounded-full ${index.color} flex items-center justify-center text-white text-sm font-bold mr-3`}>
+                            {index.avatar}
+                          </div>
+                          <div>
+                            <div className="text-sm font-medium text-gray-900 flex items-center">
+                              {index.name}
+                              <Badge variant="outline" className="text-xs ml-2">
+                                Request
+                              </Badge>
+                            </div>
+                            <div className="text-sm text-gray-500">{index.symbol}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-gray-900">
+                        {index.valueLabel}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                        <span className={`font-medium ${index.isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                          {index.change}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-500">
+                        {index.mindshare}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-500">
+                        {index.volume24h || 'N/A'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <div className="w-20 h-8 flex items-center justify-end">
+                          <Sparkline 
+                            data={index.sparklineData} 
+                            isPositive={index.isPositive}
+                            width={60}
+                            height={20}
+                          />
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="px-3 py-1 text-xs"
+                          disabled={requestingIndexId === index.id || !isConnected}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRequestIndex(index);
+                          }}
+                        >
+                          {requestingIndexId === index.id ? (
+                            <>
+                              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                              ...
+                            </>
+                          ) : (
+                            'Request'
+                          )}
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
