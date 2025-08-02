@@ -167,15 +167,25 @@ export class BlockchainIndices {
           
           if (indexDetails && indexDetails.length >= 3) {
             const sourceUrl = indexDetails[2]; // sourceUrl is typically the 3rd element
+            console.log(`🔍 Processing sourceUrl for index ${id}: "${sourceUrl}"`);
             if (sourceUrl && sourceUrl.trim()) {
               try {
                 const url = new URL(sourceUrl);
                 const functionParam = url.searchParams.get('function');
                 const symbolParam = url.searchParams.get('symbol');
+                console.log(`🔍 Extracted from URL - function: "${functionParam}", symbol: "${symbolParam}"`);
                 
                 // Generic Alpha Vantage URL parsing
                 const extractNameFromAlphaVantageURL = (functionParam: string | null, symbolParam: string | null, url: URL) => {
+                  console.log(`🔍 extractNameFromAlphaVantageURL called with: function="${functionParam}", symbol="${symbolParam}"`);
+                  
                   // Priority 1: If we have a symbol, use it as the primary identifier
+                  if (symbolParam) {
+                    console.log(`🔍 Taking symbolParam path with: "${symbolParam}"`);
+                  } else {
+                    console.log(`🔍 No symbolParam, checking functionParam: "${functionParam}"`);
+                  }
+                  
                   if (symbolParam) {
                     const symbol = symbolParam.toUpperCase();
                     
@@ -207,7 +217,9 @@ export class BlockchainIndices {
                   
                   // Priority 2: If we have a function but no symbol, extract from function name
                   if (functionParam) {
+                    console.log(`🔍 Priority 2: Processing functionParam: "${functionParam}"`);
                     const func = functionParam.toLowerCase();
+                    console.log(`🔍 Lowercase function: "${func}"`);
                     
                     // Check if the function itself is a ticker/commodity symbol
                     const commonSymbols = [
@@ -216,38 +228,49 @@ export class BlockchainIndices {
                       'usd', 'eur', 'gbp', 'jpy', 'aud', 'cad', 'chf'
                     ];
                     
+                    console.log(`🔍 Checking if "${func}" is in commonSymbols:`, commonSymbols.includes(func));
+                    
                     if (commonSymbols.some(sym => func.includes(sym))) {
                       const cleanName = func.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                      console.log(`🔍 Found commodity/forex! Returning: name="${cleanName}"`);
                       return { name: cleanName, desc: `${cleanName} commodity/forex rate` };
                     }
                     
                     // Generic function name cleanup
                     const cleanFunc = func.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                    console.log(`🔍 Generic function cleanup: "${cleanFunc}"`);
                     return { name: cleanFunc, desc: `${cleanFunc} data from Alpha Vantage` };
                   }
                   
                   // Priority 3: Extract from other URL parameters
+                  console.log(`🔍 Priority 3: Checking other URL parameters`);
                   const market = url.searchParams.get('market');
                   const fromSymbol = url.searchParams.get('from_symbol'); 
                   const toSymbol = url.searchParams.get('to_symbol');
                   
                   if (fromSymbol && toSymbol) {
+                    console.log(`🔍 Found forex pair: ${fromSymbol}/${toSymbol}`);
                     return { name: `${fromSymbol}/${toSymbol}`, desc: `${fromSymbol} to ${toSymbol} exchange rate` };
                   }
                   
                   if (market) {
+                    console.log(`🔍 Found market: ${market}`);
                     return { name: market.toUpperCase(), desc: `${market.toUpperCase()} market data` };
                   }
                   
                   // Fallback: Use hostname
+                  console.log(`🔍 Using fallback: Alpha Vantage Data`);
                   return { name: 'Alpha Vantage Data', desc: 'Financial data from Alpha Vantage' };
                 };
                 
+                console.log(`🔍 About to call extractNameFromAlphaVantageURL with function: "${functionParam}", symbol: "${symbolParam}"`);
                 const { name: extractedName, desc: extractedDesc } = extractNameFromAlphaVantageURL(functionParam, symbolParam, url);
+                console.log(`🔍 extractNameFromAlphaVantageURL returned: name="${extractedName}", desc="${extractedDesc}"`);
+                
                 name = extractedName;
                 description = `${extractedDesc} tracked via Alpha Vantage`;
                 
-                console.log(`📊 Extracted name from Alpha Vantage URL: "${name}" (function: ${functionParam}, symbol: ${symbolParam})`);
+                console.log(`📊 Final extracted name from Alpha Vantage URL: "${name}" (function: ${functionParam}, symbol: ${symbolParam})`);
               } catch (urlError) {
                 console.warn(`Could not parse sourceUrl for index ${id}:`, urlError);
                 // Keep the default name and description
