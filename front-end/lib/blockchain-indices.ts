@@ -4,7 +4,7 @@
  */
 
 import { Web3 } from "web3";
-import { CONTRACTS, ABIS, INDICES } from "./blockchain-constants";
+import { CONTRACTS, ABIS, INDICES, ORACLE_TYPES } from "./blockchain-constants";
 import { retryWithBackoff, delay } from "./blockchain-utils";
 import type { CustomIndex, OrderCondition } from "./blockchain-types";
 import type { BlockchainWallet } from "./blockchain-wallet";
@@ -558,7 +558,7 @@ export class BlockchainIndices {
       // Estimate gas first
       const gasEstimate = await this.oracle.methods
         .createCustomIndex(
-          initialValue,
+          initialValue.toString(),
           sourceUrl,
           oracleType,
           '0x0000000000000000000000000000000000000000' // null address for chainlink oracle
@@ -570,14 +570,14 @@ export class BlockchainIndices {
       // Execute transaction
       const tx = await this.oracle.methods
         .createCustomIndex(
-          initialValue,
+          initialValue.toString(),
           sourceUrl,
           oracleType,
           '0x0000000000000000000000000000000000000000'
         )
         .send({
           from: this.wallet.currentAccount,
-          gas: Math.floor(gasEstimate * 1.2), // Add 20% buffer
+          gas: Math.floor(Number(gasEstimate) * 1.2), // Convert BigInt to Number and add 20% buffer
         });
 
       console.log("✅ Index created successfully:", tx.transactionHash);
