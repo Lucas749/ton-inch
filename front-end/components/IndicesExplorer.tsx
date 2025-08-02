@@ -189,13 +189,14 @@ export function IndicesExplorer() {
       console.log('🏗️ Requesting blockchain index creation:', {
         name: index.name,
         symbol: index.symbol,
-        value: index.value,
+        price: index.price,
+        currentValue: index.currentValue,
         description: index.description
       });
 
-      // Use the current Alpha Vantage value as initial value
-      const initialValue = Math.floor(index.value || 0);
-      const sourceUrl = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${index.symbol}`;
+      // Use the current Alpha Vantage price as initial value
+      const initialValue = Math.floor(index.price || 0);
+      const sourceUrl = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${index.symbol}&apikey=${process.env.NEXT_PUBLIC_ALPHAVANTAGE}`;
 
       const response = await fetch('/api/oracle', {
         method: 'POST',
