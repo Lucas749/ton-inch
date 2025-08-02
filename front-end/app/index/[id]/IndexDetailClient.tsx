@@ -267,16 +267,16 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
 
   const fillDemoOrderData = () => {
     setOrderForm({
-      description: `Buy ETH when ${realIndexData.name} > threshold`,
-      fromToken: CONTRACTS.USDC,
-      toToken: CONTRACTS.WETH,
-      fromAmount: "0.1", // 0.1 USDC - very small for testing
-      toAmount: "0.00003", // Proportionally small ETH amount
+      description: `Buy USDC when ${realIndexData.name} > threshold`,
+      fromToken: CONTRACTS.WETH,
+      toToken: CONTRACTS.USDC,
+      fromAmount: "0.0001", // 0.0001 WETH - minimal amount for testing (~$0.25-0.40)
+      toAmount: "0.25", // Proportionally small USDC amount
       operator: OPERATORS.GT,
       threshold: "18000", // Demo threshold
       expiry: "2" // 2 hours
     });
-    alert(`🚀 Demo order data loaded! Buy ETH when ${realIndexData.name} > threshold using 0.1 USDC`);
+    alert(`🚀 Demo order data loaded! Buy USDC when ${realIndexData.name} > threshold using 0.0001 WETH`);
   };
 
   const getOperatorSymbol = (operator: number) => {
