@@ -200,13 +200,6 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
       console.error('❌ Error initializing order form tokens:', error);
     }
   }, [fromToken, toToken]);
-
-  // Handle token swap
-  const handleSwapTokens = () => {
-    const tempToken = fromToken;
-    setFromToken(toToken);
-    setToToken(tempToken);
-  };
   
   // Check if this index exists on blockchain
   const blockchainIndexId = index.isBlockchainIndex 
