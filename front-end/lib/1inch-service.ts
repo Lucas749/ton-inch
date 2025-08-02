@@ -349,6 +349,9 @@ export class OneInchService {
    * Get swap transaction data
    */
   async getSwapTransaction(params: SwapParams): Promise<SwapResponse> {
+    console.log("🔍 getSwapTransaction called with params:", params);
+    console.log("🔍 Config wallet address:", this.config.walletAddress);
+
     const queryParams = {
       src: params.src,
       dst: params.dst,
@@ -358,6 +361,8 @@ export class OneInchService {
       disableEstimate: (params.disableEstimate || false).toString(),
       allowPartialFill: (params.allowPartialFill || false).toString(),
     };
+
+    console.log("🔍 Final query params for swap:", queryParams);
 
     return this.call1inchAPI<SwapResponse>("/swap", queryParams);
   }

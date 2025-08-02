@@ -17,7 +17,12 @@ export async function GET(request: NextRequest) {
   const includeGas = searchParams.get('includeGas');
   const disableEstimate = searchParams.get('disableEstimate');
   
+  console.log('🔍 Swap API received params:', {
+    src, dst, amount, from, slippage, chainId
+  });
+
   if (!src || !dst || !amount || !from) {
+    console.error('❌ Missing parameters:', { src: !!src, dst: !!dst, amount: !!amount, from: !!from });
     return NextResponse.json({ error: 'Missing required parameters: src, dst, amount, from' }, { status: 400 });
   }
 

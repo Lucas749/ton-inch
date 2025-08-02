@@ -220,8 +220,22 @@ export function SwapBox({
   };
 
   const handleClassicSwap = async () => {
+    console.log("🔍 handleClassicSwap called with:", {
+      oneInchService: !!oneInchService,
+      fromAmount,
+      quote: !!quote,
+      fromToken: fromToken?.symbol,
+      toToken: toToken?.symbol,
+      walletAddress
+    });
+
     if (!oneInchService || !fromAmount || !quote || !fromToken || !toToken)
       return;
+
+    if (!walletAddress) {
+      setError("Wallet address is required for swaps");
+      return;
+    }
 
     setIsSwapping(true);
     setError("");
@@ -233,11 +247,19 @@ export function SwapBox({
         fromToken.decimals
       );
 
+      console.log("🔍 About to call performSwap with:", {
+        src: fromToken.address,
+        dst: toToken.address,
+        amount,
+        from: walletAddress,
+        slippage,
+      });
+
       const result = await oneInchService.performSwap({
         src: fromToken.address,
         dst: toToken.address,
         amount,
-        from: walletAddress!,
+        from: walletAddress,
         slippage,
       });
 
@@ -249,6 +271,7 @@ export function SwapBox({
       setToAmount("");
       setQuote(null);
     } catch (err) {
+      console.error("❌ Swap error:", err);
       setError(`Swap failed: ${(err as Error).message}`);
     } finally {
       setIsSwapping(false);
