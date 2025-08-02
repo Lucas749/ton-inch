@@ -145,6 +145,8 @@ export function IndicesExplorer() {
     
     // For each blockchain index with an Alpha Vantage symbol, create an integrated index
     blockchainIndices.forEach(blockchainIndex => {
+      console.log(`🔗 Processing blockchain index ${blockchainIndex.id}: name="${blockchainIndex.name}", symbol="${blockchainIndex.alphaVantageSymbol}"`);
+      
       if (blockchainIndex.alphaVantageSymbol) {
         // Find matching Alpha Vantage data
         const alphaVantageData = indices.find(index => 
@@ -156,7 +158,8 @@ export function IndicesExplorer() {
           integratedIndices.push({
             ...alphaVantageData,
             id: `blockchain_${blockchainIndex.id}`, // Unique ID for blockchain indices
-            name: blockchainIndex.name || alphaVantageData.name,
+            name: blockchainIndex.name, // Use the extracted Alpha Vantage name from blockchain
+            displayName: blockchainIndex.name || alphaVantageData.name, // Fallback for display
             description: `${blockchainIndex.description} (On-Chain)`,
             // Keep Alpha Vantage display data but indicate blockchain availability
             blockchainId: blockchainIndex.id,
@@ -172,6 +175,7 @@ export function IndicesExplorer() {
     blockchainIndices.forEach(blockchainIndex => {
       if (!blockchainIndex.alphaVantageSymbol) {
         // No Alpha Vantage symbol, create standalone entry
+        console.log(`📋 Creating standalone entry for ${blockchainIndex.id}: name="${blockchainIndex.name}"`);
         integratedIndices.push({
           id: `blockchain_${blockchainIndex.id}`,
           name: blockchainIndex.name || `Index ${blockchainIndex.id}`,

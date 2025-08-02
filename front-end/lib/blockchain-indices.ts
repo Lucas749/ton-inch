@@ -177,35 +177,45 @@ export class BlockchainIndices {
                   // Earnings estimates for specific symbols
                   name = `${symbolParam.toUpperCase()} EPS`;
                   description = `${symbolParam.toUpperCase()} earnings estimates tracked via Alpha Vantage`;
+                  console.log(`📊 Extracted name from EARNINGS_ESTIMATES: ${name}`);
                 } else if (functionParam === 'GLOBAL_QUOTE' && symbolParam) {
                   // Standard stock quote
                   name = symbolParam.toUpperCase();
                   description = `${symbolParam.toUpperCase()} stock price tracked via Alpha Vantage`;
+                  console.log(`📈 Extracted name from GLOBAL_QUOTE: ${name}`);
                 } else if (functionParam === 'DIGITAL_CURRENCY_DAILY' && symbolParam) {
                   // Crypto currencies
                   name = `${symbolParam.toUpperCase()}`;
                   description = `${symbolParam.toUpperCase()} cryptocurrency tracked via Alpha Vantage`;
+                  console.log(`₿ Extracted name from DIGITAL_CURRENCY_DAILY: ${name}`);
                 } else if (functionParam && ['CORN', 'WHEAT', 'WTI', 'BRENT', 'NATURAL_GAS', 'COPPER', 'ALUMINUM', 'ZINC', 'NICKEL', 'GOLD', 'SILVER'].includes(functionParam)) {
                   // Commodities
                   name = functionParam.charAt(0).toUpperCase() + functionParam.slice(1).toLowerCase().replace('_', ' ');
                   description = `${name} commodity price tracked via Alpha Vantage`;
+                  console.log(`🌾 Extracted name from commodity: ${name}`);
                 } else if (functionParam && symbolParam) {
                   // Other functions with symbols (forex, etc.)
                   name = symbolParam.toUpperCase();
                   description = `${symbolParam.toUpperCase()} tracked via Alpha Vantage (${functionParam})`;
+                  console.log(`💱 Extracted name from ${functionParam}: ${name}`);
                 } else if (symbolParam) {
                   // Just symbol without specific function
                   name = symbolParam.toUpperCase();
                   description = `${symbolParam.toUpperCase()} tracked via Alpha Vantage`;
+                  console.log(`🔤 Extracted name from symbol only: ${name}`);
                 } else if (functionParam) {
                   // Just function without symbol
                   name = functionParam.charAt(0).toUpperCase() + functionParam.slice(1).toLowerCase().replace('_', ' ');
                   description = `${name} tracked via Alpha Vantage`;
+                  console.log(`🔧 Extracted name from function only: ${name}`);
                 } else {
                   // Fallback to parsing the URL hostname or path
                   name = url.hostname.includes('alphavantage') ? 'Alpha Vantage Index' : `Custom Index ${id}`;
                   description = `Custom index tracked via ${url.hostname}`;
+                  console.log(`❓ Using fallback name: ${name}`);
                 }
+                
+                console.log(`📋 Final extracted name for index ${id}: "${name}" from URL: ${sourceUrl}`);
               } catch (urlError) {
                 console.warn(`Could not parse sourceUrl for index ${id}:`, urlError);
                 // Keep the default name and description
@@ -259,6 +269,8 @@ export class BlockchainIndices {
             }
           }
 
+          console.log(`🔍 Index ${id} final name: "${name}", symbol: "${alphaVantageSymbol || `IDX${id}`}", category: "${category}"`);
+          
           indices.push({
             id,
             name,
