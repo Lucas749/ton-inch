@@ -21,11 +21,13 @@ import {
   DollarSign,
   RefreshCw,
   Wallet,
+  Loader2,
 } from "lucide-react";
 import { SwapInterface } from "@/components/swap-interface";
 import { WalletConnect } from "@/components/WalletConnect";
 import { useBlockchain } from "@/hooks/useBlockchain";
 import { useOrders } from "@/hooks/useOrders";
+import AlphaVantageService, { TimeSeriesResponse } from "@/lib/alphavantage-service";
 import {
   LineChart,
   Line,
@@ -40,22 +42,18 @@ interface StrategyDetailClientProps {
   strategyId: string;
 }
 
-// Mock data for the chart
-const priceData = [
-  { time: "00:00", price: 2850, sentiment: 45 },
-  { time: "04:00", price: 2867, sentiment: 52 },
-  { time: "08:00", price: 2834, sentiment: 41 },
-  { time: "12:00", price: 2891, sentiment: 67 },
-  { time: "16:00", price: 2876, sentiment: 59 },
-  { time: "20:00", price: 2903, sentiment: 72 },
-  { time: "24:00", price: 2919, sentiment: 78 },
-];
-
 export function StrategyDetailClient({
   strategyId,
 }: StrategyDetailClientProps) {
   const router = useRouter();
   const [isSwapDialogOpen, setIsSwapDialogOpen] = useState(false);
+  const [priceData, setPriceData] = useState<Array<{
+    date: string;
+    price: number;
+    sentiment?: number;
+  }>>([]);
+  const [isLoadingChart, setIsLoadingChart] = useState(false);
+  const [chartError, setChartError] = useState<string | null>(null);
   const {
     isConnected,
     walletAddress,
@@ -79,6 +77,62 @@ export function StrategyDetailClient({
       refreshOrders();
     }
   }, [isConnected, refreshIndices, refreshOrders]);
+
+  // Load chart data from Alpha Vantage
+  const loadChartData = async () => {
+    const symbol = "AAPL"; // Using AAPL as mentioned in the strategy description
+    const apiKey = process.env.NEXT_PUBLIC_ALPHAVANTAGE || "123";
+    
+    try {
+      setIsLoadingChart(true);
+      setChartError(null);
+      
+      const alphaVantageService = new AlphaVantageService({ apiKey });
+      
+      console.log(`🔍 Loading chart data for ${symbol} (Strategy: ${strategyId})`);
+      console.log(`📡 Using API key: ${apiKey.substring(0, 8)}...`);
+      
+      // Get daily time series data with "full" output size for 3 months of data
+      const response = await alphaVantageService.getDailyTimeSeries(symbol, false, "full");
+      console.log(`📊 Raw API response:`, response);
+      
+      const parsedData = AlphaVantageService.parseTimeSeriesData(response);
+      console.log(`📈 Parsed data (${parsedData.length} items):`, parsedData.slice(0, 3));
+      
+      // Format data for Recharts (last 90 days for 3 months)
+      const chartDataFormatted = parsedData
+        .slice(-90) // Get last 90 days (approximately 3 months)
+        .map((item, index) => ({
+          date: item.date,
+          price: item.close,
+          // Add mock sentiment data that varies with price changes
+          sentiment: Math.max(30, Math.min(80, 50 + (item.close > (parsedData[parsedData.length - 91 + index - 1]?.close || item.close) ? 15 : -15) + Math.random() * 10)),
+        }));
+      
+      console.log(`📋 Formatted chart data (${chartDataFormatted.length} items):`, chartDataFormatted.slice(0, 3));
+      setPriceData(chartDataFormatted);
+    } catch (error) {
+      console.error("❌ Error loading chart data:", error);
+      setChartError(`Failed to load chart data: ${(error as Error).message}`);
+      // Set fallback mock data on error
+      setPriceData([
+        { date: "2024-01-15", price: 2850, sentiment: 45 },
+        { date: "2024-01-16", price: 2867, sentiment: 52 },
+        { date: "2024-01-17", price: 2834, sentiment: 41 },
+        { date: "2024-01-18", price: 2891, sentiment: 67 },
+        { date: "2024-01-19", price: 2876, sentiment: 59 },
+        { date: "2024-01-20", price: 2903, sentiment: 72 },
+        { date: "2024-01-21", price: 2919, sentiment: 78 },
+      ]);
+    } finally {
+      setIsLoadingChart(false);
+    }
+  };
+
+  // Load chart data on component mount
+  useEffect(() => {
+    loadChartData();
+  }, []);
 
   // Get strategy data (enhanced with real blockchain data)
   const strategy = {
@@ -140,40 +194,87 @@ export function StrategyDetailClient({
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
-                <span>Price & Sentiment (24h)</span>
+                <div>
+                  <span>Price & Sentiment (3 Months)</span>
+                  {chartError && (
+                    <div className="text-sm text-orange-600 font-normal mt-1">
+                      {chartError} - Showing fallback data
+                    </div>
+                  )}
+                  {!chartError && !isLoadingChart && (
+                    <div className="text-sm text-gray-500 font-normal mt-1">
+                      Historical AAPL data from Alpha Vantage (Last 90 days)
+                    </div>
+                  )}
+                </div>
                 <div className="flex items-center space-x-2">
+                  {isLoadingChart && (
+                    <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                  )}
                   <span className="text-2xl font-bold text-gray-900">
-                    {strategy.currentPrice}
+                    {priceData.length > 0 ? `$${priceData[priceData.length - 1]?.price?.toFixed(2)}` : strategy.currentPrice}
                   </span>
                   <TrendingUp className="w-5 h-5 text-green-500" />
                 </div>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={priceData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="time" />
-                    <YAxis />
-                    <Tooltip />
-                    <Line
-                      type="monotone"
-                      dataKey="price"
-                      stroke="#3b82f6"
-                      strokeWidth={2}
-                      dot={{ fill: "#3b82f6", strokeWidth: 2 }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="sentiment"
-                      stroke="#34d399"
-                      strokeWidth={2}
-                      dot={{ fill: "#34d399", strokeWidth: 2 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
+              {isLoadingChart ? (
+                <div className="h-80 bg-gray-100 rounded-lg flex items-center justify-center">
+                  <div className="text-center">
+                    <Loader2 className="w-8 h-8 text-gray-400 mx-auto mb-2 animate-spin" />
+                    <p className="text-gray-500">Loading chart data...</p>
+                    <p className="text-sm text-gray-400">Fetching from Alpha Vantage</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={priceData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis 
+                        dataKey="date"
+                        tick={{ fontSize: 12 }}
+                        tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { 
+                          month: 'short', 
+                          day: 'numeric' 
+                        })}
+                      />
+                      <YAxis 
+                        tick={{ fontSize: 12 }}
+                        tickFormatter={(value) => `$${value.toFixed(0)}`}
+                      />
+                      <Tooltip
+                        labelFormatter={(value) => new Date(value).toLocaleDateString('en-US', { 
+                          year: 'numeric',
+                          month: 'long', 
+                          day: 'numeric' 
+                        })}
+                        formatter={(value: number, name: string) => [
+                          name === 'price' ? `$${value.toFixed(2)}` : `${value.toFixed(1)}%`,
+                          name === 'price' ? 'Stock Price' : 'Sentiment Score'
+                        ]}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="price"
+                        stroke="#3b82f6"
+                        strokeWidth={2}
+                        dot={false}
+                        name="price"
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="sentiment"
+                        stroke="#34d399"
+                        strokeWidth={2}
+                        dot={false}
+                        name="sentiment"
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </CardContent>
           </Card>
 
