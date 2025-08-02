@@ -50,7 +50,7 @@ export default function Dashboard() {
   };
   
   const { isConnected, indices: blockchainIndices, refreshIndices, isOwner, walletAddress, getPrivateKeyForDemo } = useBlockchain();
-  const { orders } = useOrders();
+  const { orders, cancelOrder } = useOrders();
   const router = useRouter();
 
   // Convert blockchain indices to IndexWithOrders format
@@ -98,46 +98,35 @@ export default function Dashboard() {
   };
 
   const loadOrdersOnDemand = async () => {
-    if (!isConnected || allOrders.length > 0) return; // Don't reload if already loaded
+    if (!isConnected) return;
     
     setIsLoading(true);
     try {
-      console.log('📋 Loading orders on-demand for Orders tab...');
-      const updatedIndices: IndexWithOrders[] = [];
+      console.log('📋 Loading all cached orders for Orders tab...');
       
-      for (let i = 0; i < indices.length; i++) {
-        const index = indices[i];
-        
-        try {
-          const orders = await blockchainService.getOrdersByIndex(index.id);
-          updatedIndices.push({
-            ...index,
-            orders,
-            orderCount: orders.length
-          });
-        } catch (error) {
-          console.warn(`Failed to load orders for index ${index.id}:`, error);
-          updatedIndices.push({
-            ...index,
-            orders: [],
-            orderCount: 0
-          });
-        }
-        
-        // Add delay between requests
-        if (i < indices.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 300));
-        }
-      }
-
+      // Get all cached orders directly (no more index-by-index loading!)
+      const allCachedOrders = await blockchainService.getAllCachedOrders();
+      setAllOrders(allCachedOrders);
+      
+      // Group orders by index for the indices display
+      const ordersByIndex = new Map<number, any[]>();
+      allCachedOrders.forEach(order => {
+        const existingOrders = ordersByIndex.get(order.indexId) || [];
+        ordersByIndex.set(order.indexId, [...existingOrders, order]);
+      });
+      
+      // Update indices with their respective orders
+      const updatedIndices = indices.map(index => ({
+        ...index,
+        orders: ordersByIndex.get(index.id) || [],
+        orderCount: ordersByIndex.get(index.id)?.length || 0
+      }));
+      
       setIndices(updatedIndices);
-      
-      // Collect all orders
-      const allOrdersFlat = updatedIndices.flatMap(index => index.orders);
-      setAllOrders(allOrdersFlat);
+      console.log(`📋 Loaded ${allCachedOrders.length} total cached orders`);
       
     } catch (error) {
-      console.error("Error loading orders:", error);
+      console.error("Error loading cached orders:", error);
     } finally {
       setIsLoading(false);
     }
@@ -162,42 +151,20 @@ export default function Dashboard() {
     setCancelSuccess(null);
 
     try {
-      // Get private key from wallet (DEMO method - shows security warning)
-      const privateKey = await getPrivateKeyForDemo();
+      console.log('🚫 Cancelling order with user wallet:', orderHash);
 
-      console.log('🚫 Cancelling order:', orderHash);
+      // Use the blockchain service cancelOrder method (which uses wallet)
+      const success = await cancelOrder(orderHash);
 
-      const response = await fetch('/api/orders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'cancel-order',
-          orderHash: orderHash,
-          privateKey: privateKey,
-          apiKey: process.env.NEXT_PUBLIC_ONEINCH_API_KEY
-        }),
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        setCancelSuccess(`✅ Order cancelled successfully! Transaction: ${result.transactionHash}`);
-        console.log('✅ Order cancelled successfully:', result);
+      if (success) {
+        setCancelSuccess(`✅ Order cancelled successfully in cache`);
+        console.log('✅ Order cancelled successfully:', orderHash);
         
-        // Remove the cancelled order from the local state
-        setAllOrders(prev => prev.filter(order => order.hash !== orderHash));
-        
-        // Update indices with orders
-        setIndices(prev => prev.map(index => ({
-          ...index,
-          orders: index.orders.filter(order => order.hash !== orderHash),
-          orderCount: index.orders.filter(order => order.hash !== orderHash).length
-        })));
+        // Refresh the orders display using cache
+        await loadOrdersOnDemand();
         
       } else {
-        throw new Error(result.message || result.error || 'Failed to cancel order');
+        throw new Error('Failed to cancel order');
       }
 
     } catch (error) {

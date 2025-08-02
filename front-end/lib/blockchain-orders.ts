@@ -342,56 +342,39 @@ export class BlockchainOrders {
       const result = await response.json();
       console.log('📋 Cancellation prepared:', result);
 
-      // For now, implement client-side cancellation using Web3
-      // TODO: Implement proper MetaMask transaction signing
-      const provider = (window as any).ethereum;
-      const web3 = new (await import('web3')).Web3(provider);
-      
-      // 1inch Limit Order Protocol ABI for cancelOrder
-      const limitOrderABI = [
-        {
-          "inputs": [
-            {"internalType": "uint256", "name": "makerTraits", "type": "uint256"},
-            {"internalType": "bytes32", "name": "orderHash", "type": "bytes32"}
-          ],
-          "name": "cancelOrder",
-          "outputs": [],
-          "stateMutability": "nonpayable",
-          "type": "function"
-        }
-      ];
-
-      const limitOrderContract = new web3.eth.Contract(
-        limitOrderABI,
-        CONFIG.LIMIT_ORDER_PROTOCOL
-      );
-
-      // Note: For a complete implementation, we'd need to:
-      // 1. Get order details from 1inch API to get makerTraits
-      // 2. Verify user is the maker
-      // 3. Call cancelOrder with proper makerTraits
-      
       console.log('⚠️ Order cancellation requires additional 1inch API integration');
-      console.log('🔧 For now, marking order as cancelled in cache');
+      console.log('🔧 For now, simulating cancellation success and updating cache');
       
-      // Update cache to mark order as cancelled
-      let orderFound = false;
-      for (const [indexId, cacheData] of this.orderCache.entries()) {
-        const order = cacheData.orders.find(o => o.hash === orderHash);
-        if (order) {
-          order.status = 'cancelled' as const;
-          order.cancelledAt = Date.now(); // Track when it was cancelled
-          console.log(`✅ Marked order ${orderHash} as cancelled in cache for index ${indexId}`);
-          orderFound = true;
-          break;
+      // TODO: Implement actual MetaMask transaction for order cancellation
+      // For now, simulate successful cancellation after API preparation
+      
+      // Check if the API preparation was successful
+      if (result.success) {
+        console.log('✅ API cancellation preparation successful, updating cache');
+        
+        // Only update cache if the operation was successful
+        let orderFound = false;
+        for (const [indexId, cacheData] of Array.from(this.orderCache.entries())) {
+          const order = cacheData.orders.find((o: any) => o.hash === orderHash);
+          if (order) {
+            order.status = 'cancelled' as const;
+            order.cancelledAt = Date.now(); // Track when it was cancelled
+            console.log(`✅ Marked order ${orderHash} as cancelled in cache for index ${indexId}`);
+            orderFound = true;
+            break;
+          }
         }
+        
+        if (!orderFound) {
+          console.warn(`⚠️ Order ${orderHash} not found in cache - may already be cancelled or doesn't exist`);
+          return false;
+        }
+        
+        return true;
+      } else {
+        console.error('❌ API cancellation preparation failed, not updating cache');
+        throw new Error(result.message || 'Order cancellation preparation failed');
       }
-      
-      if (!orderFound) {
-        console.warn(`⚠️ Order ${orderHash} not found in cache - may already be cancelled or doesn't exist`);
-      }
-      
-      return true;
     } catch (error) {
       console.error("❌ Error cancelling order:", error);
       throw error;
@@ -430,7 +413,7 @@ export class BlockchainOrders {
   async getAllCachedOrders(): Promise<any[]> {
     const allOrders: any[] = [];
     
-    for (const [indexId, cacheData] of this.orderCache.entries()) {
+    for (const [indexId, cacheData] of Array.from(this.orderCache.entries())) {
       allOrders.push(...cacheData.orders);
     }
     
