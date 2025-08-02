@@ -64,8 +64,8 @@ export function IndicesExplorer() {
   // Available contract indices that should not appear in market indices
   const availableIndicesSymbols = ['AAPL', 'TSLA', 'VIX', 'BTCUSD'];
   
-  // Map blockchain indices to the available contract indices we want to show
-  const availableBlockchainIds = [6, 7, 8, 9, 10, 11, 12]; // All actual blockchain IDs from the oracle
+  // Show ALL blockchain indices (both predefined 0-5 and custom 6+) as available
+  const availableBlockchainIds = blockchainIndices.map(index => index.id); // All blockchain indices
   
   const filteredIndices = indices.filter(index => {
     const matchesSearch = index.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

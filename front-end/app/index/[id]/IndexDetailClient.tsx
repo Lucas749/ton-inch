@@ -66,21 +66,24 @@ const getAlphaVantageSymbol = (indexId: string): string => {
   return symbolMap[indexId] || 'IBM'; // Default to IBM if not found
 };
 
-// Map index IDs to blockchain index IDs (updated with actual blockchain IDs)
+// Map index IDs to blockchain index IDs (supports both predefined and custom)
 const getBlockchainIndexId = (indexId: string): number | null => {
   const indexMap: Record<string, number> = {
-    'aapl_stock': 6,   // Apple (actual blockchain ID)
-    'tsla_stock': 7,   // Tesla (actual blockchain ID)
-    'vix_index': 8,    // VIX (actual blockchain ID)
-    'btc_price': 9,    // Bitcoin (actual blockchain ID)
-    // Add hardcoded support for any blockchain index by ID
-    'blockchain_6': 6,
-    'blockchain_7': 7,
-    'blockchain_8': 8,
-    'blockchain_9': 9,
-    'blockchain_10': 10,
-    'blockchain_11': 11,
-    'blockchain_12': 12
+    // Market index mappings to predefined blockchain indices (0-5)
+    'inflation_rate': 0,      // Inflation Rate
+    'elon_followers': 1,      // Elon Followers
+    'btc_price': 2,           // BTC Price (predefined)
+    'vix_index': 3,           // VIX Index (predefined)
+    'unemployment': 4,        // Unemployment Rate
+    'tsla_stock': 5,          // Tesla Stock (predefined)
+    
+    // Fallback mappings for common market indices to custom indices
+    'aapl_stock': 6,          // Apple (likely custom index)
+    
+    // Direct blockchain index support
+    'blockchain_0': 0, 'blockchain_1': 1, 'blockchain_2': 2, 'blockchain_3': 3, 
+    'blockchain_4': 4, 'blockchain_5': 5, 'blockchain_6': 6, 'blockchain_7': 7,
+    'blockchain_8': 8, 'blockchain_9': 9, 'blockchain_10': 10, 'blockchain_11': 11, 'blockchain_12': 12
   };
   return indexMap[indexId] ?? null;
 };

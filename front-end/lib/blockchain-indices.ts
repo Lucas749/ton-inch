@@ -87,11 +87,50 @@ export class BlockchainIndices {
   private async fetchAllIndices(): Promise<CustomIndex[]> {
     const indices: CustomIndex[] = [];
 
-    // Load all custom indices from the oracle and get their details
-    console.log("🔍 Loading all custom indices from blockchain...");
+    // First, load predefined indices (0-5) from the blockchain
+    console.log("🔍 Loading predefined indices (0-5) from blockchain...");
+    const predefinedNames: Record<number, { name: string, symbol: string, description: string }> = {
+      0: { name: "Inflation Rate", symbol: "INFLATION", description: "US Inflation Rate %" },
+      1: { name: "Elon Followers", symbol: "ELON", description: "Elon Musk Twitter Followers" },
+      2: { name: "BTC Price", symbol: "BTC", description: "Bitcoin Price in USD" },
+      3: { name: "VIX Index", symbol: "VIX", description: "CBOE Volatility Index" },
+      4: { name: "Unemployment Rate", symbol: "UNEMPLOYMENT", description: "US Unemployment Rate %" },
+      5: { name: "Tesla Stock", symbol: "TSLA", description: "Tesla Inc. Stock Price" }
+    };
+
+    for (let id = 0; id <= 5; id++) {
+      try {
+        const result = await retryWithBackoff(async () => {
+          return await this.oracle.methods.getIndexValue(id).call();
+        });
+        
+        if (result && result[0]) {
+          const predefinedInfo = predefinedNames[id];
+          indices.push({
+            id,
+            name: predefinedInfo.name,
+            description: predefinedInfo.description,
+            value: Number(result[0]),
+            timestamp: Number(result[1]) || Date.now(),
+            active: true,
+            creator: CONTRACTS.IndexOracle,
+            createdAt: 0
+          });
+          console.log(`✅ Loaded predefined ${predefinedInfo.name}: ${Number(result[0])} basis points`);
+        }
+        
+        // Add small delay between requests
+        await delay(100);
+      } catch (error) {
+        console.warn(`⚠️ Could not load predefined index ${id}:`, error);
+      }
+    }
+
+    // Then, load custom indices (6+) from the oracle
+    console.log("🔍 Loading custom indices from blockchain...");
     try {
       const customIndicesArray = await this.oracle.methods.getAllCustomIndices().call();
-      console.log("📊 Raw blockchain response:", customIndicesArray);
+      console.log("📊 Raw custom indices response:", customIndicesArray);
       
       if (customIndicesArray && customIndicesArray.indexIds && customIndicesArray.values) {
         const indexIds = customIndicesArray.indexIds;
@@ -99,9 +138,9 @@ export class BlockchainIndices {
         const timestamps = customIndicesArray.timestamps;
         const activeStates = customIndicesArray.activeStates;
         
-        console.log(`📋 Found ${indexIds.length} blockchain indices:`, indexIds.map(id => Number(id)));
+        console.log(`📋 Found ${indexIds.length} custom indices:`, indexIds.map(id => Number(id)));
         
-        // For each index, get its detailed information from the oracle
+        // For each custom index, get its detailed information from the oracle
         for (let i = 0; i < indexIds.length; i++) {
           const id = Number(indexIds[i]);
           const value = Number(values[i]);
@@ -110,17 +149,11 @@ export class BlockchainIndices {
           
           let indexDetails = null;
           try {
-            // Try to get custom index details (for IDs > 5)
-            if (id > 5) {
-              indexDetails = await this.oracle.methods.customIndexData(id).call();
-              console.log(`📄 Custom index ${id} details:`, indexDetails);
-            } else {
-              // For predefined indices (0-5), use indexData
-              indexDetails = await this.oracle.methods.indexData(id).call();
-              console.log(`📄 Predefined index ${id} details:`, indexDetails);
-            }
+            // Get custom index details
+            indexDetails = await this.oracle.methods.customIndexData(id).call();
+            console.log(`📄 Custom index ${id} details:`, indexDetails);
           } catch (error) {
-            console.warn(`⚠️ Could not get details for index ${id}:`, error);
+            console.warn(`⚠️ Could not get details for custom index ${id}:`, error);
           }
           
           // Extract name from sourceUrl or use default naming
@@ -129,11 +162,17 @@ export class BlockchainIndices {
           
           if (indexDetails && indexDetails.length >= 3) {
             const sourceUrl = indexDetails[2]; // sourceUrl is typically the 3rd element
-            if (sourceUrl && sourceUrl.includes('_')) {
-              // Parse sourceUrl for meaningful names (e.g., "AAPL_STOCK" -> "Apple Stock")
-              const parts = sourceUrl.split('_');
-              name = parts.map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()).join(' ');
-              description = `${name} price tracked in real-time`;
+            if (sourceUrl && sourceUrl.trim()) {
+              if (sourceUrl.includes('_')) {
+                // Parse sourceUrl for meaningful names (e.g., "AAPL_STOCK" -> "Apple Stock")
+                const parts = sourceUrl.split('_');
+                name = parts.map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()).join(' ');
+                description = `${name} price tracked in real-time`;
+              } else {
+                // Use sourceUrl directly if it doesn't contain underscores
+                name = sourceUrl;
+                description = `${name} tracked in real-time`;
+              }
             }
           }
           
@@ -148,7 +187,7 @@ export class BlockchainIndices {
             createdAt: timestamp
           });
           
-          console.log(`✅ Loaded ${name}: ${value} basis points (active: ${active})`);
+          console.log(`✅ Loaded custom ${name}: ${value} basis points (active: ${active})`);
           
           // Add delay between requests
           await delay(100);
