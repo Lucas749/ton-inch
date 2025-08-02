@@ -329,22 +329,22 @@ class TokenService {
   }
 
   /**
-   * Get popular tokens for quick selection (with fallback for rate limits)
+   * Get top 3 most popular tokens from API
    */
-  async getPopularTokens(): Promise<Token[]> {
+  async getTop3PopularTokens(): Promise<Token[]> {
     try {
-      // Try to get fresh tokens from API (cached for 5 minutes)
+      console.log('🔥 Fetching top 3 popular tokens from API...');
       const tokenList = await this.getTokens();
       if (tokenList && tokenList.tokens && tokenList.tokens.length > 0) {
-        // Return first 10 tokens as "popular"
-        return tokenList.tokens.slice(0, 10);
+        // Return top 3 tokens as "popular"
+        return tokenList.tokens.slice(0, 3);
       }
     } catch (error) {
-      console.warn('⚠️ Failed to fetch popular tokens from API, using fallback:', error);
+      console.warn('⚠️ Failed to fetch top 3 popular tokens from API, using fallback:', error);
     }
     
-    // Fallback to hardcoded popular tokens
-    return POPULAR_BASE_MAINNET_TOKENS;
+    // Fallback to top 3 hardcoded popular tokens
+    return POPULAR_BASE_MAINNET_TOKENS.slice(0, 3);
   }
 
   /**

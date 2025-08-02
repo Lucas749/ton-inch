@@ -60,68 +60,84 @@ export function TokenSelector({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tokenDetails, setTokenDetails] = useState<Record<string, TokenDetails>>({});
+  const [apiTokensLoaded, setApiTokensLoaded] = useState(false);
 
-  // Load popular tokens on mount
+  // Load top 3 popular tokens from API on mount
   useEffect(() => {
-    const loadPopularTokens = async () => {
+    const loadTop3Tokens = async () => {
       try {
-        // Use sync version first for immediate loading
-        const popularSync = tokenService.getPopularTokensSync();
-        const filteredSync = popularSync.filter(token => 
+        setIsLoading(true);
+        console.log('🚀 Loading top 3 popular tokens...');
+        
+        const top3Tokens = await tokenService.getTop3PopularTokens();
+        const filtered = top3Tokens.filter(token => 
           !excludeTokens.includes(token.address.toLowerCase())
         );
-        setPopularTokens(filteredSync);
-        setSearchResults(filteredSync);
         
-        // Try to get fresh data from API (cached for 5 minutes)
-        try {
-          const popularAsync = await tokenService.getPopularTokens();
-          const filteredAsync = popularAsync.filter(token => 
-            !excludeTokens.includes(token.address.toLowerCase())
-          );
-          setPopularTokens(filteredAsync);
-          setSearchResults(filteredAsync);
-        } catch (asyncErr) {
-          console.warn('Failed to fetch fresh popular tokens, using fallback:', asyncErr);
-          // Keep the sync version if async fails (rate limited)
-        }
-      } catch (err) {
-        console.error('Error loading popular tokens:', err);
-        setError('Failed to load popular tokens');
+        setPopularTokens(filtered);
+        setSearchResults(filtered);
+        setApiTokensLoaded(true);
+        console.log(`✅ Loaded ${filtered.length} popular tokens`);
+      } catch (error) {
+        console.error('❌ Failed to load popular tokens:', error);
+        // Fallback to hardcoded tokens
+        const fallbackTokens = tokenService.getPopularTokensSync().slice(0, 3);
+        const filtered = fallbackTokens.filter(token => 
+          !excludeTokens.includes(token.address.toLowerCase())
+        );
+        setPopularTokens(filtered);
+        setSearchResults(filtered);
+        setError('Using fallback tokens');
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    loadPopularTokens();
+    loadTop3Tokens();
   }, [excludeTokens]);
 
-  // Search tokens with debouncing
+  // Search tokens - only call API when user searches by address
   const searchTokens = useCallback(async (query: string) => {
     if (!query.trim()) {
       setSearchResults(popularTokens);
       return;
     }
 
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const results = await tokenService.searchTokens(query, 50);
-      const filtered = results.filter(token => 
-        !excludeTokens.includes(token.address.toLowerCase())
-      );
-      setSearchResults(filtered);
-    } catch (err) {
-      console.error('Error searching tokens:', err);
-      setError('Failed to search tokens');
-      // Fallback to local search in popular tokens
+    // First check if it looks like a token address (0x...)
+    const isAddress = query.startsWith('0x') && query.length >= 10;
+    
+    if (isAddress) {
+      // It's an address - search via API
+      setIsLoading(true);
+      setError(null);
+      
+      try {
+        console.log(`🔍 Searching API for token address: ${query}`);
+        const results = await tokenService.searchTokens(query, 10);
+        const filtered = results.filter(token => 
+          !excludeTokens.includes(token.address.toLowerCase())
+        );
+        setSearchResults(filtered);
+        
+        if (filtered.length === 0) {
+          setError('Token not found');
+        }
+      } catch (err: any) {
+        console.error('API search error:', err);
+        setError(err.message || 'Search failed');
+        setSearchResults([]);
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      // It's a symbol/name - search locally in popular tokens only
+      console.log(`🔍 Local search for: ${query}`);
       const filtered = popularTokens.filter(token =>
-        token.name.toLowerCase().includes(query.toLowerCase()) ||
         token.symbol.toLowerCase().includes(query.toLowerCase()) ||
-        token.address.toLowerCase().includes(query.toLowerCase())
+        token.name.toLowerCase().includes(query.toLowerCase())
       );
       setSearchResults(filtered);
-    } finally {
-      setIsLoading(false);
+      setError(filtered.length === 0 ? 'No tokens found. Try entering a token address (0x...)' : null);
     }
   }, [popularTokens, excludeTokens]);
 
@@ -286,7 +302,7 @@ export function TokenSelector({
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <Input
-                placeholder="Search by name, symbol, or address..."
+                                    placeholder="Search popular tokens or enter address (0x...)"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
@@ -295,6 +311,13 @@ export function TokenSelector({
                 <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 animate-spin text-gray-400" />
               )}
             </div>
+
+            {/* Helper Text */}
+            {!error && searchQuery && !searchQuery.startsWith('0x') && (
+              <div className="text-xs text-gray-500 px-1">
+                💡 Searching popular tokens only. Enter token address (0x...) to search all tokens.
+              </div>
+            )}
 
             {/* Error Alert */}
             {error && (
