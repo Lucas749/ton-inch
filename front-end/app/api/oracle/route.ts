@@ -67,13 +67,25 @@ export async function POST(request: NextRequest) {
           '0x0000000000000000000000000000000000000000'
         );
 
-        const gasPrice = await web3.eth.getGasPrice();
+        // Use reasonable gas price for Base network (much lower than mainnet)
+        const networkGasPrice = await web3.eth.getGasPrice();
+        const baseGasPrice = Math.min(Number(networkGasPrice), 100000000); // Cap at 0.1 gwei for Base
+        
+        console.log(`⛽ Gas estimate: ${gasEstimate}`);
+        console.log(`💰 Network gas price: ${networkGasPrice} wei`);
+        console.log(`💰 Using gas price: ${baseGasPrice} wei`);
+        
+        const gasLimit = Math.floor(Number(gasEstimate) * 1.2);
+        const totalCost = gasLimit * baseGasPrice;
+        
+        console.log(`📊 Transaction cost: ${totalCost} wei (${web3.utils.fromWei(totalCost.toString(), 'ether')} ETH)`);
+        
         const txData = {
           from: wallet.address,
           to: CONTRACTS.IndexOracle,
           data: tx.encodeABI(),
-          gas: Math.floor(Number(gasEstimate) * 1.2), // Convert BigInt to Number
-          gasPrice: gasPrice.toString(), // Convert BigInt to string
+          gas: gasLimit,
+          gasPrice: baseGasPrice.toString(),
         };
 
         // Sign and send transaction

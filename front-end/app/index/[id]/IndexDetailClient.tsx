@@ -92,13 +92,40 @@ const getBlockchainIndexId = (indexId: string): number | null => {
   return indexMap[indexId] ?? null;
 };
 
+// Map token symbols to Alpha Vantage symbols for price data
+const getTokenAlphaVantageSymbol = (tokenSymbol: string): string | null => {
+  const tokenMap: Record<string, string> = {
+    // Major crypto
+    'ETH': 'ETHUSD',
+    'WETH': 'ETHUSD',  // Wrapped ETH = ETH price
+    'BTC': 'BTCUSD',
+    'WBTC': 'BTCUSD',  // Wrapped BTC = BTC price
+    
+    // Major stocks (if tokens represent stock derivatives)
+    'AAPL': 'AAPL',
+    'TSLA': 'TSLA',
+    'MSFT': 'MSFT',
+    'GOOGL': 'GOOGL',
+    'META': 'META',
+    'NVDA': 'NVDA',
+    
+    // Stablecoins - no Alpha Vantage data needed, always ~$1
+    'USDC': null,
+    'USDT': null,
+    'DAI': null,
+    'BUSD': null,
+  };
+  
+  return tokenMap[tokenSymbol.toUpperCase()] || null;
+};
+
 export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) {
   const router = useRouter();
   const [isRequestingIndex, setIsRequestingIndex] = useState(false);
   const [chartData, setChartData] = useState<Array<{
     date: string;
     price: number;
-    sentiment?: number;
+    correlationToken?: number;
     close: number;
     high: number;
     low: number;
@@ -180,6 +207,20 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
     const symbol = getAlphaVantageSymbol(index.id);
     const apiKey = process.env.NEXT_PUBLIC_ALPHAVANTAGE || "123";
     
+    // Get correlation token from conditional order tokens
+    let correlationSymbol: string | null = null;
+    let correlationTokenName = '';
+    
+    // Try fromToken first, then toToken
+    if (fromToken) {
+      correlationSymbol = getTokenAlphaVantageSymbol(fromToken.symbol);
+      correlationTokenName = fromToken.symbol;
+    }
+    if (!correlationSymbol && toToken) {
+      correlationSymbol = getTokenAlphaVantageSymbol(toToken.symbol);
+      correlationTokenName = toToken.symbol;
+    }
+    
     try {
       setIsLoadingChart(true);
       setChartError(null);
@@ -187,6 +228,11 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
       const alphaVantageService = new AlphaVantageService({ apiKey });
       
       console.log(`🔍 Loading chart data for ${symbol} (${index.name})`);
+      if (correlationSymbol) {
+        console.log(`🔗 Loading correlation data for ${correlationTokenName} (${correlationSymbol})`);
+      } else {
+        console.log(`🔗 No Alpha Vantage data available for selected tokens`);
+      }
       console.log(`📡 Using API key: ${apiKey.substring(0, 8)}...`);
       
       // Determine the appropriate API call based on symbol type
@@ -259,20 +305,51 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
             }))
             .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
           
-          // Format commodity data for chart with sentiment
-          const chartDataFormatted = rawCommodityData.map((item, index) => ({
-            date: item.date,
-            price: item.close,
-            // Add dynamic sentiment data that varies with price changes
-            sentiment: Math.max(30, Math.min(80, 50 + (item.close > (rawCommodityData[index - 1]?.close || item.close) ? 15 : -15) + Math.random() * 10)),
-            close: item.close,
-            high: item.high,
-            low: item.low,
-            open: item.open,
-            volume: item.volume
-          }));
+          // Fetch correlation token data for commodities only if we have a valid symbol
+          let correlationData: Array<{
+            date: string;
+            open: number;
+            high: number;
+            low: number;
+            close: number;
+            volume: number;
+          }> = [];
           
-          console.log(`📋 Formatted commodity chart data (${chartDataFormatted.length} items):`, chartDataFormatted.slice(0, 3));
+          if (correlationSymbol) {
+            try {
+              // For crypto correlation tokens, use a stock proxy
+              if (correlationSymbol.includes('USD') && !correlationSymbol.includes('/')) {
+                const correlationResponse = await alphaVantageService.getDailyTimeSeries('SPY', false, "full");
+                correlationData = AlphaVantageService.parseTimeSeriesData(correlationResponse);
+              } else {
+                const correlationResponse = await alphaVantageService.getDailyTimeSeries(correlationSymbol, false, "full");
+                correlationData = AlphaVantageService.parseTimeSeriesData(correlationResponse);
+              }
+              console.log(`📊 Commodity correlation data loaded (${correlationData.length} items)`);
+            } catch (correlationError) {
+              console.warn(`⚠️ Could not load correlation data for ${correlationSymbol}:`, correlationError);
+            }
+          }
+          
+          // Format commodity data for chart with correlation
+          const chartDataFormatted = rawCommodityData.map((item, index) => {
+            // Find matching correlation data point by date
+            const correlationPoint = correlationData.find(cp => cp.date === item.date);
+            
+            return {
+              date: item.date,
+              price: item.close,
+              // Add correlation token price
+              correlationToken: correlationPoint ? correlationPoint.close : undefined,
+              close: item.close,
+              high: item.high,
+              low: item.low,
+              open: item.open,
+              volume: item.volume
+            };
+          });
+          
+          console.log(`📋 Formatted commodity chart data with correlation (${chartDataFormatted.length} items):`, chartDataFormatted.slice(0, 3));
           setChartData(chartDataFormatted);
           return; // Early return for commodity data
         } else {
@@ -290,22 +367,58 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
       }
       console.log(`📈 Parsed data (${parsedData.length} items):`, parsedData.slice(0, 3));
       
+      // Fetch correlation token data only if we have a valid symbol
+      let correlationData: Array<{
+        date: string;
+        open: number;
+        high: number;
+        low: number;
+        close: number;
+        volume: number;
+      }> = [];
+      
+      if (correlationSymbol) {
+        try {
+          console.log(`📈 Fetching correlation token data for ${correlationSymbol}`);
+          
+          // For crypto correlation tokens, we need to handle them specially
+          if (correlationSymbol.includes('USD') && !correlationSymbol.includes('/')) {
+            // This is a crypto symbol like BTCUSD, ETHUSD - for now use a stock proxy
+            const correlationResponse = await alphaVantageService.getDailyTimeSeries('SPY', false, "full");
+            correlationData = AlphaVantageService.parseTimeSeriesData(correlationResponse);
+          } else {
+            // Regular stock
+            const correlationResponse = await alphaVantageService.getDailyTimeSeries(correlationSymbol, false, "full");
+            correlationData = AlphaVantageService.parseTimeSeriesData(correlationResponse);
+          }
+          console.log(`📊 Correlation data loaded (${correlationData.length} items)`);
+        } catch (correlationError) {
+          console.warn(`⚠️ Could not load correlation data for ${correlationSymbol}:`, correlationError);
+          // Continue without correlation data
+        }
+      }
+      
       // Format data for Recharts (last 90 days for 3 months)
       const chartDataFormatted = parsedData
         .slice(-90) // Get last 90 days (approximately 3 months)
-        .map((item, index) => ({
-          date: item.date,
-          price: item.close,
-          // Add dynamic sentiment data that varies with price changes
-          sentiment: Math.max(30, Math.min(80, 50 + (item.close > (parsedData[parsedData.length - 91 + index - 1]?.close || item.close) ? 15 : -15) + Math.random() * 10)),
-          close: item.close,
-          high: item.high,
-          low: item.low,
-          open: item.open,
-          volume: item.volume
-        }));
+        .map((item, index) => {
+          // Find matching correlation data point by date
+          const correlationPoint = correlationData.find(cp => cp.date === item.date);
+          
+          return {
+            date: item.date,
+            price: item.close,
+            // Add correlation token price (normalized to percentage scale for comparison)
+            correlationToken: correlationPoint ? correlationPoint.close : undefined,
+            close: item.close,
+            high: item.high,
+            low: item.low,
+            open: item.open,
+            volume: item.volume
+          };
+        });
       
-      console.log(`📋 Formatted chart data (${chartDataFormatted.length} items):`, chartDataFormatted.slice(0, 3));
+      console.log(`📋 Formatted chart data with correlation (${chartDataFormatted.length} items):`, chartDataFormatted.slice(0, 3));
       setChartData(chartDataFormatted);
     } catch (error) {
       console.error("❌ Error loading chart data:", error);
@@ -331,6 +444,15 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
         symbol === 'VIX' ? 20 :     // VIX volatility index
         index.price || 100;         // Default fallback
       
+      // Get correlation token base price for demo data only if we have selected tokens
+      let correlationBasePrice = 0;
+      if (correlationSymbol) {
+        correlationBasePrice = 
+          correlationSymbol === 'BTCUSD' ? 45000 : 
+          correlationSymbol === 'ETHUSD' ? 2500 : 
+          400; // Default for other tokens
+      }
+      
       const demoData = Array.from({ length: 90 }, (_, i) => {
         const date = new Date();
         date.setDate(date.getDate() - (89 - i));
@@ -338,16 +460,23 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
         const variation = (Math.random() - 0.5) * 0.1; // ±5% variation
         const price = basePrice * (1 + variation);
         
-        return {
+        const dataPoint: any = {
           date: date.toISOString().split('T')[0],
           price: Number(price.toFixed(2)),
-          sentiment: Math.max(30, Math.min(80, 50 + Math.random() * 30)),
           close: Number(price.toFixed(2)),
           high: Number((price * 1.02).toFixed(2)),
           low: Number((price * 0.98).toFixed(2)),
           open: Number((price * (0.99 + Math.random() * 0.02)).toFixed(2)),
           volume: Math.floor(Math.random() * 1000000)
         };
+        
+        // Only add correlation token if we have a valid symbol
+        if (correlationSymbol && correlationBasePrice > 0) {
+          const correlationPrice = correlationBasePrice * (1 + variation + (Math.random() - 0.5) * 0.05);
+          dataPoint.correlationToken = Number(correlationPrice.toFixed(2));
+        }
+        
+        return dataPoint;
       });
       
       setChartData(demoData);
@@ -361,6 +490,13 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
     loadRealIndexData();
     loadChartData();
   }, [index.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reload chart when tokens change (for correlation analysis)
+  useEffect(() => {
+    if (fromToken || toToken) {
+      loadChartData();
+    }
+  }, [fromToken, toToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleRequestIndex = async () => {
     setIsRequestingIndex(true);
@@ -588,10 +724,14 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
-                  <CardTitle>Price & Sentiment (3 Months)</CardTitle>
+                  <CardTitle>
+                    {fromToken || toToken ? 'Price Correlation Analysis (3 Months)' : 'Price Chart (3 Months)'}
+                  </CardTitle>
                   <div className="text-sm text-gray-500">
                     {chartError ? (
                       <span className="text-orange-600">{chartError} - Showing fallback data</span>
+                    ) : fromToken || toToken ? (
+                      `${realIndexData.symbol} vs ${fromToken?.symbol || toToken?.symbol || 'selected token'} correlation (Last 90 days)`
                     ) : (
                       `Historical ${realIndexData.symbol} data from Alpha Vantage (Last 90 days)`
                     )}
@@ -657,10 +797,10 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                           formatter={(value: number, name: string) => [
                             name === 'price' ? 
                               (realIndexData.category === 'Forex' ? value.toFixed(4) : `$${value.toFixed(2)}`) :
-                            name === 'sentiment' ? `${value.toFixed(1)}%` :
+                            name === 'correlationToken' ? `$${value.toFixed(2)}` :
                               `$${value.toFixed(2)}`,
-                            name === 'price' ? 'Stock Price' : 
-                            name === 'sentiment' ? 'Sentiment Score' : name
+                            name === 'price' ? realIndexData.symbol : 
+                            name === 'correlationToken' ? (fromToken?.symbol || toToken?.symbol || 'Token') : name
                           ]}
                           labelStyle={{ color: '#374151' }}
                           contentStyle={{ 
@@ -679,16 +819,19 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                           dot={false}
                           activeDot={{ r: 4, fill: "#3b82f6" }}
                         />
-                        {/* @ts-ignore */}
-                        <Line
-                          type="monotone"
-                          dataKey="sentiment"
-                          stroke="#34d399"
-                          strokeWidth={2}
-                          name="sentiment"
-                          dot={false}
-                          activeDot={{ r: 4, fill: "#34d399" }}
-                        />
+                        {/* Only show correlation line if we have token data */}
+                        {(fromToken || toToken) && (
+                          /* @ts-ignore */
+                          <Line
+                            type="monotone"
+                            dataKey="correlationToken"
+                            stroke="#10b981"
+                            strokeWidth={2}
+                            name="correlationToken"
+                            dot={false}
+                            activeDot={{ r: 4, fill: "#10b981" }}
+                          />
+                        )}
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
