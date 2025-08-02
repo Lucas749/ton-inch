@@ -30,7 +30,7 @@ import {
 import { useBlockchain } from "@/hooks/useBlockchain";
 import { useOrders, OPERATORS } from "@/hooks/useOrders";
 import { blockchainService, CONTRACTS } from "@/lib/blockchain-service";
-import AlphaVantageService, { TimeSeriesResponse, CommodityResponse } from "@/lib/alphavantage-service";
+import AlphaVantageService, { TimeSeriesResponse } from "@/lib/alphavantage-service";
 import { RealIndicesService } from "@/lib/real-indices-service";
 import { SwapBox } from "@/components/SwapBox";
 import { AdminBox } from "@/components/AdminBox";
@@ -113,6 +113,25 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
   const [chartError, setChartError] = useState<string | null>(null);
   const [realIndexData, setRealIndexData] = useState(index);
   
+  // Oracle status for conditional orders
+  const [oracleStatus, setOracleStatus] = useState<{
+    hasOracle: boolean;
+    oracleType: number;
+    oracleTypeName: string;
+    isChainlink: boolean;
+    isMock: boolean;
+    loading: boolean;
+    error: string | null;
+  }>({
+    hasOracle: false,
+    oracleType: 0,
+    oracleTypeName: 'MOCK',
+    isChainlink: false,
+    isMock: true,
+    loading: true,
+    error: null
+  });
+  
   // Order creation form
   const [fromToken, setFromToken] = useState<Token | null>(null);
   const [toToken, setToToken] = useState<Token | null>(null);
@@ -127,6 +146,40 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
   
   const { isConnected, walletAddress, indices: blockchainIndices } = useBlockchain();
   const { createOrder, isLoading: isCreatingOrder } = useOrders();
+
+  // Check oracle status for conditional orders
+  const checkOracleStatus = async (blockchainIndexId: number) => {
+    setOracleStatus(prev => ({ ...prev, loading: true, error: null }));
+    
+    try {
+      console.log(`🔍 Checking oracle status for blockchain index ${blockchainIndexId}`);
+      
+      const response = await fetch(`/api/orders?action=check-oracle&indexId=${blockchainIndexId}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log(`✅ Oracle status retrieved:`, data);
+        setOracleStatus({
+          hasOracle: data.hasOracle,
+          oracleType: data.oracleType || 0,
+          oracleTypeName: data.oracleTypeName || 'MOCK',
+          isChainlink: data.isChainlink || false,
+          isMock: data.isMock !== false,
+          loading: false,
+          error: null
+        });
+      } else {
+        throw new Error(data.message || 'Failed to check oracle status');
+      }
+    } catch (error: any) {
+      console.error('❌ Oracle status check failed:', error);
+      setOracleStatus(prev => ({
+        ...prev,
+        loading: false,
+        error: error.message || 'Failed to check oracle status'
+      }));
+    }
+  };
 
   // Initialize with popular tokens (crash-safe)
   useEffect(() => {
@@ -177,6 +230,14 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
       }));
     }
   }, [blockchainIndex]);
+
+  // Check oracle status when blockchain index is available
+  useEffect(() => {
+    if (blockchainIndexId !== null && isAvailableOnBlockchain) {
+      console.log(`🔍 Index is available on blockchain with ID ${blockchainIndexId}, checking oracle status...`);
+      checkOracleStatus(blockchainIndexId);
+    }
+  }, [blockchainIndexId, isAvailableOnBlockchain]);
 
   // Load current price from Alpha Vantage (prioritized) or blockchain
   const loadCurrentPrice = async () => {
@@ -398,7 +459,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
         } else if (['CORN', 'WHEAT', 'WTI', 'BRENT', 'NATURAL_GAS', 'COPPER', 'ALUMINUM', 'ZINC', 'NICKEL', 'GOLD', 'SILVER'].includes(alphaVantageFunction)) {
           // Commodity functions
           console.log(`📈 Fetching commodity data for: ${alphaVantageFunction}`);
-          let commodityResponse: CommodityResponse | undefined;
+          let commodityResponse: any;
           
           switch (alphaVantageFunction) {
             case 'WTI':
@@ -420,7 +481,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
           }
           
           if (commodityResponse) {
-            parsedData = AlphaVantageService.parseCommodityData(commodityResponse);
+            parsedData = AlphaVantageService.parseTimeSeriesData(commodityResponse);
           }
         } else {
           // Fallback to stock data
@@ -1096,10 +1157,94 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                 <CardHeader>
                   <CardTitle>Create Conditional Order</CardTitle>
                   <div className="text-sm text-gray-500">
-                    Set up an order that executes when {realIndexData.name} meets your conditions
+                    {oracleStatus.loading 
+                      ? "Checking oracle configuration..." 
+                      : oracleStatus.isChainlink 
+                        ? `Set up an order that executes when ${realIndexData.name} meets your conditions`
+                        : "Chainlink oracle setup required for conditional orders"
+                    }
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  
+                  {/* Loading State */}
+                  {oracleStatus.loading && (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                      <span className="text-sm text-gray-500">Checking oracle status...</span>
+                    </div>
+                  )}
+
+                  {/* Error State */}
+                  {oracleStatus.error && (
+                    <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                      <div className="flex items-start">
+                        <div className="text-red-400 mr-3 mt-1">⚠️</div>
+                        <div>
+                          <h4 className="text-sm font-medium text-red-800">Oracle Check Failed</h4>
+                          <p className="text-sm text-red-600 mt-1">{oracleStatus.error}</p>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="mt-2"
+                            onClick={() => blockchainIndexId !== null && checkOracleStatus(blockchainIndexId)}
+                          >
+                            <RefreshCw className="h-4 w-4 mr-1" />
+                            Retry
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Setup Instructions - MOCK Oracle */}
+                  {!oracleStatus.loading && !oracleStatus.error && oracleStatus.isMock && (
+                    <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <div className="flex items-start">
+                        <div className="text-yellow-400 mr-3 mt-1">🔧</div>
+                        <div className="flex-1">
+                          <h4 className="text-sm font-medium text-yellow-800">Chainlink Oracle Setup Required</h4>
+                          <p className="text-sm text-yellow-700 mt-1">
+                            This index currently uses mock data. To enable conditional orders, you need to set up a Chainlink oracle.
+                          </p>
+                          
+                          <div className="mt-3 text-sm text-yellow-700">
+                            <h5 className="font-medium mb-2">Setup Steps:</h5>
+                            <ol className="list-decimal ml-4 space-y-1">
+                              <li>Deploy a Chainlink Functions Oracle contract</li>
+                              <li>Set the oracle address for this index</li>
+                              <li>Switch the index to use CHAINLINK oracle type</li>
+                            </ol>
+                          </div>
+
+                          <div className="mt-3 text-sm text-yellow-700">
+                            <h5 className="font-medium mb-2">Backend Commands:</h5>
+                            <div className="bg-yellow-100 p-2 rounded font-mono text-xs space-y-1">
+                              <div># 1. Deploy Chainlink oracle</div>
+                              <div>forge script script/DeployChainlinkOracle.s.sol --rpc-url $RPC_URL --broadcast</div>
+                              <div className="mt-2"># 2. Set oracle address</div>
+                              <div>node -e "const oracle = require('./src/oracle-manager'); oracle.setChainlinkOracleAddress('0xYOUR_ORACLE_ADDRESS', process.env.PRIVATE_KEY)"</div>
+                              <div className="mt-2"># 3. Switch to Chainlink</div>
+                              <div>node -e "const oracle = require('./src/oracle-manager'); oracle.setIndexOracleType({blockchainIndexId}, 1, process.env.PRIVATE_KEY)"</div>
+                            </div>
+                          </div>
+
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="mt-3"
+                            onClick={() => blockchainIndexId !== null && checkOracleStatus(blockchainIndexId)}
+                          >
+                            <RefreshCw className="h-4 w-4 mr-1" />
+                            Check Again
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Conditional Order Form - CHAINLINK Oracle */}
+                  {!oracleStatus.loading && !oracleStatus.error && oracleStatus.isChainlink && (
                   <div>
                     <label className="text-sm font-medium">Description</label>
                     <Input
@@ -1220,8 +1365,8 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                     </Select>
                   </div>
 
-                  <div className="flex space-x-3">
-                    <Button 
+                                    <div className="flex space-x-3">
+                    <Button
                       onClick={handleCreateOrder}
                       disabled={!isConnected || isCreatingOrder || !orderForm.threshold || !orderForm.fromAmount || !fromToken || !toToken}
                       className="flex-1"
@@ -1236,6 +1381,8 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                       Fill Demo
                     </Button>
                   </div>
+
+                  )}
                 </CardContent>
               </Card>
             )}

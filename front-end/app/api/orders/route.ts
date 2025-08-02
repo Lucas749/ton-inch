@@ -462,9 +462,45 @@ export async function GET(request: NextRequest) {
       }, { status: 500 });
     }
 
+  } else if (action === 'check-oracle') {
+    const indexId = searchParams.get('indexId');
+    
+    if (!indexId || isNaN(Number(indexId))) {
+      return NextResponse.json({ 
+        error: 'Invalid indexId parameter' 
+      }, { status: 400 });
+    }
+
+    try {
+      // Check if index has chainlink oracle configured
+      const oracleCheck = await checkIndexOracleStatus(Number(indexId));
+      
+      return NextResponse.json({
+        success: true,
+        indexId: Number(indexId),
+        hasOracle: oracleCheck.hasOracle,
+        oracleAddress: oracleCheck.oracleAddress,
+        isDefault: oracleCheck.isDefault,
+        setupRequired: !oracleCheck.hasOracle
+      }, {
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        },
+      });
+
+    } catch (error: any) {
+      console.error('❌ Oracle check error:', error);
+      return NextResponse.json({
+        error: 'Failed to check oracle status',
+        message: error.message || 'Oracle check error'
+      }, { status: 500 });
+    }
+
   } else {
     return NextResponse.json({ 
-      error: 'Invalid action. Use "get-orders"' 
+      error: 'Invalid action. Use "get-orders" or "check-oracle"' 
     }, { status: 400 });
   }
 }
@@ -614,6 +650,57 @@ export async function POST(request: NextRequest) {
       },
       { status: 500 }
     );
+  }
+}
+
+/**
+ * Check if an index has a chainlink oracle configured (embedded backend logic)
+ */
+async function checkIndexOracleStatus(indexId: number) {
+  console.log(`🔍 Checking oracle status for index ${indexId}`);
+  
+  try {
+    // Create contract interface to check oracle
+    const { ethers } = require('ethers');
+    const provider = new ethers.providers.JsonRpcProvider(CONFIG.RPC_URL);
+    
+    // Oracle contract ABI (minimal for our needs)
+    const oracleABI = [
+      "function getIndexOracleType(uint256 indexId) external view returns (uint8 oracleType)",
+      "function getIndexChainlinkOracle(uint256 indexId) external view returns (address oracleAddress)"
+    ];
+    
+    const oracleContract = new ethers.Contract(
+      CONFIG.INDEX_ORACLE_ADDRESS,
+      oracleABI,
+      provider
+    );
+    
+    // Get oracle type for this index (0 = MOCK, 1 = CHAINLINK)
+    const oracleType = await oracleContract.getIndexOracleType(indexId);
+    const oracleAddress = await oracleContract.getIndexChainlinkOracle(indexId);
+    
+    // Check if oracle is CHAINLINK type
+    const hasChainlinkOracle = oracleType === 1; // CHAINLINK = 1, MOCK = 0
+    const oracleTypeName = oracleType === 0 ? 'MOCK' : 'CHAINLINK';
+    
+    console.log(`   Index ID: ${indexId}`);
+    console.log(`   Oracle Type: ${oracleType} (${oracleTypeName})`);
+    console.log(`   Oracle Address: ${oracleAddress}`);
+    console.log(`   Has Chainlink: ${hasChainlinkOracle}`);
+    
+    return {
+      hasOracle: hasChainlinkOracle,
+      oracleType: oracleType,
+      oracleTypeName: oracleTypeName,
+      oracleAddress: oracleAddress,
+      isChainlink: hasChainlinkOracle,
+      isMock: oracleType === 0
+    };
+    
+  } catch (error: any) {
+    console.error(`❌ Failed to check oracle for index ${indexId}:`, error.message);
+    throw new Error(`Oracle check failed: ${error.message}`);
   }
 }
 
