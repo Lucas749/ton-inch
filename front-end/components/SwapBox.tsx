@@ -65,12 +65,23 @@ export function SwapBox({
 
   const isConfigured = !!oneInchService;
 
-  // Initialize with popular tokens
+  // Initialize with popular tokens (crash-safe)
   useEffect(() => {
-    const popularTokens = tokenService.getPopularTokensSync();
-    if (popularTokens.length >= 2 && !fromToken && !toToken) {
-      setFromToken(popularTokens[1]); // USDC
-      setToToken(popularTokens[0]); // WETH
+    try {
+      const popularTokens = tokenService.getPopularTokensSync() || [];
+      if (popularTokens.length >= 2 && !fromToken && !toToken) {
+        // Safety check - ensure tokens have required properties
+        const validTokens = popularTokens.filter(token => 
+          token && token.address && token.symbol
+        );
+        
+        if (validTokens.length >= 2) {
+          setFromToken(validTokens[1]); // Usually USDC
+          setToToken(validTokens[0]); // Usually WETH
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error initializing SwapBox tokens:', error);
     }
   }, [fromToken, toToken]);
 
