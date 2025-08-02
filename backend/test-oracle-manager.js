@@ -251,26 +251,58 @@ async function testOracleManager() {
                 console.log('');
             }
             
-            const chainlinkOracleAddress = process.env.CHAINLINK_ORACLE_ADDRESS;
-            if (chainlinkOracleAddress) {
-                console.log('🔗 TEST 15: Set Chainlink Oracle Address');
-                console.log('========================================');
+            console.log('🔗 TEST 15: Set EPS Consumer as Chainlink Oracle');
+            console.log('==============================================');
+            
+            // Use our deployed EPS consumer contract
+            const epsConsumerAddress = '0xc4e07abf90C493968cd9216320c2349F9490552b';
+            
+            const setChainlinkResult = await oracleManager.setChainlinkOracleAddress(
+                epsConsumerAddress,
+                privateKey
+            );
+            
+            if (setChainlinkResult.success) {
+                console.log(`✅ EPS Consumer set as Chainlink oracle successfully`);
+                console.log(`📍 Address: ${epsConsumerAddress}`);
+                console.log(`📤 Transaction: ${setChainlinkResult.transactionHash}\n`);
                 
-                const setChainlinkResult = await oracleManager.setChainlinkOracleAddress(
-                    chainlinkOracleAddress,
+                // Now create an EPS index using the deployed consumer
+                console.log('📊 TEST 15b: Create Alpha Vantage EPS Index');
+                console.log('==========================================');
+                
+                const epsIndex = await oracleManager.createNewIndexWithChainlinkOracle(
+                    'MSTR EPS Estimates', // Name
+                    1250, // Initial value ($12.50 EPS estimate)
+                    'https://www.alphavantage.co/query?function=EARNINGS_ESTIMATES&symbol=MSTR', // Alpha Vantage URL
+                    oracleManager.ORACLE_TYPES.CHAINLINK, // Use Chainlink oracle type
+                    epsConsumerAddress, // Our deployed EPS consumer
                     privateKey
                 );
                 
-                if (setChainlinkResult.success) {
-                    console.log(`✅ Chainlink oracle address set successfully`);
-                    console.log(`📤 Transaction: ${setChainlinkResult.transactionHash}\n`);
+                if (epsIndex.success) {
+                    console.log(`✅ Created MSTR EPS index ${epsIndex.indexId} using Alpha Vantage`);
+                    console.log(`🔗 Chainlink Oracle: ${epsIndex.chainlinkOracleAddress}`);
+                    console.log(`📊 Source: Alpha Vantage EARNINGS_ESTIMATES API`);
+                    console.log(`📤 Transaction: ${epsIndex.transactionHash}\n`);
+                    
+                    // Verify the created index
+                    const newEpsIndex = await oracleManager.getIndexById(epsIndex.indexId);
+                    if (newEpsIndex.success) {
+                        console.log('📋 Created EPS Index Details:');
+                        oracleManager.displayIndex(newEpsIndex.index);
+                        
+                        // Check oracle type
+                        const epsOracleType = await oracleManager.getIndexOracleType(epsIndex.indexId);
+                        if (epsOracleType.success) {
+                            console.log(`🔧 Oracle Type: ${epsOracleType.oracleTypeName}`);
+                        }
+                    }
                 } else {
-                    console.log(`❌ Failed to set Chainlink oracle: ${setChainlinkResult.error}\n`);
+                    console.log(`❌ Failed to create EPS index: ${epsIndex.error}\n`);
                 }
             } else {
-                console.log('⚠️ TEST 15: Set Chainlink Oracle Address - SKIPPED');
-                console.log('===================================================');
-                console.log('CHAINLINK_ORACLE_ADDRESS not set in environment variables.\n');
+                console.log(`❌ Failed to set EPS Consumer oracle: ${setChainlinkResult.error}\n`);
             }
             
             console.log('🔄 TEST 16: Switch Index Oracle Type');
@@ -352,6 +384,8 @@ async function testOracleManager() {
         console.log('   🔄 Individual & batch oracle type updates'); 
         console.log('   🏭 Per-index Chainlink oracle configuration');
         console.log('   ⚙️ Production-ready migration tools');
+        console.log('   📈 EPS Consumer integration with Alpha Vantage API');
+        console.log('   🎯 Real-world financial data via Chainlink Functions');
         console.log('');
         
         // Frontend integration examples
@@ -682,6 +716,100 @@ app.put('/api/oracle/batch-types', async (req, res) => {
     );
     
     res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+🔧 EPS Consumer Integration Example:
+const { ethers } = require('ethers');
+
+// EPS Consumer contract integration
+const EPS_CONSUMER_ADDRESS = '0xc4e07abf90C493968cd9216320c2349F9490552b';
+const EPS_CONSUMER_ABI = [
+  "function requestEPS(string calldata symbol) external returns (bytes32 requestId)",
+  "function getLatestEPS() external view returns (uint256 eps, string memory symbol, uint256 timestamp)",
+  "function getFormattedEPS() external view returns (string memory)",
+  "event EPSUpdated(bytes32 indexed requestId, string symbol, uint256 epsValue, uint256 timestamp)"
+];
+
+// Function to request EPS data
+app.post('/api/eps/request/:symbol', async (req, res) => {
+  try {
+    const { symbol } = req.params;
+    const provider = new ethers.providers.JsonRpcProvider(process.env.RPC_URL);
+    const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+    const epsContract = new ethers.Contract(EPS_CONSUMER_ADDRESS, EPS_CONSUMER_ABI, wallet);
+    
+    const gasSettings = {
+      gasPrice: ethers.utils.parseUnits('0.0052', 'gwei'),
+      gasLimit: 500000
+    };
+    
+    const tx = await epsContract.requestEPS(symbol.toUpperCase(), gasSettings);
+    const receipt = await tx.wait();
+    
+    res.json({
+      success: true,
+      symbol: symbol.toUpperCase(),
+      transactionHash: tx.hash,
+      blockNumber: receipt.blockNumber,
+      message: 'EPS request sent. Check again in 1-2 minutes for results.'
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Function to get latest EPS data
+app.get('/api/eps/latest', async (req, res) => {
+  try {
+    const provider = new ethers.providers.JsonRpcProvider(process.env.RPC_URL);
+    const epsContract = new ethers.Contract(EPS_CONSUMER_ADDRESS, EPS_CONSUMER_ABI, provider);
+    
+    const [eps, symbol, timestamp] = await epsContract.getLatestEPS();
+    const formattedEPS = await epsContract.getFormattedEPS();
+    
+    res.json({
+      success: true,
+      eps: eps.toString(),
+      formattedEPS: formattedEPS,
+      symbol: symbol,
+      timestamp: timestamp.toString(),
+      lastUpdate: timestamp.toNumber() > 0 ? new Date(timestamp.toNumber() * 1000).toISOString() : null
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Combined endpoint: Create EPS index and connect to consumer
+app.post('/api/indices/eps-integrated', async (req, res) => {
+  try {
+    const { symbol, description } = req.body;
+    const privateKey = process.env.PRIVATE_KEY;
+    
+    // Create index using EPS consumer
+    const result = await oracleManager.createNewIndexWithChainlinkOracle(
+      \`$\{symbol} EPS Estimates\`,
+      1000, // Default EPS estimate
+      \`https://www.alphavantage.co/query?function=EARNINGS_ESTIMATES&symbol=$\{symbol}\`,
+      oracleManager.ORACLE_TYPES.CHAINLINK,
+      EPS_CONSUMER_ADDRESS,
+      privateKey
+    );
+    
+    if (result.success) {
+      // Also store the mapping for frontend use
+      res.json({
+        ...result,
+        epsConsumerAddress: EPS_CONSUMER_ADDRESS,
+        symbol: symbol.toUpperCase(),
+        description: description || \`$\{symbol} EPS estimates via Alpha Vantage\`
+      });
+    } else {
+      res.status(500).json(result);
+    }
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

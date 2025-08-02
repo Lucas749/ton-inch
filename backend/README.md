@@ -39,6 +39,8 @@ node test-index-order-creator.js   # Test order creation
 | `test-oracle-manager.js` | **Complete Oracle Testing** | Full test suite: read all indices, create custom index, update values, simulate price movements, manage status |
 | `test-chainlink-oracle.js` | **Chainlink Functions Testing** | Test Chainlink Functions integration, real-world data fetching, decentralized oracle management |
 | `test-hybrid-oracle.js` | **Hybrid Oracle Testing** | Test switching between mock and Chainlink oracles, oracle type management, seamless integration |
+| `test-eps-consumer.js` | **EPS Consumer Testing** | Test Alpha Vantage EPS estimates via Chainlink Functions, request/read EPS data |
+| `add-eps-index.js` | **EPS Index Setup** | Set EPS consumer as oracle and create MSTR EPS index in oracle system |
 | `test-order-manager.js` | **Order Testing** | Retrieve your active & historical orders |
 | `test-index-order-creator.js` | **Order Creation Testing** | Create conditional orders with different indices |
 | `test-order-cancellation.js` | **Order Cancellation Testing** | Test order cancellation functionality, check cancellable orders, batch cancellation |
@@ -48,6 +50,7 @@ node test-index-order-creator.js   # Test order creation
 | File | Purpose | Deployed Address |
 |------|---------|------------------|
 | `contracts/MockIndexOracle.sol` | **Hybrid Index Oracle** | `0x8a585F9B2359Ef093E8a2f5432F387960e953BD2` |
+| `contracts/EPSConsumer.sol` | **Alpha Vantage EPS Consumer** | `0xc4e07abf90C493968cd9216320c2349F9490552b` |
 | `contracts/ChainlinkIndexOracle.sol` | **Chainlink Functions Oracle** | *Deploy with script* |
 
 ## 📊 Available Indices
@@ -61,6 +64,42 @@ node test-index-order-creator.js   # Test order creation
 | 4 | Unemployment | 3.70% | `"Execute when unemployment > 4%"` |
 | 5 | Tesla Stock | $248.00 | `"Execute when Tesla > $250"` |
 | 6+ | Custom Indices | User-defined | Any custom data source |
+
+## 📈 EPS Consumer Integration
+
+### **Alpha Vantage EPS Estimates**
+- **Contract:** `0xc4e07abf90C493968cd9216320c2349F9490552b`
+- **Purpose:** Fetch real-time earnings per share (EPS) estimates via Chainlink Functions
+- **Data Source:** Alpha Vantage EARNINGS_ESTIMATES API
+- **Network:** Base Mainnet with Chainlink Functions subscription #65
+
+### **Usage Examples**
+```bash
+# Test EPS consumer directly
+node test-eps-consumer.js 0xc4e07abf90C493968cd9216320c2349F9490552b request MSTR
+
+# Add EPS index to oracle system
+node add-eps-index.js
+
+# Check EPS data
+node test-eps-consumer.js 0xc4e07abf90C493968cd9216320c2349F9490552b read
+```
+
+### **Integration with Oracle System**
+The EPS consumer can be set as a Chainlink oracle for your indices:
+```javascript
+// Set EPS consumer as oracle and create MSTR EPS index
+const epsConsumerAddress = '0xc4e07abf90C493968cd9216320c2349F9490552b';
+await oracleManager.setChainlinkOracleAddress(epsConsumerAddress, privateKey);
+await oracleManager.createNewIndexWithChainlinkOracle(
+    'MSTR EPS Estimates', 
+    1250, 
+    'https://www.alphavantage.co/query?function=EARNINGS_ESTIMATES&symbol=MSTR',
+    oracleManager.ORACLE_TYPES.CHAINLINK,
+    epsConsumerAddress,
+    privateKey
+);
+```
 
 ## 🎯 How to Use
 
@@ -531,6 +570,7 @@ CHAINLINK_SUBSCRIPTION_ID=123      # Your subscription ID
 - **Base Network**: https://base.org/
 - **Chainlink Functions**: https://docs.chain.link/chainlink-functions
 - **Mock Oracle Contract**: `0x8a585F9B2359Ef093E8a2f5432F387960e953BD2`
+- **EPS Consumer Contract**: `0xc4e07abf90C493968cd9216320c2349F9490552b`
 - **Chainlink Functions Console**: https://functions.chain.link/
 
 ---

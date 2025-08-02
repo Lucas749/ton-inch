@@ -8,7 +8,8 @@ optimizer_runs = 200
 via_ir = true
 remappings = [
     "@openzeppelin/=lib/openzeppelin-contracts/",
-    "@1inch/=../1inch_contracts/limit-order-protocol-master/"
+    "@1inch/=../1inch_contracts/limit-order-protocol-master/",
+    "@chainlink/=lib/chainlink/"
 ]
 
 [rpc_endpoints]
