@@ -145,6 +145,11 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
   });
   
   const { isConnected, walletAddress, indices: blockchainIndices, ethBalance, getTokenBalance } = useBlockchain();
+  
+  // Token balances state
+  const [tokenBalances, setTokenBalances] = useState<Record<string, string>>({});
+  const [isApprovingToken, setIsApprovingToken] = useState(false);
+  const [approvalStatus, setApprovalStatus] = useState<{[tokenAddress: string]: boolean}>({});
   const { createOrder, isLoading: isCreatingOrder } = useOrders();
 
   // Check oracle status for conditional orders
@@ -200,6 +205,134 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
       console.error('❌ Error initializing order form tokens:', error);
     }
   }, [fromToken, toToken]);
+
+  // Load token balances when tokens or wallet changes
+  useEffect(() => {
+    const loadTokenBalances = async () => {
+      if (!isConnected || !walletAddress) return;
+      
+      const tokens = [fromToken, toToken].filter(Boolean);
+      const balances: Record<string, string> = {};
+      
+      for (const token of tokens) {
+        if (token) {
+          try {
+            if (token.symbol === 'ETH') {
+              balances[token.address] = ethBalance || '0';
+            } else {
+              const balance = await getTokenBalance(token.address);
+              balances[token.address] = balance;
+            }
+          } catch (error) {
+            console.error(`Failed to get balance for ${token.symbol}:`, error);
+            balances[token.address] = '0';
+          }
+        }
+      }
+      
+      setTokenBalances(balances);
+    };
+    
+    loadTokenBalances();
+  }, [fromToken, toToken, isConnected, walletAddress, ethBalance, getTokenBalance]);
+
+  // Check token approval status
+  const checkTokenApproval = async (tokenAddress: string, amount: string) => {
+    if (!isConnected || !walletAddress) return false;
+    
+    try {
+      // Get the token contract
+      const provider = new (window as any).ethereum;
+      const web3 = new (await import('web3')).Web3(provider);
+      
+      const tokenContract = new web3.eth.Contract([
+        {
+          "constant": true,
+          "inputs": [{"name": "_owner", "type": "address"}, {"name": "_spender", "type": "address"}],
+          "name": "allowance",
+          "outputs": [{"name": "", "type": "uint256"}],
+          "type": "function"
+        },
+        {
+          "constant": true,
+          "inputs": [],
+          "name": "decimals",
+          "outputs": [{"name": "", "type": "uint8"}],
+          "type": "function"
+        }
+      ], tokenAddress);
+      
+      const allowance = await tokenContract.methods.allowance(
+        walletAddress,
+        '0x111111125421cA6dc452d289314280a0f8842A65' // 1inch Limit Order Protocol
+      ).call();
+      
+      // Get token decimals
+      const decimals = await tokenContract.methods.decimals().call();
+      const requiredAmount = web3.utils.toBN(amount).mul(web3.utils.toBN(10).pow(web3.utils.toBN(decimals)));
+      
+      return web3.utils.toBN(allowance).gte(requiredAmount);
+      
+    } catch (error) {
+      console.error('Error checking approval:', error);
+      return false;
+    }
+  };
+
+  // Approve token spending
+  const approveToken = async (tokenAddress: string, amount: string) => {
+    if (!isConnected || !walletAddress) {
+      alert('Please connect your wallet first');
+      return false;
+    }
+
+    setIsApprovingToken(true);
+    
+    try {
+      const provider = new (window as any).ethereum;
+      const web3 = new (await import('web3')).Web3(provider);
+      
+      const tokenContract = new web3.eth.Contract([
+        {
+          "constant": false,
+          "inputs": [{"name": "_spender", "type": "address"}, {"name": "_value", "type": "uint256"}],
+          "name": "approve",
+          "outputs": [{"name": "", "type": "bool"}],
+          "type": "function"
+        },
+        {
+          "constant": true,
+          "inputs": [],
+          "name": "decimals",
+          "outputs": [{"name": "", "type": "uint8"}],
+          "type": "function"
+        }
+      ], tokenAddress);
+      
+      // Get token decimals and approve max amount to avoid future approvals
+      const decimals = await tokenContract.methods.decimals().call();
+      const maxApproval = '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'; // Max uint256
+      
+      const tx = await tokenContract.methods.approve(
+        '0x111111125421cA6dc452d289314280a0f8842A65', // 1inch Limit Order Protocol
+        maxApproval
+      ).send({
+        from: walletAddress,
+        gas: 100000
+      });
+      
+      console.log('✅ Token approval successful:', tx.transactionHash);
+      setApprovalStatus(prev => ({ ...prev, [tokenAddress]: true }));
+      return true;
+      
+    } catch (error) {
+      console.error('❌ Token approval failed:', error);
+      alert('Token approval failed: ' + (error as Error).message);
+      return false;
+    } finally {
+      setIsApprovingToken(false);
+    }
+  };
   
   // Check if this index exists on blockchain
   const blockchainIndexId = index.isBlockchainIndex 
@@ -737,6 +870,38 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
     }
 
     try {
+      // First, check if token approval is needed (skip for ETH)
+      if (fromToken.symbol !== 'ETH') {
+        console.log('🔍 Checking token approval...');
+        const isApproved = await checkTokenApproval(fromToken.address, orderForm.fromAmount);
+        
+        if (!isApproved) {
+          const shouldApprove = confirm(
+            `🔐 Token Approval Required\n\n` +
+            `You need to approve ${fromToken.symbol} spending before creating the order.\n\n` +
+            `Click OK to approve ${fromToken.symbol} for 1inch trading.`
+          );
+          
+          if (!shouldApprove) {
+            alert('Order creation cancelled. Token approval is required.');
+            return;
+          }
+          
+          console.log('⏳ Requesting token approval...');
+          const approvalSuccess = await approveToken(fromToken.address, orderForm.fromAmount);
+          
+          if (!approvalSuccess) {
+            alert('❌ Token approval failed. Cannot create order without approval.');
+            return;
+          }
+          
+          console.log('✅ Token approval completed, proceeding with order creation...');
+        } else {
+          console.log('✅ Token already approved, proceeding with order creation...');
+        }
+      }
+
+      // Now create the order
       await createOrder({
         indexId: blockchainIndexId,
         operator: orderForm.operator,
@@ -1239,8 +1404,8 @@ This matches the backend test-index-order-creator.js values exactly!`);
                       {fromToken && isConnected && (
                         <span className="text-xs text-gray-500">
                           Balance: {fromToken.symbol === 'ETH' 
-                            ? (ethBalance ? parseFloat(ethBalance).toFixed(4) : '0.00')
-                            : '0.00'
+                            ? (ethBalance ? parseFloat(ethBalance).toFixed(4) : '0.0000')
+                            : (tokenBalances[fromToken.address] ? parseFloat(tokenBalances[fromToken.address]).toFixed(4) : '0.0000')
                           } {fromToken.symbol}
                         </span>
                       )}
@@ -1301,8 +1466,8 @@ This matches the backend test-index-order-creator.js values exactly!`);
                       {toToken && isConnected && (
                         <span className="text-xs text-gray-500">
                           Balance: {toToken.symbol === 'ETH' 
-                            ? (ethBalance ? parseFloat(ethBalance).toFixed(4) : '0.00')
-                            : '0.00'
+                            ? (ethBalance ? parseFloat(ethBalance).toFixed(4) : '0.0000')
+                            : (tokenBalances[toToken.address] ? parseFloat(tokenBalances[toToken.address]).toFixed(4) : '0.0000')
                           } {toToken.symbol}
                         </span>
                       )}
@@ -1379,10 +1544,10 @@ This matches the backend test-index-order-creator.js values exactly!`);
                                     <div className="flex space-x-3">
                     <Button
                       onClick={handleCreateOrder}
-                      disabled={!isConnected || isCreatingOrder || !orderForm.threshold || !orderForm.fromAmount || !fromToken || !toToken}
+                      disabled={!isConnected || isCreatingOrder || isApprovingToken || !orderForm.threshold || !orderForm.fromAmount || !fromToken || !toToken}
                       className="flex-1"
                     >
-                      {isCreatingOrder ? "Creating Order..." : "Create Order"}
+                      {isApprovingToken ? "Approving Token..." : isCreatingOrder ? "Creating Order..." : "Create Order"}
                     </Button>
                     <Button
                       onClick={fillDemoOrderData}
