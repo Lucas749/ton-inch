@@ -227,6 +227,32 @@ export const ABIS = {
     },
     {
       type: "function",
+      name: "customIndexData",
+      inputs: [{ name: "indexId", type: "uint256" }],
+      outputs: [
+        { name: "value", type: "uint256" },
+        { name: "timestamp", type: "uint256" },
+        { name: "sourceUrl", type: "string" },
+        { name: "isActive", type: "bool" },
+        { name: "oracleType", type: "uint8" }
+      ],
+      stateMutability: "view",
+    },
+    {
+      type: "function",
+      name: "indexData",
+      inputs: [{ name: "indexType", type: "uint8" }],
+      outputs: [
+        { name: "value", type: "uint256" },
+        { name: "timestamp", type: "uint256" },
+        { name: "sourceUrl", type: "string" },
+        { name: "isActive", type: "bool" },
+        { name: "oracleType", type: "uint8" }
+      ],
+      stateMutability: "view",
+    },
+    {
+      type: "function",
       name: "createCustomIndex",
       inputs: [
         { name: "initialValue", type: "uint256" },

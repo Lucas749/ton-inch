@@ -161,22 +161,38 @@ export class BlockchainIndices {
             console.warn(`⚠️ Could not get details for custom index ${id}:`, error);
           }
           
-          // Extract name from sourceUrl or use default naming
+          // Extract name from Alpha Vantage sourceUrl or use default naming
           let name = `Custom Index ${id}`;
           let description = `User-created index #${id}`;
           
           if (indexDetails && indexDetails.length >= 3) {
             const sourceUrl = indexDetails[2]; // sourceUrl is typically the 3rd element
             if (sourceUrl && sourceUrl.trim()) {
-              if (sourceUrl.includes('_')) {
-                // Parse sourceUrl for meaningful names (e.g., "AAPL_STOCK" -> "Apple Stock")
-                const parts = sourceUrl.split('_');
-                name = parts.map((part: string) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()).join(' ');
-                description = `${name} price tracked in real-time`;
-              } else {
-                // Use sourceUrl directly if it doesn't contain underscores
-                name = sourceUrl;
-                description = `${name} tracked in real-time`;
+              try {
+                const url = new URL(sourceUrl);
+                const functionParam = url.searchParams.get('function');
+                const symbolParam = url.searchParams.get('symbol');
+                
+                if (functionParam && functionParam !== 'GLOBAL_QUOTE') {
+                  // For commodities like CORN, WHEAT, etc.
+                  name = functionParam.charAt(0).toUpperCase() + functionParam.slice(1).toLowerCase();
+                  description = `${name} price tracked via Alpha Vantage`;
+                } else if (symbolParam) {
+                  // For stocks like AAPL, TSLA, etc.
+                  name = symbolParam.toUpperCase();
+                  description = `${name} stock price tracked via Alpha Vantage`;
+                } else if (functionParam === 'GLOBAL_QUOTE' && symbolParam) {
+                  // Standard stock quote
+                  name = symbolParam.toUpperCase();
+                  description = `${name} stock tracked via Alpha Vantage`;
+                } else {
+                  // Fallback to parsing the URL hostname or path
+                  name = url.hostname.includes('alphavantage') ? 'Alpha Vantage Index' : `Custom Index ${id}`;
+                  description = `Custom index tracked via ${url.hostname}`;
+                }
+              } catch (urlError) {
+                console.warn(`Could not parse sourceUrl for index ${id}:`, urlError);
+                // Keep the default name and description
               }
             }
           }
