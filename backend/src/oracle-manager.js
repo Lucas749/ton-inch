@@ -32,8 +32,8 @@ const MOCK_INDEX_ORACLE_ABI = [
     "function isValidIndex(uint256 indexId) external view returns (bool)",
     "function getNextCustomIndexId() external view returns (uint256)",
     "function getAllCustomIndices() external view returns (uint256[] memory indexIds, uint256[] memory values, uint256[] memory timestamps, bool[] memory activeStates)",
-    "function indexData(uint8) external view returns (uint256 value, uint256 timestamp, string memory sourceUrl, bool isActive, uint8 oracleType)",
-    "function customIndexData(uint256) external view returns (uint256 value, uint256 timestamp, string memory sourceUrl, bool isActive, uint8 oracleType)",
+    "function indexData(uint8) external view returns (uint256 value, uint256 timestamp, string memory sourceUrl, bool isActive, uint8 oracleType, address creator)",
+    "function customIndexData(uint256) external view returns (uint256 value, uint256 timestamp, string memory sourceUrl, bool isActive, uint8 oracleType, address creator)",
     "function owner() external view returns (address)",
     
     // Write Functions (onlyOwner)
@@ -61,9 +61,15 @@ const MOCK_INDEX_ORACLE_ABI = [
     "function defaultChainlinkOracleAddress() external view returns (address)",
     "function indexChainlinkOracles(uint256) external view returns (address)",
     
+    // Creator Functions
+    "function getIndexCreator(uint256 indexId) external view returns (address creator)",
+    "function isIndexCreator(uint256 indexId) external view returns (bool isCreator)",
+    "function getIndexDetails(uint256 indexId) external view returns (uint256 value, uint256 timestamp, string memory sourceUrl, bool isActive, uint8 oracleType, address creator)",
+    "function getAllCustomIndicesWithCreators() external view returns (uint256[] memory indexIds, uint256[] memory values, uint256[] memory timestamps, bool[] memory activeStates, address[] memory creators)",
+    
     // Events
     "event IndexUpdated(uint8 indexed indexType, uint256 value, uint256 timestamp, string sourceUrl)",
-    "event CustomIndexCreated(uint256 indexed indexId, uint256 value, uint256 timestamp, string sourceUrl)",
+    "event CustomIndexCreated(uint256 indexed indexId, uint256 value, uint256 timestamp, string sourceUrl, address indexed creator)",
     "event SourceUrlUpdated(uint256 indexed indexId, string oldUrl, string newUrl)"
 ];
 
@@ -173,7 +179,7 @@ async function getAllPredefinedIndices() {
         
         for (let i = 0; i <= 5; i++) {
             try {
-                const [value, timestamp, sourceUrl, isActive] = await contract.indexData(i);
+                const [value, timestamp, sourceUrl, isActive, oracleType, creator] = await contract.indexData(i);
                 
                 indices.push({
                     id: i,
@@ -185,7 +191,9 @@ async function getAllPredefinedIndices() {
                     sourceUrl: sourceUrl,
                     isActive: isActive,
                     unit: INDEX_UNITS[i],
-                    formatted: formatIndexValue(i, value)
+                    formatted: formatIndexValue(i, value),
+                    creator: creator,
+                    oracleType: oracleType
                 });
             } catch (error) {
                 console.warn(`Warning: Could not fetch index ${i}: ${error.message}`);
@@ -222,7 +230,7 @@ async function getAllCustomIndices() {
         
         for (let i = 0; i < indexIds.length; i++) {
             try {
-                const [, , sourceUrl,] = await contract.customIndexData(indexIds[i]);
+                const [, , sourceUrl, , oracleType, creator] = await contract.customIndexData(indexIds[i]);
                 
                 customIndices.push({
                     id: indexIds[i].toNumber(),
@@ -234,7 +242,9 @@ async function getAllCustomIndices() {
                     sourceUrl: sourceUrl,
                     isActive: activeStates[i],
                     unit: 'Custom Unit',
-                    formatted: values[i].toString()
+                    formatted: values[i].toString(),
+                    creator: creator,
+                    oracleType: oracleType
                 });
             } catch (error) {
                 console.warn(`Warning: Could not fetch custom index ${indexIds[i]}: ${error.message}`);
@@ -311,7 +321,7 @@ async function getIndexById(indexId) {
         
         if (indexId <= 5) {
             // Predefined index
-            const [value, timestamp, sourceUrl, isActive] = await contract.indexData(indexId);
+            const [value, timestamp, sourceUrl, isActive, oracleType, creator] = await contract.indexData(indexId);
             
             indexData = {
                 id: indexId,
@@ -323,11 +333,13 @@ async function getIndexById(indexId) {
                 sourceUrl: sourceUrl,
                 isActive: isActive,
                 unit: INDEX_UNITS[indexId],
-                formatted: formatIndexValue(indexId, value)
+                formatted: formatIndexValue(indexId, value),
+                creator: creator,
+                oracleType: oracleType
             };
         } else {
             // Custom index
-            const [value, timestamp, sourceUrl, isActive] = await contract.customIndexData(indexId);
+            const [value, timestamp, sourceUrl, isActive, oracleType, creator] = await contract.customIndexData(indexId);
             
             indexData = {
                 id: indexId,
@@ -339,7 +351,9 @@ async function getIndexById(indexId) {
                 sourceUrl: sourceUrl,
                 isActive: isActive,
                 unit: 'Custom Unit',
-                formatted: value.toString()
+                formatted: value.toString(),
+                creator: creator,
+                oracleType: oracleType
             };
         }
         
@@ -440,13 +454,18 @@ async function updateIndexValue(indexId, newValue, privateKey) {
         console.log(`👤 Updater: ${wallet.address}`);
         
         // Determine if it's predefined or custom index
+        const gasSettings = {
+            gasPrice: ethers.utils.parseUnits('0.002', 'gwei'),
+            gasLimit: 80000
+        };
+        
         let tx;
         if (indexId <= 5) {
             console.log('📤 Updating predefined index...');
-            tx = await contract.updateIndex(indexId, newValue);
+            tx = await contract.updateIndex(indexId, newValue, gasSettings);
         } else {
             console.log('📤 Updating custom index...');
-            tx = await contract.updateCustomIndex(indexId, newValue);
+            tx = await contract.updateCustomIndex(indexId, newValue, gasSettings);
         }
         
         console.log(`⏳ Transaction Hash: ${tx.hash}`);
@@ -497,7 +516,10 @@ async function simulatePriceMovement(indexId, percentChange, isIncrease, private
         console.log(`👤 Simulator: ${wallet.address}`);
         
         console.log('📤 Submitting simulation...');
-        const tx = await contract.simulatePriceMovement(indexId, percentChange, isIncrease);
+        const tx = await contract.simulatePriceMovement(indexId, percentChange, isIncrease, {
+            gasPrice: ethers.utils.parseUnits('0.002', 'gwei'),
+            gasLimit: 200000
+        });
         
         console.log(`⏳ Transaction Hash: ${tx.hash}`);
         console.log('⏳ Waiting for confirmation...');
@@ -544,12 +566,17 @@ async function setIndexStatus(indexId, isActive, privateKey) {
         
         // Determine if it's predefined or custom index
         let tx;
+        const gasSettings = {
+            gasPrice: ethers.utils.parseUnits('0.002', 'gwei'),
+            gasLimit: 100000
+        };
+        
         if (indexId <= 5) {
             console.log('📤 Updating predefined index status...');
-            tx = await contract.setIndexActive(indexId, isActive);
+            tx = await contract.setIndexActive(indexId, isActive, gasSettings);
         } else {
             console.log('📤 Updating custom index status...');
-            tx = await contract.setCustomIndexActive(indexId, isActive);
+            tx = await contract.setCustomIndexActive(indexId, isActive, gasSettings);
         }
         
         console.log(`⏳ Transaction Hash: ${tx.hash}`);
@@ -615,6 +642,13 @@ function displayIndex(index) {
     console.log(`   Updated: ${index.timestamp}`);
     console.log(`   Source: ${index.sourceUrl || 'N/A'}`);
     console.log(`   Unit: ${index.unit}`);
+    if (index.creator) {
+        console.log(`   Creator: ${index.creator}`);
+    }
+    if (index.oracleType !== undefined) {
+        const oracleTypeName = ORACLE_TYPE_NAMES[index.oracleType] || `Type ${index.oracleType}`;
+        console.log(`   Oracle: ${oracleTypeName}`);
+    }
     console.log('');
 }
 
@@ -653,7 +687,10 @@ async function setChainlinkOracleAddress(chainlinkOracleAddress, privateKey) {
         
         console.log(`🔗 Setting Default Chainlink Oracle to: ${chainlinkOracleAddress}`);
         
-        const tx = await contract.setChainlinkOracle(chainlinkOracleAddress);
+        const tx = await contract.setChainlinkOracle(chainlinkOracleAddress, {
+            gasPrice: ethers.utils.parseUnits('0.002', 'gwei'),
+            gasLimit: 150000
+        });
         console.log(`⏳ Transaction Hash: ${tx.hash}`);
         console.log('⏳ Waiting for confirmation...');
         
@@ -860,11 +897,16 @@ async function setIndexOracleType(indexId, oracleType, privateKey) {
         console.log(`🆔 Index ID: ${indexId}`);
         console.log(`🔧 Oracle Type: ${oracleTypeName}`);
         
+        const gasSettings = {
+            gasPrice: ethers.utils.parseUnits('0.002', 'gwei'),
+            gasLimit: 120000
+        };
+        
         let tx;
         if (indexId <= 5) {
-            tx = await contract.setIndexOracleType(indexId, oracleType);
+            tx = await contract.setIndexOracleType(indexId, oracleType, gasSettings);
         } else {
-            tx = await contract.setCustomIndexOracleType(indexId, oracleType);
+            tx = await contract.setCustomIndexOracleType(indexId, oracleType, gasSettings);
         }
         
         console.log(`⏳ Transaction Hash: ${tx.hash}`);
@@ -916,7 +958,10 @@ async function batchSetOracleTypes(indexIds, oracleTypes, privateKey) {
             console.log(`   Index ${id}: ${typeName}`);
         });
         
-        const tx = await contract.batchSetOracleType(indexIds, oracleTypes);
+        const tx = await contract.batchSetOracleType(indexIds, oracleTypes, {
+            gasPrice: ethers.utils.parseUnits('0.002', 'gwei'),
+            gasLimit: 300000
+        });
         console.log(`⏳ Transaction Hash: ${tx.hash}`);
         console.log('⏳ Waiting for confirmation...');
         
@@ -1057,7 +1102,11 @@ async function createNewIndexWithChainlinkOracle(name, initialValue, sourceUrl, 
             initialValue, 
             sourceUrl, 
             oracleType,
-            oracleAddress
+            oracleAddress,
+            {
+                gasPrice: ethers.utils.parseUnits('0.002', 'gwei'),
+                gasLimit: 250000
+            }
         );
         console.log(`⏳ Transaction Hash: ${tx.hash}`);
         console.log('⏳ Waiting for confirmation...');
@@ -1121,6 +1170,149 @@ async function getIndexOracleType(indexId) {
 }
 
 // ===================================================================
+// CREATOR FUNCTIONS
+// ===================================================================
+
+/**
+ * Get the creator of an index
+ */
+async function getIndexCreator(indexId) {
+    try {
+        const { contract } = await initializeOracle();
+        
+        const creator = await contract.getIndexCreator(indexId);
+        
+        return {
+            success: true,
+            indexId: indexId,
+            creator: creator
+        };
+        
+    } catch (error) {
+        console.error(`❌ Failed to get creator for index ${indexId}:`, error.message);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Check if the current user is the creator of an index
+ */
+async function isIndexCreator(indexId, privateKey = null) {
+    try {
+        const { contract } = await initializeOracle(privateKey);
+        
+        const isCreator = await contract.isIndexCreator(indexId);
+        
+        return {
+            success: true,
+            indexId: indexId,
+            isCreator: isCreator
+        };
+        
+    } catch (error) {
+        console.error(`❌ Failed to check creator for index ${indexId}:`, error.message);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Get detailed index information including creator
+ */
+async function getIndexDetails(indexId) {
+    console.log(`🔍 Getting Detailed Index Information for ID: ${indexId}`);
+    console.log('===================================================');
+    
+    try {
+        const { contract } = await initializeOracle();
+        
+        const [value, timestamp, sourceUrl, isActive, oracleType, creator] = await contract.getIndexDetails(indexId);
+        
+        const indexDetails = {
+            id: indexId,
+            type: indexId <= 5 ? 'predefined' : 'custom',
+            name: indexId <= 5 ? INDEX_NAMES[indexId] : `Custom Index ${indexId}`,
+            symbol: indexId <= 5 ? INDEX_SYMBOLS[indexId] : `CUSTOM${indexId}`,
+            value: value.toString(),
+            timestamp: new Date(timestamp.toNumber() * 1000).toISOString(),
+            sourceUrl: sourceUrl,
+            isActive: isActive,
+            oracleType: oracleType,
+            oracleTypeName: ORACLE_TYPE_NAMES[oracleType] || `Type ${oracleType}`,
+            creator: creator,
+            unit: indexId <= 5 ? INDEX_UNITS[indexId] : 'Custom Unit',
+            formatted: indexId <= 5 ? formatIndexValue(indexId, value) : value.toString()
+        };
+        
+        console.log(`✅ Retrieved index details:`);
+        console.log(`   Name: ${indexDetails.name} (${indexDetails.symbol})`);
+        console.log(`   Value: ${indexDetails.formatted}`);
+        console.log(`   Creator: ${indexDetails.creator}`);
+        console.log(`   Oracle Type: ${indexDetails.oracleTypeName}`);
+        console.log(`   Active: ${indexDetails.isActive}`);
+        console.log(`   Updated: ${indexDetails.timestamp}\n`);
+        
+        return {
+            success: true,
+            index: indexDetails
+        };
+        
+    } catch (error) {
+        console.error(`❌ Failed to get index details for ${indexId}:`, error.message);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Get all custom indices with creator information
+ */
+async function getAllCustomIndicesWithCreators() {
+    console.log('📊 Getting All Custom Indices with Creator Information');
+    console.log('======================================================');
+    
+    try {
+        const { contract } = await initializeOracle();
+        
+        const [indexIds, values, timestamps, activeStates, creators] = await contract.getAllCustomIndicesWithCreators();
+        
+        const customIndices = [];
+        
+        for (let i = 0; i < indexIds.length; i++) {
+            try {
+                const [, , sourceUrl] = await contract.customIndexData(indexIds[i]);
+                
+                customIndices.push({
+                    id: indexIds[i].toNumber(),
+                    type: 'custom',
+                    name: `Custom Index ${indexIds[i]}`,
+                    symbol: `CUSTOM${indexIds[i]}`,
+                    value: values[i].toString(),
+                    timestamp: new Date(timestamps[i].toNumber() * 1000).toISOString(),
+                    sourceUrl: sourceUrl,
+                    isActive: activeStates[i],
+                    creator: creators[i],
+                    unit: 'Custom Unit',
+                    formatted: values[i].toString()
+                });
+            } catch (error) {
+                console.warn(`Warning: Could not fetch details for custom index ${indexIds[i]}: ${error.message}`);
+            }
+        }
+        
+        console.log(`✅ Found ${customIndices.length} custom indices with creator information\n`);
+        
+        return {
+            success: true,
+            indices: customIndices,
+            count: customIndices.length
+        };
+        
+    } catch (error) {
+        console.error('❌ Failed to get custom indices with creators:', error.message);
+        return { success: false, error: error.message };
+    }
+}
+
+// ===================================================================
 // EXPORTS
 // ===================================================================
 
@@ -1153,6 +1345,12 @@ module.exports = {
     createNewIndexWithOracleType,
     createNewIndexWithChainlinkOracle,
     getIndexOracleType,
+    
+    // Creator Functions
+    getIndexCreator,
+    isIndexCreator,
+    getIndexDetails,
+    getAllCustomIndicesWithCreators,
     
     // Utilities
     formatIndexValue,

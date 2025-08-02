@@ -49,7 +49,7 @@ node test-index-order-creator.js   # Test order creation
 
 | File | Purpose | Deployed Address |
 |------|---------|------------------|
-| `contracts/MockIndexOracle.sol` | **Hybrid Index Oracle** | `0x8a585F9B2359Ef093E8a2f5432F387960e953BD2` |
+| `contracts/MockIndexOracle.sol` | **Hybrid Index Oracle** | `0x3073D2b5e72c48f16Ee99700BC07737b8ecd8709` |
 | `contracts/EPSConsumer.sol` | **Alpha Vantage EPS Consumer** | `0xc4e07abf90C493968cd9216320c2349F9490552b` |
 | `contracts/ChainlinkIndexOracle.sol` | **Chainlink Functions Oracle** | *Deploy with script* |
 
@@ -213,7 +213,7 @@ PRIVATE_KEY=0xYourPrivateKey                    # Your wallet private key
 ONEINCH_API_KEY=YourAPIKey                      # 1inch API key
 CHAIN_ID=8453                                   # Base mainnet
 RPC_URL=https://base.llamarpc.com               # Base RPC
-INDEX_ORACLE_ADDRESS=0x8a585F9B2359Ef093E8a2f5432F387960e953BD2         # Oracle contract
+INDEX_ORACLE_ADDRESS=0x3073D2b5e72c48f16Ee99700BC07737b8ecd8709         # Oracle contract
 ```
 
 ### Supported Tokens (Base Mainnet)
@@ -318,7 +318,7 @@ This comprehensive test demonstrates **all oracle functionality**:
 
 **🎯 Expected Results:**
 ```bash
-✅ Oracle operational at 0x8a585F9B2359Ef093E8a2f5432F387960e953BD2
+✅ Oracle operational at 0x3073D2b5e72c48f16Ee99700BC07737b8ecd8709
 ✅ Found 6 predefined indices
 ✅ Created custom index 6 with transaction hash
 ✅ Updated index 6 to 50000  
@@ -569,7 +569,7 @@ CHAINLINK_SUBSCRIPTION_ID=123      # Your subscription ID
 - **1inch API**: https://docs.1inch.io/
 - **Base Network**: https://base.org/
 - **Chainlink Functions**: https://docs.chain.link/chainlink-functions
-- **Mock Oracle Contract**: `0x8a585F9B2359Ef093E8a2f5432F387960e953BD2`
+- **Mock Oracle Contract**: `0x3073D2b5e72c48f16Ee99700BC07737b8ecd8709`
 - **EPS Consumer Contract**: `0xc4e07abf90C493968cd9216320c2349F9490552b`
 - **Chainlink Functions Console**: https://functions.chain.link/
 
