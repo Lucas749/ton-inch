@@ -14,8 +14,8 @@ export default function Home() {
   const router = useRouter();
   const { indices: blockchainIndices } = useBlockchain();
 
-  // Get blockchain indices 0-4 for featured section with appropriate icons
-  const featuredBlockchainIndices = blockchainIndices.slice(0, 5);
+  // Get blockchain indices 0-3 for featured section with appropriate icons
+  const featuredBlockchainIndices = blockchainIndices.slice(0, 4);
   
   // Icon mapping for blockchain indices based on what they represent
   const getIconForIndex = (index: any) => {
@@ -46,9 +46,9 @@ export default function Home() {
     }
   };
 
-  // Custom blockchain indices - exclude featured (0-4) and sort by most recent
+  // Custom blockchain indices - exclude featured (0-3) and sort by most recent
   const customBlockchainIndices = blockchainIndices
-    .filter(index => index.id > 4) // Exclude featured indices 0-4
+    .filter(index => index.id > 3) // Exclude featured indices 0-3
     .sort((a, b) => b.id - a.id); // Sort by most recent (highest ID first)
 
   // Top AlphaVantage categories
@@ -92,7 +92,7 @@ export default function Home() {
         <div className="container mx-auto px-4 relative z-10">
           <div className="max-w-7xl mx-auto">
             {/* Main Content */}
-            <div className="text-center mb-16">
+            <div className="text-center mb-16 pt-16">
               {/* Main Headline */}
               <h1 className="text-5xl md:text-7xl lg:text-8xl font-black mb-8 leading-tight">
                 <span className="text-white">Trade When</span>
@@ -204,7 +204,7 @@ export default function Home() {
             </Button>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {featuredBlockchainIndices.length > 0 ? featuredBlockchainIndices.map((index) => (
               <Card 
                 key={index.id} 
@@ -327,9 +327,9 @@ export default function Home() {
                         {stock.change}
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+              </div>
+            </CardContent>
+          </Card>
             ))}
           </div>
         </div>
@@ -364,9 +364,9 @@ export default function Home() {
                         {crypto.change}
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+              </div>
+            </CardContent>
+          </Card>
             ))}
           </div>
         </div>
@@ -401,9 +401,9 @@ export default function Home() {
                         {item.change}
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+              </div>
+            </CardContent>
+          </Card>
             ))}
           </div>
         </div>
