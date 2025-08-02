@@ -1,4 +1,6 @@
 import { Hex } from "viem";
+import { OrderCacheService, SavedFusionOrder } from './order-cache-service';
+import { tokenService } from './token-service';
 
 // Type definitions for window.ethereum
 declare global {
@@ -708,6 +710,9 @@ export class OneInchService {
           status: submitResponse.status
         });
 
+        // Save order to cache for tracking
+        await this.saveOrderToCache(orderResponse.order, submitResponse, params);
+
         return {
           orderHash: submitResponse.orderHash,
           message: submitResponse.message
@@ -730,6 +735,110 @@ export class OneInchService {
         orderHash: orderResponse.orderHash || "fallback",
         message: "Order processed via fallback method"
       };
+    }
+  }
+
+  /**
+   * Save completed order to browser cache for tracking
+   */
+  private async saveOrderToCache(
+    order: any, 
+    submitResponse: { orderHash: string; status: string; message: string; estimatedFillTime?: string }, 
+    params: IntentSwapParams
+  ): Promise<void> {
+    try {
+      console.log('💾 Saving order to cache...');
+
+      // Get token details for both from and to tokens
+      const [fromTokenDetails, toTokenDetails] = await Promise.all([
+        tokenService.getTokenDetails(params.srcToken),
+        tokenService.getTokenDetails(params.dstToken)
+      ]);
+
+      if (!fromTokenDetails || !toTokenDetails) {
+        console.warn('⚠️ Could not get token details, skipping cache save');
+        return;
+      }
+
+      // Create formatted amounts for display
+      const fromAmountFormatted = OrderCacheService.formatTokenAmount(
+        params.amount, 
+        fromTokenDetails.decimals, 
+        fromTokenDetails.symbol
+      );
+      
+      const toAmountFormatted = OrderCacheService.formatTokenAmount(
+        order.toAmount, 
+        toTokenDetails.decimals, 
+        toTokenDetails.symbol
+      );
+
+      // Calculate estimated price
+      const estimatedPrice = OrderCacheService.calculatePrice(
+        params.amount,
+        order.toAmount,
+        fromTokenDetails.decimals,
+        toTokenDetails.decimals,
+        fromTokenDetails.symbol,
+        toTokenDetails.symbol
+      );
+
+      // Create saved order object
+      const savedOrder: SavedFusionOrder = {
+        orderHash: submitResponse.orderHash,
+        timestamp: Date.now(),
+        date: new Date().toISOString(),
+        status: 'submitted',
+
+        // Token details
+        fromToken: {
+          address: fromTokenDetails.address,
+          symbol: fromTokenDetails.symbol,
+          name: fromTokenDetails.name,
+          decimals: fromTokenDetails.decimals
+        },
+        toToken: {
+          address: toTokenDetails.address,
+          symbol: toTokenDetails.symbol,
+          name: toTokenDetails.name,
+          decimals: toTokenDetails.decimals
+        },
+
+        // Amounts
+        fromAmount: params.amount,
+        toAmount: order.toAmount,
+        fromAmountFormatted,
+        toAmountFormatted,
+
+        // Execution details
+        walletAddress: params.walletAddress,
+        chainId: params.chainId || BASE_MAINNET_CHAIN_ID.toString(),
+        preset: params.preset || 'fast',
+        estimatedFillTime: submitResponse.estimatedFillTime,
+
+        // Order details
+        signature: '', // We don't store the signature for security
+        nonce: order.nonce,
+        validUntil: order.validUntil,
+
+        // Price info
+        estimatedPrice
+      };
+
+      // Save to localStorage
+      OrderCacheService.saveOrder(savedOrder);
+
+      console.log('✅ Order saved to cache:', {
+        orderHash: savedOrder.orderHash,
+        fromToken: savedOrder.fromToken.symbol,
+        toToken: savedOrder.toToken.symbol,
+        fromAmount: savedOrder.fromAmountFormatted,
+        toAmount: savedOrder.toAmountFormatted
+      });
+
+    } catch (error) {
+      console.error('❌ Failed to save order to cache:', error);
+      // Don't throw - this is not critical to the swap flow
     }
   }
 }

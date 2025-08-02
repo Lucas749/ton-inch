@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { WalletConnect } from "@/components/WalletConnect";
+import { FusionOrdersView } from "@/components/FusionOrdersView";
 import { 
   Plus, 
   TrendingUp, 
@@ -224,10 +225,11 @@ export default function Dashboard() {
 
             {/* Main Content Tabs */}
             <Tabs value={selectedTab} onValueChange={handleTabChange} className="space-y-6">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="indices">My Indices</TabsTrigger>
                 <TabsTrigger value="orders">My Orders</TabsTrigger>
+                <TabsTrigger value="fusion-orders">Fusion Orders</TabsTrigger>
           </TabsList>
 
               {/* Overview Tab */}
@@ -550,6 +552,12 @@ export default function Dashboard() {
                   </div>
                 )}
           </TabsContent>
+
+          {/* Fusion Orders Tab */}
+          <TabsContent value="fusion-orders" className="space-y-6">
+            <FusionOrdersView walletAddress={isConnected ? window?.ethereum?.selectedAddress : undefined} />
+          </TabsContent>
+
         </Tabs>
           </>
         )}
