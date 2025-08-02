@@ -7,86 +7,76 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { IndicesExplorer } from '@/components/IndicesExplorer';
-import { TrendingUp, BarChart3, ArrowRight, Sparkles, Activity, Users, Zap, Crown, Star } from 'lucide-react';
+import { useBlockchain } from '@/hooks/useBlockchain';
+import { TrendingUp, BarChart3, ArrowRight, Sparkles, Activity, Users, Zap, Crown, Star, DollarSign, Bitcoin, TrendingDown } from 'lucide-react';
 
 export default function Home() {
   const router = useRouter();
+  const { indices: blockchainIndices } = useBlockchain();
 
-  // Featured campaigns data (cookie.fun style)
-  const featuredCampaigns = [
+  // Get blockchain indices 0-4 for featured section
+  const featuredBlockchainIndices = blockchainIndices.slice(0, 5);
+
+  // Custom indices data (renamed from Market Events)
+  const customIndices = [
     {
       id: 1,
-      name: "AI Index",
-      symbol: "AI",
-      avatar: "🤖",
-      change: "+12.4%",
-      color: "bg-blue-500",
-      participants: "2.4K",
-      volume: "$890K",
-      isPositive: true
-    },
-    {
-      id: 2,
-      name: "DeFi Pulse",
-      symbol: "DEFI",
-      avatar: "🔗",
-      change: "+8.7%",
-      color: "bg-purple-500",
-      participants: "1.8K",
-      volume: "$654K",
-      isPositive: true
-    },
-    {
-      id: 3,
-      name: "Green Energy",
-      symbol: "GREEN",
-      avatar: "🌱",
-      change: "-2.1%",
-      color: "bg-green-500",
-      participants: "965",
-      volume: "$234K",
-      isPositive: false
-    }
-  ];
-
-  // Market events data
-  const marketEvents = [
-    {
-      id: 1,
-      title: "Fed Rate Decision",
-      time: "2h ago",
-      impact: "high",
-      category: "Economics",
-      icon: "🏛️",
-      participants: ["TSLA", "AAPL", "BTC"]
-    },
-    {
-      id: 2,
-      title: "Earnings Season Peak",
-      time: "5h ago",
-      impact: "medium",
-      category: "Stocks",
-      icon: "📊",
-      participants: ["MSFT", "GOOGL", "META"]
-    },
-    {
-      id: 3,
-      title: "Crypto Rally Continues",
-      time: "1d ago",
-      impact: "high",
-      category: "Crypto",
+      title: "Tech Innovation Index",
+      time: "Live",
+      status: "active",
+      category: "Custom",
       icon: "🚀",
-      participants: ["BTC", "ETH", "SOL"]
+      participants: ["AI", "Cloud", "Semis"],
+      performance: "+15.2%"
+    },
+    {
+      id: 2,
+      title: "ESG Leaders Basket",
+      time: "Live", 
+      status: "active",
+      category: "Custom",
+      icon: "🌱",
+      participants: ["TSLA", "MSFT", "NVDA"],
+      performance: "+8.7%"
+    },
+    {
+      id: 3,
+      title: "Dividend Aristocrats",
+      time: "Live",
+      status: "active", 
+      category: "Custom",
+      icon: "💎",
+      participants: ["KO", "JNJ", "PG"],
+      performance: "+4.1%"
     },
     {
       id: 4,
-      title: "Oil Prices Surge",
-      time: "2d ago",
-      impact: "medium",
-      category: "Commodities",
-      icon: "🛢️",
-      participants: ["WTI", "BRENT"]
+      title: "Volatility Hedge",
+      time: "Live",
+      status: "active",
+      category: "Custom", 
+      icon: "🛡️",
+      participants: ["VIX", "GOLD", "TLT"],
+      performance: "-2.3%"
     }
+  ];
+
+  // Top AlphaVantage categories
+  const topStocks = [
+    { name: "Apple Inc.", symbol: "AAPL", avatar: "🍎", change: "+2.1%", price: "$150.25", isPositive: true },
+    { name: "Tesla Inc.", symbol: "TSLA", avatar: "🚗", change: "+5.7%", price: "$238.50", isPositive: true },
+    { name: "Microsoft", symbol: "MSFT", avatar: "🖥️", change: "+1.8%", price: "$378.85", isPositive: true }
+  ];
+
+  const cryptoDefi = [
+    { name: "Bitcoin", symbol: "BTC", avatar: "₿", change: "+0.17%", price: "$113.4K", isPositive: true },
+    { name: "Ethereum", symbol: "ETH", avatar: "Ξ", change: "+3.2%", price: "$2,845", isPositive: true }
+  ];
+
+  const commoditiesForex = [
+    { name: "WTI Crude Oil", symbol: "WTI", avatar: "🛢️", change: "+1.5%", price: "$72.45", isPositive: true },
+    { name: "Gold", symbol: "GLD", avatar: "🥇", change: "-0.8%", price: "$2,045", isPositive: false },
+    { name: "EUR/USD", symbol: "EURUSD", avatar: "💱", change: "-0.3%", price: "1.0845", isPositive: false }
   ];
 
   return (
@@ -94,7 +84,7 @@ export default function Home() {
       <Navbar />
       
       <main className="container mx-auto px-4 py-6">
-        {/* Featured Campaigns Section - Cookie.fun style */}
+        {/* Featured Blockchain Indices Section */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold text-gray-900 flex items-center">
@@ -106,72 +96,73 @@ export default function Home() {
             </Button>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {featuredCampaigns.map((campaign) => (
-              <Card key={campaign.id} className="hover:shadow-lg transition-all duration-200 cursor-pointer border border-gray-200">
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            {featuredBlockchainIndices.length > 0 ? featuredBlockchainIndices.map((index) => (
+              <Card 
+                key={index.id} 
+                className="hover:shadow-lg transition-all duration-200 cursor-pointer border border-gray-200"
+                onClick={() => router.push(`/index/blockchain_${index.id}`)}
+              >
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center space-x-3">
-                      <div className={`w-10 h-10 rounded-full ${campaign.color} flex items-center justify-center text-white text-lg font-bold`}>
-                        {campaign.avatar}
+                      <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white text-lg font-bold">
+                        📊
                       </div>
                       <div>
-                        <div className="font-semibold text-gray-900">{campaign.name}</div>
-                        <div className="text-sm text-gray-500">@{campaign.symbol.toLowerCase()}</div>
+                        <div className="font-semibold text-gray-900">{index.name || `Index ${index.id}`}</div>
+                        <div className="text-sm text-gray-500">#{index.id}</div>
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <div className={`text-sm font-medium ${campaign.isPositive ? 'text-green-600' : 'text-red-600'}`}>
-                        {campaign.change}
-                      </div>
-                      <div className="text-xs text-gray-500">{campaign.participants} traders</div>
                     </div>
                   </div>
                   <div className="flex items-center justify-between text-xs text-gray-500">
-                    <span>Volume: {campaign.volume}</span>
-                    <Badge variant="secondary" className="text-xs">Active</Badge>
+                    <span>Value: {(index.value / 100).toFixed(2)}</span>
+                    <Badge variant="secondary" className="text-xs">Blockchain</Badge>
                   </div>
                 </CardContent>
               </Card>
-            ))}
+            )) : (
+              <div className="col-span-full text-center py-8">
+                <div className="text-gray-500">Connect wallet to view blockchain indices</div>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Market Events Section - Horizontal scroll like cookie.fun */}
+        {/* Custom Indices Section - Renamed from Market Events */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold text-gray-900 flex items-center">
               <Activity className="w-5 h-5 mr-2 text-orange-500" />
-              Market Events
+              Custom Indices
             </h2>
             <Button variant="ghost" size="sm" className="text-orange-600 hover:text-orange-700">
-              See all events <ArrowRight className="w-4 h-4 ml-1" />
+              Create custom <ArrowRight className="w-4 h-4 ml-1" />
             </Button>
           </div>
           
           <div className="flex space-x-4 overflow-x-auto pb-4">
-            {marketEvents.map((event) => (
-              <Card key={event.id} className="min-w-[280px] hover:shadow-md transition-all duration-200 cursor-pointer border border-gray-200">
+            {customIndices.map((index) => (
+              <Card key={index.id} className="min-w-[280px] hover:shadow-md transition-all duration-200 cursor-pointer border border-gray-200">
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center space-x-2">
-                      <span className="text-lg">{event.icon}</span>
+                      <span className="text-lg">{index.icon}</span>
                       <div>
-                        <div className="font-medium text-gray-900 text-sm">{event.title}</div>
-                        <div className="text-xs text-gray-500">{event.time}</div>
+                        <div className="font-medium text-gray-900 text-sm">{index.title}</div>
+                        <div className="text-xs text-gray-500">{index.time}</div>
                       </div>
                     </div>
-                    <Badge 
-                      variant={event.impact === 'high' ? 'destructive' : 'secondary'}
-                      className="text-xs"
-                    >
-                      {event.impact}
-                    </Badge>
+                    <div className={`text-xs font-medium px-2 py-1 rounded ${
+                      index.performance.startsWith('+') ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'
+                    }`}>
+                      {index.performance}
+                    </div>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-500">{event.category}</span>
+                    <span className="text-xs text-gray-500">{index.category}</span>
                     <div className="flex space-x-1">
-                      {event.participants.slice(0, 3).map((participant, idx) => (
+                      {index.participants.slice(0, 3).map((participant, idx) => (
                         <Badge key={idx} variant="outline" className="text-xs px-1 py-0">
                           {participant}
                         </Badge>
@@ -184,8 +175,125 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Main Indices Table - Cookie.fun style */}
-        <IndicesExplorer />
+        {/* Top Stocks Section */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center">
+              <TrendingUp className="w-5 h-5 mr-2 text-green-500" />
+              Top Stocks
+            </h2>
+            <Button variant="ghost" size="sm" className="text-green-600 hover:text-green-700">
+              View all stocks <ArrowRight className="w-4 h-4 ml-1" />
+            </Button>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {topStocks.map((stock) => (
+              <Card key={stock.symbol} className="hover:shadow-md transition-all duration-200 cursor-pointer border border-gray-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <span className="text-2xl">{stock.avatar}</span>
+                      <div>
+                        <div className="font-medium text-gray-900">{stock.name}</div>
+                        <div className="text-sm text-gray-500">{stock.symbol}</div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-semibold text-gray-900">{stock.price}</div>
+                      <div className={`text-sm ${stock.isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                        {stock.change}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+
+        {/* Crypto & DeFi Section */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center">
+              <Bitcoin className="w-5 h-5 mr-2 text-orange-500" />
+              Crypto & DeFi
+            </h2>
+            <Button variant="ghost" size="sm" className="text-orange-600 hover:text-orange-700">
+              View all crypto <ArrowRight className="w-4 h-4 ml-1" />
+            </Button>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {cryptoDefi.map((crypto) => (
+              <Card key={crypto.symbol} className="hover:shadow-md transition-all duration-200 cursor-pointer border border-gray-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <span className="text-2xl">{crypto.avatar}</span>
+                      <div>
+                        <div className="font-medium text-gray-900">{crypto.name}</div>
+                        <div className="text-sm text-gray-500">{crypto.symbol}</div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-semibold text-gray-900">{crypto.price}</div>
+                      <div className={`text-sm ${crypto.isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                        {crypto.change}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+
+        {/* Commodities & Forex Section */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center">
+              <DollarSign className="w-5 h-5 mr-2 text-yellow-500" />
+              Commodities & Forex
+            </h2>
+            <Button variant="ghost" size="sm" className="text-yellow-600 hover:text-yellow-700">
+              View all markets <ArrowRight className="w-4 h-4 ml-1" />
+            </Button>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {commoditiesForex.map((item) => (
+              <Card key={item.symbol} className="hover:shadow-md transition-all duration-200 cursor-pointer border border-gray-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <span className="text-2xl">{item.avatar}</span>
+                      <div>
+                        <div className="font-medium text-gray-900">{item.name}</div>
+                        <div className="text-sm text-gray-500">{item.symbol}</div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-semibold text-gray-900">{item.price}</div>
+                      <div className={`text-sm ${item.isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                        {item.change}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+
+        {/* Main Indices Table - Cookie.fun style (filtered) */}
+        <IndicesExplorer 
+          excludeSymbols={[
+            'AAPL', 'TSLA', 'MSFT',  // Shown in Top Stocks
+            'BTC', 'ETH',            // Shown in Crypto & DeFi
+            'WTI', 'GLD', 'EURUSD'   // Shown in Commodities & Forex
+          ]}
+        />
 
         {/* Bottom Stats Section */}
         <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-6">

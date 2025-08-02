@@ -114,7 +114,11 @@ function createAlphaVantageUrl(index: RealIndexData): string {
   return buildUrl(index.symbol, index.category);
 }
 
-export function IndicesExplorer() {
+interface IndicesExplorerProps {
+  excludeSymbols?: string[];
+}
+
+export function IndicesExplorer({ excludeSymbols = [] }: IndicesExplorerProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [indices, setIndices] = useState<RealIndexData[]>([]);
@@ -308,7 +312,10 @@ export function IndicesExplorer() {
     // Exclude indices that are available as contract indices
     const isNotAvailableContract = !availableContractSymbols.includes(index.symbol);
     
-    return matchesSearch && matchesCategory && isNotAvailableContract;
+    // Exclude indices that are shown in the sections above
+    const isNotInExcludeList = !excludeSymbols.includes(index.symbol);
+    
+    return matchesSearch && matchesCategory && isNotAvailableContract && isNotInExcludeList;
   });
 
   // Filter blockchain indices by category as well
@@ -510,7 +517,7 @@ export function IndicesExplorer() {
         <div className="space-y-6">
           {/* Table Header */}
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-gray-900">Market Overview</h2>
+            <h2 className="text-xl font-bold text-gray-900">Additional Markets</h2>
             <div className="text-sm text-gray-500">
               {filteredContractIndices.length + filteredIndices.length} indices
             </div>
