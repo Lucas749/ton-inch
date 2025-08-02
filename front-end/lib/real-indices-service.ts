@@ -238,8 +238,8 @@ export class RealIndicesService {
       const commodityData = await this.alphaVantageService.getCommodity(commoditySymbol as any);
       
       if (commodityData && commodityData.data && commodityData.data.length > 0) {
-        const latestData = commodityData.data[commodityData.data.length - 1];
-        const previousData = commodityData.data[commodityData.data.length - 2];
+        const latestData = commodityData.data[0]; // Most recent data is first
+        const previousData = commodityData.data[1]; // Previous period data
         
         const price = parseFloat(latestData.value);
         const previousPrice = previousData ? parseFloat(previousData.value) : price;
@@ -274,8 +274,8 @@ export class RealIndicesService {
       const economicData = await this.alphaVantageService.getEconomicIndicator(indicator as any);
       
       if (economicData && economicData.data && economicData.data.length > 0) {
-        const latestData = economicData.data[economicData.data.length - 1];
-        const previousData = economicData.data[economicData.data.length - 2];
+        const latestData = economicData.data[0]; // Most recent data is first
+        const previousData = economicData.data[1]; // Previous period data
         
         const value = parseFloat(latestData.value);
         const previousValue = previousData ? parseFloat(previousData.value) : value;
