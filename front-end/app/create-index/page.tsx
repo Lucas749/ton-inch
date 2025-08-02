@@ -20,6 +20,7 @@ import {
 import { useBlockchain } from "@/hooks/useBlockchain";
 import { useOrders, OPERATORS } from "@/hooks/useOrders";
 import { blockchainService, CustomIndex, Order, CONTRACTS } from "@/lib/blockchain-service";
+import { SwapBox } from "@/components/SwapBox";
 
 interface IndexWithOrders extends CustomIndex {
   orders: Order[];
@@ -464,6 +465,17 @@ export default function CreateIndex() {
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* Quick Swap Box */}
+                <SwapBox
+                  walletAddress={walletAddress}
+                  apiKey={process.env.NEXT_PUBLIC_ONEINCH_API_KEY}
+                  rpcUrl={process.env.NEXT_PUBLIC_ALCHEMY_API_KEY
+                    ? `https://base-sepolia.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`
+                    : "https://sepolia.base.org"
+                  }
+                  indexName={selectedIndex.name || `Index ${selectedIndex.id}`}
+                />
 
                 {/* Orders List */}
                 <Card>

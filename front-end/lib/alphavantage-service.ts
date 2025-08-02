@@ -270,7 +270,8 @@ export class AlphaVantageService {
   }
 
   private async callAPI<T>(params: Record<string, string>): Promise<T> {
-    const url = new URL(this.baseUrl);
+    // Use our proxy endpoint to avoid CORS issues
+    const url = new URL('/api/alphavantage', window.location.origin);
     url.searchParams.set("apikey", this.config.apiKey);
     
     Object.entries(params).forEach(([key, value]) => {
