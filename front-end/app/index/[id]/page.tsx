@@ -485,11 +485,6 @@ export default function IndexDetailPage({ params }: { params: { id: string } }) 
       volume24h: "1.2M",
       marketCap: "N/A",
       chartData: [95, 97, 100, 98, 102, 100, 105, 100, 108, 103, 100],
-      communityData: {
-        positivePercent: 52.3,
-        negativePercent: 47.7,
-        totalCalls: "125 calls"
-      },
       socialFeed: [
         {
           id: 1,
