@@ -240,6 +240,9 @@ export class BlockchainIndices {
                 
                 if (symbolParam) {
                   alphaVantageSymbol = symbolParam.toUpperCase();
+                } else if (functionParam) {
+                  // Use function name as symbol for commodities, etc.
+                  alphaVantageSymbol = functionParam.toUpperCase();
                 }
                 
                 // Simple category assignment based on function/symbol
@@ -327,12 +330,21 @@ export class BlockchainIndices {
         throw new Error("Oracle contract not initialized");
       }
 
-      const result = await this.oracle.methods.getIndexValue(indexId).call();
+      let result;
       
-      if (!result || !result[0] || result[0] === "0") {
+      if (indexId <= 5) {
+        // Predefined index (0-5) - use indexData method
+        result = await this.oracle.methods.indexData(indexId).call();
+      } else {
+        // Custom index (6+) - use customIndexData method
+        result = await this.oracle.methods.customIndexData(indexId).call();
+      }
+      
+      if (!result || !result[0]) {
         throw new Error(`Index ${indexId} does not exist or has no value`);
       }
 
+      // Result format: [value, timestamp, sourceUrl, isActive, oracleType]
       return {
         value: Number(result[0]),
         timestamp: Number(result[1])

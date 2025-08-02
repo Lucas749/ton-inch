@@ -165,6 +165,22 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
   const isAvailableOnBlockchain = blockchainIndexId !== null || index.isBlockchainIndex;
   const blockchainIndex = blockchainIndices.find(idx => idx.id === blockchainIndexId);
 
+  // Update realIndexData with blockchain parsed names when available
+  useEffect(() => {
+    if (blockchainIndex && blockchainIndex.name && !blockchainIndex.name.startsWith('Custom Index')) {
+      console.log(`🔗 Updating index detail page with blockchain data: "${blockchainIndex.name}"`);
+      setRealIndexData(prev => ({
+        ...prev,
+        name: blockchainIndex.name,
+        symbol: blockchainIndex.symbol || prev.symbol,
+        avatar: blockchainIndex.avatar || prev.avatar,
+        color: blockchainIndex.color || prev.color,  
+        category: blockchainIndex.category || prev.category,
+        description: blockchainIndex.description || prev.description
+      }));
+    }
+  }, [blockchainIndex]);
+
   // Load real Alpha Vantage data for this index
   const loadRealIndexData = async () => {
     try {
