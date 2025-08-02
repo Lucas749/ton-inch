@@ -427,9 +427,22 @@ async function createIndexBasedOrderStandalone(params: any) {
   console.log('==============================================\n');
   
   try {
+    // Debug log the received parameters
+    console.log('🔍 Received parameters:', Object.keys(params));
+    console.log('🔍 Parameters check:', {
+      hasFromToken: !!params.fromToken,
+      hasToToken: !!params.toToken,
+      hasAmount: !!params.amount,
+      hasExpectedAmount: !!params.expectedAmount,
+      hasCondition: !!params.condition,
+      hasWalletAddress: !!params.walletAddress,
+      hasOneInchApiKey: !!params.oneInchApiKey
+    });
+    
     // Validate parameters
     const validation = validateOrderParams(params);
     if (!validation.isValid) {
+      console.log('❌ Validation errors:', validation.errors);
       throw new Error(`Validation failed: ${validation.errors.join(', ')}`);
     }
     
