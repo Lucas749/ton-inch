@@ -332,7 +332,7 @@ export default function Dashboard() {
                             <div>
                               <h4 className="font-semibold text-gray-900">{order.description}</h4>
                               <p className="text-sm text-gray-600 mt-1">
-                                Index {order.indexId} • {getOperatorName(String(order.operator))} {order.threshold}
+                                Index {order.indexId} • {getOperatorName(order.operator)} {String(order.threshold)}
                               </p>
                             </div>
                             <Badge variant="default" className="bg-green-100 text-green-800">
@@ -347,7 +347,7 @@ export default function Dashboard() {
                             </div>
                             <div className="bg-purple-50 p-3 rounded-lg">
                               <p className="text-xs text-purple-600 font-medium">TO</p>
-                              <p className="font-semibold text-purple-900">{order.toAmount || (order as any).expectedAmount || 'N/A'} {order.toToken}</p>
+                              <p className="font-semibold text-purple-900">{order.toAmount || order.expectedAmount || 'N/A'} {order.toToken}</p>
                             </div>
                           </div>
                           
@@ -415,7 +415,7 @@ export default function Dashboard() {
                             <div>
                               <h4 className="font-medium text-gray-900">{order.description}</h4>
                               <p className="text-sm text-gray-600">
-                                Index {order.indexId} • {getOperatorName(String(order.operator))} {order.threshold}
+                                Index {order.indexId} • {getOperatorName(order.operator)} {String(order.threshold)}
                               </p>
                             </div>
                             <Badge 

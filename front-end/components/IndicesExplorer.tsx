@@ -396,13 +396,7 @@ export function IndicesExplorer({ excludeSymbols = [] }: IndicesExplorerProps) {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="text-center">
-        <h2 className="text-3xl font-bold text-gray-900 mb-4">Indices Explorer</h2>
-        <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-          Discover market indices and blockchain indices. Request market data or add on-chain indices for conditional trading.
-        </p>
-      </div>
+
 
       {/* Search and Filter */}
       <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">

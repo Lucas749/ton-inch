@@ -7,13 +7,15 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { IndicesExplorer } from '@/components/IndicesExplorer';
+import { CustomIndexDialog } from '@/components/CustomIndexDialog';
+import { WalletConnect } from '@/components/WalletConnect';
 import { useBlockchain } from '@/hooks/useBlockchain';
-import { TrendingUp, BarChart3, ArrowRight, Sparkles, Activity, Users, Zap, Crown, Star, DollarSign, Bitcoin, TrendingDown, Target, Globe, Layers, ShieldCheck } from 'lucide-react';
+import { TrendingUp, BarChart3, ArrowRight, Sparkles, Activity, Users, Zap, Crown, Star, DollarSign, Bitcoin, TrendingDown, Target, Globe, Layers, ShieldCheck, Plus } from 'lucide-react';
 
 
 export default function Home() {
   const router = useRouter();
-  const { indices: blockchainIndices } = useBlockchain();
+  const { indices: blockchainIndices, isConnected, refreshIndices } = useBlockchain();
 
   // Get blockchain indices 0-2 for featured section with appropriate icons
   const featuredBlockchainIndices = blockchainIndices.slice(0, 3);
@@ -200,9 +202,7 @@ export default function Home() {
               <Sparkles className="w-5 h-5 mr-2 text-blue-500" />
               Featured Indices
             </h2>
-            <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700">
-              View all <ArrowRight className="w-4 h-4 ml-1" />
-            </Button>
+
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -245,9 +245,21 @@ export default function Home() {
               <Activity className="w-5 h-5 mr-2 text-orange-500" />
               Custom Indices
             </h2>
-            <Button variant="ghost" size="sm" className="text-orange-600 hover:text-orange-700">
-              Create custom <ArrowRight className="w-4 h-4 ml-1" />
-            </Button>
+            {isConnected && (
+              <CustomIndexDialog 
+                onIndexCreated={(indexId) => {
+                  console.log(`🎉 New custom index created with ID: ${indexId}`);
+                  // Refresh blockchain indices to show the new index
+                  refreshIndices();
+                }}
+                trigger={
+                  <Button variant="default" size="sm">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create Custom Index
+                  </Button>
+                }
+              />
+            )}
           </div>
           
           <div className="flex space-x-4 overflow-x-auto pb-4">
@@ -305,9 +317,7 @@ export default function Home() {
               <TrendingUp className="w-5 h-5 mr-2 text-green-500" />
               Top Stocks
             </h2>
-            <Button variant="ghost" size="sm" className="text-green-600 hover:text-green-700">
-              View all stocks <ArrowRight className="w-4 h-4 ml-1" />
-            </Button>
+
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -342,9 +352,7 @@ export default function Home() {
               <Bitcoin className="w-5 h-5 mr-2 text-orange-500" />
               Crypto & DeFi
             </h2>
-            <Button variant="ghost" size="sm" className="text-orange-600 hover:text-orange-700">
-              View all crypto <ArrowRight className="w-4 h-4 ml-1" />
-            </Button>
+
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -379,9 +387,7 @@ export default function Home() {
               <DollarSign className="w-5 h-5 mr-2 text-yellow-500" />
               Commodities & Forex
             </h2>
-            <Button variant="ghost" size="sm" className="text-yellow-600 hover:text-yellow-700">
-              View all markets <ArrowRight className="w-4 h-4 ml-1" />
-            </Button>
+
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
