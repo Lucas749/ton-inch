@@ -10,15 +10,7 @@ import type { Order, OrderParams } from "./blockchain-types";
 import type { BlockchainWallet } from "./blockchain-wallet";
 import type { BlockchainTokens } from "./blockchain-tokens";
 
-// 1inch SDK imports
-import { 
-  LimitOrder, 
-  MakerTraits, 
-  Address, 
-  randBigInt, 
-  ExtensionBuilder
-} from '@1inch/limit-order-sdk';
-import { ethers } from 'ethers';
+// Note: 1inch SDK imports removed - now using backend API
 
 // Configuration matching backend
 const CONFIG = {
@@ -72,118 +64,90 @@ export class BlockchainOrders {
   // SDK initialization removed - using direct LimitOrder creation instead
 
   /**
-   * Create a new order with index condition (using 1inch SDK)
+   * Create a new order with index condition (using backend API)
    */
   async createOrder(params: OrderParams): Promise<Order | null> {
     try {
-      console.log("🔄 Creating order with 1inch SDK:", params);
+      console.log("🔄 Creating order via backend API:", params);
       
       if (!this.wallet.isWalletConnected() || !this.wallet.currentAccount) {
         throw new Error("Wallet not connected. Please connect your wallet first.");
       }
 
-      // For now, create order locally without SDK submission
-      console.log('🚀 Creating order locally (SDK submission requires proper auth setup)...');
+      // Get private key from wallet for server-side signing
+      const privateKey = await this.wallet.getPrivateKeyForDemo();
+      if (!privateKey) {
+        throw new Error("Could not get private key from wallet");
+      }
 
-      // Get token info
-      const fromToken = this.getTokenInfo(params.fromToken);
-      const toToken = this.getTokenInfo(params.toToken);
-      
-      console.log(`📊 Trading: ${params.fromAmount} ${fromToken.symbol} → ${params.toAmount} ${toToken.symbol}`);
+      // Prepare order parameters for backend API (matching backend format)
+      const orderParams = {
+        fromToken: params.fromToken, // Token address
+        toToken: params.toToken,     // Token address
+        amount: params.fromAmount,   // Amount to sell
+        expectedAmount: params.toAmount, // Expected amount to receive
+        condition: {
+          indexId: params.indexId,
+          operator: this.mapOperatorToString(params.operator),
+          threshold: params.threshold,
+          description: params.description
+        },
+        expirationHours: params.expiry ? Math.floor(params.expiry / 3600) : 24, // Convert seconds to hours
+        privateKey: privateKey,
+        oneInchApiKey: process.env.NEXT_PUBLIC_ONEINCH_API_KEY
+      };
 
-      // Parse amounts (ethers v6 syntax)
-      const makingAmount = ethers.parseUnits(params.fromAmount.toString(), fromToken.decimals);
-      const takingAmount = ethers.parseUnits(params.toAmount.toString(), toToken.decimals);
+      console.log('🚀 Calling backend API to create order...');
 
-      // Create index predicate
-      console.log('🔮 Creating index predicate...');
-      const predicate = this.createIndexPredicate({
-        indexId: params.indexId,
-        operator: this.mapOperatorToString(params.operator),
-        threshold: params.threshold
+      // Call the backend API
+      const response = await fetch('/api/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'create-order',
+          ...orderParams
+        })
       });
 
-      // Create extension with predicate
-      const extension = new ExtensionBuilder()
-        .withPredicate(predicate)
-        .build();
-      
-      console.log('✅ Extension created with predicate');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || errorData.error || 'Failed to create order');
+      }
 
-      // Setup timing (matching backend pattern)
-      const expirationHours = params.expiry ? Math.floor(params.expiry / 3600) : 24; // Convert seconds to hours, default 24
-      const expiration = BigInt(Math.floor(Date.now() / 1000) + (expirationHours * 3600));
-      const UINT_40_MAX = BigInt(2 ** 40 - 1);
-      
-      console.log(`⏰ Order expires in ${expirationHours} hours`);
+      const result = await response.json();
 
-      // Create MakerTraits
-      const makerTraits = MakerTraits.default()
-        .withExpiration(expiration)
-        .withNonce(randBigInt(UINT_40_MAX))
-        .allowPartialFills()
-        .allowMultipleFills()
-        .withExtension();
+      if (!result.success) {
+        throw new Error(result.message || result.error || 'Order creation failed');
+      }
 
-      console.log('🔧 Creating order...');
-
-      // Create order using 1inch LimitOrder (simplified for frontend)
-      const order = new LimitOrder({
-        salt: randBigInt(BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff')),
-        maker: new Address(this.wallet.currentAccount),
-        receiver: new Address(this.wallet.currentAccount),
-        makerAsset: new Address(fromToken.address),
-        takerAsset: new Address(toToken.address),
-        makingAmount: makingAmount,
-        takingAmount: takingAmount
-      }, makerTraits, extension);
-
-      const orderHash = order.getOrderHash(CONFIG.CHAIN_ID);
-      console.log(`✅ Order created: ${orderHash}`);
-
-      // Sign order using wallet
-      console.log('✍️ Signing order...');
-      const typedData = order.getTypedData(CONFIG.CHAIN_ID);
-      
-      // Use the wallet's signTypedData method
-      const signature = await this.wallet.signTypedDataV4(typedData);
-      console.log('✅ Order signed');
-
-      // Submit order to 1inch (optional - for now just create locally)
-      console.log('📤 Order created locally (1inch API submission requires auth key)');
-      let submitResult = null;
-      // Note: submitOrder would require 1inch API key for production
-      // try {
-      //   submitResult = await this.sdk.submitOrder(order, signature);
-      //   console.log('✅ Order submitted successfully!');
-      // } catch (error) {
-      //   console.log(`⚠️ Submit failed: ${error.message}`);
-      // }
+      console.log('✅ Order created successfully via backend:', result.orderHash);
 
       // Clear cache so new order appears
       this.clearOrderCache(params.indexId);
 
-      // Return order object
+      // Convert backend result to frontend Order format
       return {
-        hash: orderHash,
+        hash: result.orderHash,
         indexId: params.indexId,
         operator: params.operator,
         threshold: params.threshold,
         description: params.description,
         makerAsset: params.fromToken,
         takerAsset: params.toToken,
-        makingAmount: makingAmount.toString(),
-        takingAmount: takingAmount.toString(),
+        makingAmount: result.order?.makingAmount || '0',
+        takingAmount: result.order?.takingAmount || '0',
         fromToken: params.fromToken,
         toToken: params.toToken,
         fromAmount: params.fromAmount,
         toAmount: params.toAmount,
         maker: this.wallet.currentAccount,
         receiver: this.wallet.currentAccount,
-        expiry: Number(expiration),
-        status: submitResult ? "active" : "active" as const,
+        expiry: Math.floor(Date.now() / 1000) + (orderParams.expirationHours * 3600),
+        status: result.submission?.submitted ? "active" : "active" as const,
         createdAt: Date.now(),
-        transactionHash: orderHash // In 1inch, orderHash is the primary identifier
+        transactionHash: result.orderHash
       };
 
     } catch (error) {

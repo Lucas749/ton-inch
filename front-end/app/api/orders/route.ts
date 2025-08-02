@@ -139,9 +139,80 @@ export async function POST(request: NextRequest) {
         }, { status: 500 });
       }
 
+    } else if (action === 'create-order') {
+      const { 
+        fromToken,
+        toToken, 
+        amount,
+        expectedAmount,
+        condition,
+        expirationHours,
+        privateKey,
+        oneInchApiKey
+      } = body;
+
+      if (!fromToken || !toToken || !amount || !expectedAmount || !condition || !privateKey || !oneInchApiKey) {
+        return NextResponse.json({ 
+          error: 'Missing required parameters: fromToken, toToken, amount, expectedAmount, condition, privateKey, oneInchApiKey' 
+        }, { status: 400 });
+      }
+
+      try {
+        // Import the backend order creator
+        const backendPath = path.join(process.cwd(), '../backend/src/index-order-creator.js');
+        const { createIndexBasedOrder } = require(backendPath);
+
+        console.log('🚀 Creating index-based order via backend logic');
+
+        // Create the order using the backend logic
+        const orderParams = {
+          fromToken,
+          toToken,
+          amount,
+          expectedAmount,
+          condition,
+          expirationHours: expirationHours || 24,
+          privateKey,
+          oneInchApiKey
+        };
+
+        const result = await createIndexBasedOrder(orderParams);
+
+        if (result.success) {
+          console.log('✅ Order created successfully:', result.orderHash);
+          
+          return NextResponse.json({
+            success: true,
+            orderHash: result.orderHash,
+            order: result.order,
+            condition: result.condition,
+            submission: result.submission,
+            technical: result.technical,
+            message: `Order ${result.orderHash} created successfully!`
+          }, {
+            headers: {
+              'Access-Control-Allow-Origin': '*',
+              'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+              'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+            },
+          });
+        } else {
+          throw new Error(result.error || 'Failed to create order');
+        }
+
+      } catch (backendError: any) {
+        console.error('❌ Backend order creation error:', backendError);
+        return NextResponse.json({
+          error: 'Failed to create order',
+          message: backendError.message || 'Backend order creation error',
+          details: backendError.toString(),
+          code: backendError.code || 'UNKNOWN_ERROR'
+        }, { status: 500 });
+      }
+
     } else {
       return NextResponse.json({ 
-        error: 'Invalid action. Use "cancel-order"' 
+        error: 'Invalid action. Use "cancel-order" or "create-order"' 
       }, { status: 400 });
     }
 
