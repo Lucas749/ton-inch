@@ -178,111 +178,38 @@ export class BlockchainIndices {
             console.log(`🔍 SourceUrl exists and trimmed: ${!!(sourceUrl && sourceUrl.trim())}`);
             if (sourceUrl && sourceUrl.trim()) {
               console.log(`🔍 Entering URL parsing logic for index ${id}`);
-              try {
-                const url = new URL(sourceUrl);
-                const functionParam = url.searchParams.get('function');
-                const symbolParam = url.searchParams.get('symbol');
-                console.log(`🔍 Extracted from URL - function: "${functionParam}", symbol: "${symbolParam}"`);
-                
-                // Generic Alpha Vantage URL parsing
-                const extractNameFromAlphaVantageURL = (functionParam: string | null, symbolParam: string | null, url: URL) => {
-                  console.log(`🔍 extractNameFromAlphaVantageURL called with: function="${functionParam}", symbol="${symbolParam}"`);
+              
+              // Simple and direct Alpha Vantage URL parsing
+              if (sourceUrl.includes('alphavantage.co')) {
+                console.log(`🔍 Detected Alpha Vantage URL for index ${id}`);
+                try {
+                  const url = new URL(sourceUrl);
+                  const functionParam = url.searchParams.get('function');
+                  const symbolParam = url.searchParams.get('symbol');
+                  console.log(`🔍 Extracted from URL - function: "${functionParam}", symbol: "${symbolParam}"`);
                   
-                  // Priority 1: If we have a symbol, use it as the primary identifier
+                  // Direct name extraction - no complex logic
                   if (symbolParam) {
-                    console.log(`🔍 Taking symbolParam path with: "${symbolParam}"`);
-                  } else {
-                    console.log(`🔍 No symbolParam, checking functionParam: "${functionParam}"`);
-                  }
-                  
-                  if (symbolParam) {
-                    const symbol = symbolParam.toUpperCase();
-                    
-                    // Add function-specific suffixes for clarity
-                    if (functionParam) {
-                      const func = functionParam.toLowerCase();
-                      if (func.includes('earnings')) {
-                        return { name: `${symbol} EPS`, desc: `${symbol} earnings data` };
-                      } else if (func.includes('balance') || func.includes('income') || func.includes('cash')) {
-                        return { name: `${symbol} Financials`, desc: `${symbol} financial statements` };
-                      } else if (func.includes('overview')) {
-                        return { name: `${symbol} Overview`, desc: `${symbol} company overview` };
-                      } else if (func.includes('digital') || func.includes('crypto')) {
-                        return { name: symbol, desc: `${symbol} cryptocurrency` };
-                      } else if (func.includes('fx') || func.includes('currency_exchange')) {
-                        return { name: symbol, desc: `${symbol} forex rate` };
-                      } else if (func.includes('global_quote') || func.includes('quote') || func.includes('daily') || func.includes('weekly') || func.includes('monthly')) {
-                        return { name: symbol, desc: `${symbol} stock price` };
-                      } else {
-                        // Generic function with symbol
-                        const cleanFunc = func.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-                        return { name: symbol, desc: `${symbol} ${cleanFunc.toLowerCase()}` };
-                      }
-                    } else {
-                      // Just symbol, assume it's a stock quote
-                      return { name: symbol, desc: `${symbol} price data` };
+                    name = symbolParam.toUpperCase();
+                    if (functionParam && functionParam.toLowerCase().includes('earnings')) {
+                      name = `${symbolParam.toUpperCase()} EPS`;
                     }
+                    console.log(`✅ Using symbol-based name: "${name}"`);
+                  } else if (functionParam) {
+                    // For CORN, GOLD, etc. - just capitalize the function name
+                    name = functionParam.charAt(0).toUpperCase() + functionParam.slice(1).toLowerCase();
+                    console.log(`✅ Using function-based name: "${name}"`);
                   }
                   
-                  // Priority 2: If we have a function but no symbol, extract from function name
-                  if (functionParam) {
-                    console.log(`🔍 Priority 2: Processing functionParam: "${functionParam}"`);
-                    const func = functionParam.toLowerCase();
-                    console.log(`🔍 Lowercase function: "${func}"`);
-                    
-                    // Check if the function itself is a ticker/commodity symbol
-                    const commonSymbols = [
-                      'corn', 'wheat', 'wti', 'brent', 'natural_gas', 'copper', 'aluminum', 
-                      'zinc', 'nickel', 'gold', 'silver', 'platinum', 'palladium',
-                      'usd', 'eur', 'gbp', 'jpy', 'aud', 'cad', 'chf'
-                    ];
-                    
-                    console.log(`🔍 Checking if "${func}" is in commonSymbols:`, commonSymbols.includes(func));
-                    
-                    if (commonSymbols.some(sym => func.includes(sym))) {
-                      const cleanName = func.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-                      console.log(`🔍 Found commodity/forex! Returning: name="${cleanName}"`);
-                      return { name: cleanName, desc: `${cleanName} commodity/forex rate` };
-                    }
-                    
-                    // Generic function name cleanup
-                    const cleanFunc = func.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-                    console.log(`🔍 Generic function cleanup: "${cleanFunc}"`);
-                    return { name: cleanFunc, desc: `${cleanFunc} data from Alpha Vantage` };
-                  }
+                  description = `${name} tracked via Alpha Vantage`;
+                  console.log(`✅ Final result for index ${id}: name="${name}", desc="${description}"`);
                   
-                  // Priority 3: Extract from other URL parameters
-                  console.log(`🔍 Priority 3: Checking other URL parameters`);
-                  const market = url.searchParams.get('market');
-                  const fromSymbol = url.searchParams.get('from_symbol'); 
-                  const toSymbol = url.searchParams.get('to_symbol');
-                  
-                  if (fromSymbol && toSymbol) {
-                    console.log(`🔍 Found forex pair: ${fromSymbol}/${toSymbol}`);
-                    return { name: `${fromSymbol}/${toSymbol}`, desc: `${fromSymbol} to ${toSymbol} exchange rate` };
-                  }
-                  
-                  if (market) {
-                    console.log(`🔍 Found market: ${market}`);
-                    return { name: market.toUpperCase(), desc: `${market.toUpperCase()} market data` };
-                  }
-                  
-                  // Fallback: Use hostname
-                  console.log(`🔍 Using fallback: Alpha Vantage Data`);
-                  return { name: 'Alpha Vantage Data', desc: 'Financial data from Alpha Vantage' };
-                };
-                
-                console.log(`🔍 About to call extractNameFromAlphaVantageURL with function: "${functionParam}", symbol: "${symbolParam}"`);
-                const { name: extractedName, desc: extractedDesc } = extractNameFromAlphaVantageURL(functionParam, symbolParam, url);
-                console.log(`🔍 extractNameFromAlphaVantageURL returned: name="${extractedName}", desc="${extractedDesc}"`);
-                
-                name = extractedName;
-                description = `${extractedDesc} tracked via Alpha Vantage`;
-                
-                console.log(`📊 Final extracted name from Alpha Vantage URL: "${name}" (function: ${functionParam}, symbol: ${symbolParam})`);
-              } catch (urlError) {
-                console.warn(`Could not parse sourceUrl for index ${id}:`, urlError);
-                // Keep the default name and description
+                } catch (urlError) {
+                  console.warn(`Could not parse sourceUrl for index ${id}:`, urlError);
+                  // Keep the default name and description
+                }
+              } else {
+                console.log(`🔍 Not an Alpha Vantage URL for index ${id}`);
               }
             } else {
               console.log(`🔍 SourceUrl for index ${id} is empty or whitespace only`);
@@ -293,7 +220,7 @@ export class BlockchainIndices {
           
           console.log(`🔍 Final name for index ${id} after URL processing: "${name}"`);
           
-          // Extract additional market data from Alpha Vantage URL
+          // Extract additional market data from Alpha Vantage URL - simplified
           let alphaVantageSymbol = null;
           let category = 'Custom';
           let avatar = '🔗';
@@ -301,7 +228,7 @@ export class BlockchainIndices {
           
           if (indexDetails && indexDetails.length >= 3) {
             const sourceUrl = indexDetails[2];
-            if (sourceUrl && sourceUrl.trim()) {
+            if (sourceUrl && sourceUrl.includes('alphavantage.co')) {
               try {
                 const url = new URL(sourceUrl);
                 const functionParam = url.searchParams.get('function');
@@ -311,64 +238,42 @@ export class BlockchainIndices {
                   alphaVantageSymbol = symbolParam.toUpperCase();
                 }
                 
-                // Set category and avatar based on Alpha Vantage function - generic approach
-                const getCategoryAndIcon = (functionParam: string | null, symbolParam: string | null, extractedName: string) => {
-                  if (!functionParam) return { category: 'Custom', avatar: '🔗', color: 'bg-blue-500' };
-                  
+                // Simple category assignment based on function/symbol
+                if (symbolParam) {
+                  // Has symbol - likely a stock, crypto, or specific asset
+                  if (functionParam && functionParam.toLowerCase().includes('earnings')) {
+                    category = 'Stocks';
+                    avatar = '📊';
+                    color = 'bg-green-500';
+                  } else if (functionParam && functionParam.toLowerCase().includes('digital')) {
+                    category = 'Crypto';
+                    avatar = '₿';
+                    color = 'bg-orange-500';
+                  } else {
+                    category = 'Stocks';
+                    avatar = '📈';
+                    color = 'bg-green-500';
+                  }
+                } else if (functionParam) {
                   const func = functionParam.toLowerCase();
-                  
-                  // Crypto detection
-                  if (func.includes('digital') || func.includes('crypto') || func.includes('bitcoin') || func.includes('ethereum')) {
-                    return { category: 'Crypto', avatar: '₿', color: 'bg-orange-500' };
+                  // Commodities like CORN, GOLD, etc.
+                  const commodities = ['corn', 'wheat', 'wti', 'brent', 'gold', 'silver', 'copper', 'oil', 'gas'];
+                  if (commodities.some(c => func.includes(c))) {
+                    category = 'Commodities';
+                    avatar = '🌾';
+                    color = 'bg-yellow-500';
+                  } else if (func.includes('fx') || func.includes('currency')) {
+                    category = 'Forex';
+                    avatar = '💱';
+                    color = 'bg-purple-500';
+                  } else {
+                    category = 'Economics';
+                    avatar = '📊';
+                    color = 'bg-red-500';
                   }
-                  
-                  // Forex detection
-                  if (func.includes('fx') || func.includes('currency') || func.includes('exchange') || 
-                      (symbolParam && symbolParam.match(/^[A-Z]{3}$/))) {
-                    return { category: 'Forex', avatar: '💱', color: 'bg-purple-500' };
-                  }
-                  
-                  // Commodities detection (function name or symbol patterns)
-                  const commodityKeywords = ['corn', 'wheat', 'wti', 'brent', 'oil', 'gas', 'copper', 'aluminum', 
-                                           'zinc', 'nickel', 'gold', 'silver', 'platinum', 'palladium'];
-                  if (commodityKeywords.some(keyword => func.includes(keyword) || extractedName.toLowerCase().includes(keyword))) {
-                    return { category: 'Commodities', avatar: '🌾', color: 'bg-yellow-500' };
-                  }
-                  
-                  // ETF detection
-                  if (func.includes('etf') || (symbolParam && symbolParam.match(/ETF$/i))) {
-                    return { category: 'ETFs', avatar: '📦', color: 'bg-indigo-500' };
-                  }
-                  
-                  // Economics/Macro detection
-                  if (func.includes('gdp') || func.includes('inflation') || func.includes('unemployment') || 
-                      func.includes('treasury') || func.includes('fed') || func.includes('economic')) {
-                    return { category: 'Economics', avatar: '📊', color: 'bg-red-500' };
-                  }
-                  
-                  // Indices detection (S&P, NASDAQ, etc.)
-                  if (func.includes('index') || (symbolParam && symbolParam.match(/^(\^|SPX|NDX|RUT)/))) {
-                    return { category: 'Indices', avatar: '📈', color: 'bg-blue-600' };
-                  }
-                  
-                  // Financial statements (earnings, balance sheet, income, cash flow)
-                  if (func.includes('earnings') || func.includes('balance') || func.includes('income') || func.includes('cash')) {
-                    return { category: 'Stocks', avatar: '📊', color: 'bg-green-500' };
-                  }
-                  
-                  // Default to Stocks for most other cases with symbols
-                  if (symbolParam || func.includes('quote') || func.includes('daily') || func.includes('weekly') || func.includes('monthly')) {
-                    return { category: 'Stocks', avatar: '📈', color: 'bg-green-500' };
-                  }
-                  
-                  // Generic fallback
-                  return { category: 'Custom', avatar: '📊', color: 'bg-gray-500' };
-                };
+                }
                 
-                const categoryData = getCategoryAndIcon(functionParam, symbolParam, name);
-                category = categoryData.category;
-                avatar = categoryData.avatar;
-                color = categoryData.color;
+                console.log(`🎨 Set category for index ${id}: ${category} (${avatar})`);
               } catch (urlError) {
                 console.warn(`Could not parse sourceUrl for market data for index ${id}:`, urlError);
               }

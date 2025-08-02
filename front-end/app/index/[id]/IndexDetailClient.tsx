@@ -212,10 +212,16 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
       // Helper function to fetch token price data using crypto API
       const fetchTokenData = async (tokenSymbol: string) => {
         try {
-          console.log(`📈 Fetching crypto data for ${tokenSymbol}`);
+          // Map wrapped tokens to their base tokens for Alpha Vantage
+          const alphaVantageSymbol = tokenSymbol === 'WETH' ? 'ETH' : 
+                                   tokenSymbol === 'WBTC' ? 'BTC' : 
+                                   tokenSymbol;
+          
+          console.log(`📈 Fetching crypto data for ${tokenSymbol} (using ${alphaVantageSymbol})`);
           // Use crypto API for all tokens - Alpha Vantage will handle the lookup
-          const response = await alphaVantageService.getCryptoTimeSeries(tokenSymbol, 'USD', 'daily');
-          return AlphaVantageService.parseTimeSeriesData(response);
+          const response = await alphaVantageService.getCryptoTimeSeries(alphaVantageSymbol, 'USD', 'daily');
+          // Parse crypto response directly since it has different structure
+          return AlphaVantageService.parseTimeSeriesData(response as any);
         } catch (error) {
           console.warn(`⚠️ Could not load crypto data for ${tokenSymbol}:`, error);
           return [];
@@ -393,6 +399,9 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
         fromTokenBasePrice = 
           tokenSymbol === 'BTC' || tokenSymbol === 'WBTC' ? 45000 : 
           tokenSymbol === 'ETH' || tokenSymbol === 'WETH' ? 2500 : 
+          tokenSymbol === 'ADA' ? 0.5 :
+          tokenSymbol === 'DOT' ? 15 :
+          tokenSymbol === 'SOL' ? 100 :
           400; // Default for other tokens
       }
       
@@ -401,6 +410,9 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
         toTokenBasePrice = 
           tokenSymbol === 'BTC' || tokenSymbol === 'WBTC' ? 45000 : 
           tokenSymbol === 'ETH' || tokenSymbol === 'WETH' ? 2500 : 
+          tokenSymbol === 'ADA' ? 0.5 :
+          tokenSymbol === 'DOT' ? 15 :
+          tokenSymbol === 'SOL' ? 100 :
           400; // Default for other tokens
       }
       
@@ -682,13 +694,33 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
                   <CardTitle>
-                    {fromToken || toToken ? 'Price Analysis (3 Months)' : 'Price Chart (3 Months)'}
+                    {fromToken || toToken ? 'Price Trend Comparison (3 Months)' : 'Price Chart (3 Months)'}
                   </CardTitle>
                   <div className="text-sm text-gray-500">
                     {chartError ? (
                       <span className="text-orange-600">{chartError} - Showing fallback data</span>
                     ) : fromToken || toToken ? (
-                      `${realIndexData.symbol} with ${[fromToken?.symbol, toToken?.symbol].filter(Boolean).join(' & ')} tokens (Last 90 days)`
+                      <div className="space-y-1">
+                        <div>{`Compare ${realIndexData.symbol} trends with ${[fromToken?.symbol, toToken?.symbol].filter(Boolean).join(' & ')} (Last 90 days)`}</div>
+                        <div className="flex items-center space-x-4 text-xs">
+                          <div className="flex items-center space-x-1">
+                            <div className="w-3 h-0.5 bg-blue-500"></div>
+                            <span style={{color: '#3b82f6'}}>{realIndexData.symbol} (Left axis)</span>
+                          </div>
+                          {fromToken && !shouldSkipToken(fromToken.symbol) && (
+                            <div className="flex items-center space-x-1">
+                              <div className="w-3 h-0.5 bg-green-500 border-dashed border border-green-500"></div>
+                              <span style={{color: '#10b981'}}>{fromToken.symbol} (Right axis)</span>
+                            </div>
+                          )}
+                          {toToken && !shouldSkipToken(toToken.symbol) && (
+                            <div className="flex items-center space-x-1">
+                              <div className="w-3 h-0.5 bg-orange-500" style={{borderTop: '1px dashed #f59e0b'}}></div>
+                              <span style={{color: '#f59e0b'}}>{toToken.symbol} (Right axis)</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     ) : (
                       `Historical ${realIndexData.symbol} data from Alpha Vantage (Last 90 days)`
                     )}
@@ -734,9 +766,11 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                             day: 'numeric' 
                           })}
                         />
+                        {/* Left Y-axis for main asset price (primary focus) */}
                         {/* @ts-ignore */}
                         <YAxis 
-                          tick={{ fontSize: 12 }}
+                          yAxisId="left"
+                          tick={{ fontSize: 12, fill: '#3b82f6' }}
                           tickFormatter={(value) => 
                             realIndexData.category === 'Forex' 
                               ? value.toFixed(4)
@@ -745,6 +779,22 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                                 : `$${value.toFixed(2)}`
                           }
                         />
+                        {/* Right Y-axis for token prices */}
+                        {((fromToken && !shouldSkipToken(fromToken.symbol)) || (toToken && !shouldSkipToken(toToken.symbol))) && (
+                          /* @ts-ignore */
+                          <YAxis
+                            yAxisId="right"
+                            orientation="right"
+                            tick={{ fontSize: 12, fill: '#10b981' }}
+                            tickFormatter={(value) => 
+                              value >= 1000000 
+                                ? `$${(value / 1000000).toFixed(1)}M`
+                                : value >= 1000 
+                                  ? `$${(value / 1000).toFixed(1)}K`
+                                  : `$${value.toFixed(0)}`
+                            }
+                          />
+                        )}
                         <Tooltip
                           labelFormatter={(value) => new Date(value).toLocaleDateString('en-US', {
                             year: 'numeric',
@@ -769,17 +819,19 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                             borderRadius: '6px'
                           }}
                         />
+                        {/* Main asset price line (primary focus, left axis) */}
                         {/* @ts-ignore */}
                         <Line
                           type="monotone"
                           dataKey="price"
                           stroke="#3b82f6"
-                          strokeWidth={2}
+                          strokeWidth={3}
                           name="price"
                           dot={false}
-                          activeDot={{ r: 4, fill: "#3b82f6" }}
+                          activeDot={{ r: 5, fill: "#3b82f6" }}
+                          yAxisId="left"
                         />
-                        {/* Show fromToken line if available */}
+                        {/* Show fromToken line if available (right axis) */}
                         {fromToken && !shouldSkipToken(fromToken.symbol) && (
                           /* @ts-ignore */
                           <Line
@@ -787,13 +839,15 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                             dataKey="fromTokenPrice"
                             stroke="#10b981"
                             strokeWidth={2}
+                            strokeDasharray="5 5"
                             name="fromTokenPrice"
                             dot={false}
                             activeDot={{ r: 4, fill: "#10b981" }}
+                            yAxisId="right"
                           />
                         )}
                         
-                        {/* Show toToken line if available */}
+                        {/* Show toToken line if available (right axis) */}
                         {toToken && !shouldSkipToken(toToken.symbol) && (
                           /* @ts-ignore */
                           <Line
@@ -801,9 +855,11 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                             dataKey="toTokenPrice"
                             stroke="#f59e0b"
                             strokeWidth={2}
+                            strokeDasharray="3 3"
                             name="toTokenPrice"
                             dot={false}
                             activeDot={{ r: 4, fill: "#f59e0b" }}
+                            yAxisId="right"
                           />
                         )}
                       </LineChart>
