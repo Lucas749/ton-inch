@@ -4,6 +4,7 @@
  */
 
 import { Web3 } from "web3";
+import { ethers } from "ethers";
 import { CONTRACTS, ABIS, OPERATORS, INDICES } from "./blockchain-constants";
 import { retryWithBackoff, parseTokenAmount } from "./blockchain-utils";
 import type { Order, OrderParams } from "./blockchain-types";
@@ -74,13 +75,15 @@ export class BlockchainOrders {
         throw new Error("Wallet not connected. Please connect your wallet first.");
       }
 
-      // Get private key from wallet for server-side signing
-      const privateKey = await this.wallet.getPrivateKeyForDemo();
-      if (!privateKey) {
-        throw new Error("Could not get private key from wallet");
+      // Use the user's actual connected wallet address - NO private key needed!
+      const userWalletAddress = this.wallet.currentAccount;
+      if (!userWalletAddress) {
+        throw new Error("No wallet address available");
       }
 
-      // Prepare order parameters for backend API (matching backend format)
+      console.log(`🔍 Using actual user wallet: ${userWalletAddress}`);
+
+      // Prepare order parameters for backend API (using user's wallet)
       const orderParams = {
         fromToken: params.fromToken, // Token address
         toToken: params.toToken,     // Token address
@@ -93,7 +96,7 @@ export class BlockchainOrders {
           description: params.description
         },
         expirationHours: params.expiry ? Math.floor(params.expiry / 3600) : 24, // Convert seconds to hours
-        privateKey: privateKey,
+        walletAddress: userWalletAddress, // Use actual user wallet
         oneInchApiKey: process.env.NEXT_PUBLIC_ONEINCH_API_KEY
       };
 

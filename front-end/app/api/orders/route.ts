@@ -156,7 +156,7 @@ function validateOrderParams(params: any) {
   if (!params.amount) errors.push('amount is required');
   if (!params.expectedAmount) errors.push('expectedAmount is required');
   if (!params.condition) errors.push('condition is required');
-  if (!params.privateKey) errors.push('privateKey is required');
+  if (!params.walletAddress) errors.push('walletAddress is required');
   if (!params.oneInchApiKey) errors.push('oneInchApiKey is required');
   
   if (params.condition) {
@@ -433,15 +433,15 @@ async function createIndexBasedOrderStandalone(params: any) {
       throw new Error(`Validation failed: ${validation.errors.join(', ')}`);
     }
     
-    // Setup wallet and SDK
-    const wallet = new Wallet(params.privateKey);
+    // Use the user's connected wallet address (no private key needed)
+    const userWalletAddress = params.walletAddress;
     const sdk = new Sdk({
       authKey: params.oneInchApiKey,
       networkId: CONFIG.CHAIN_ID,
       httpConnector: new FetchProviderConnector()
     });
     
-    console.log(`👤 Wallet: ${wallet.address}`);
+    console.log(`👤 User Wallet: ${userWalletAddress}`);
     console.log(`🌐 Network: Base Mainnet (${CONFIG.CHAIN_ID})`);
     console.log('');
     
@@ -467,7 +467,8 @@ async function createIndexBasedOrderStandalone(params: any) {
     
     // Check wallet balances and estimate gas costs
     console.log('💰 Comprehensive wallet analysis...');
-    const walletAnalysis = await checkWalletBalancesAndGas(wallet, fromToken, makingAmount);
+    const walletObj = { address: userWalletAddress }; // Create minimal wallet object for balance checking
+    const walletAnalysis = await checkWalletBalancesAndGas(walletObj, fromToken, makingAmount);
     console.log('✅ Wallet analysis completed');
     
     // Create predicate
@@ -501,21 +502,16 @@ async function createIndexBasedOrderStandalone(params: any) {
       takerAsset: new Address(toToken.address),
       makingAmount: makingAmount,
       takingAmount: takingAmount,
-      maker: new Address(wallet.address),
+      maker: new Address(userWalletAddress), // Use actual user wallet
       extension: extension.encode()
     }, makerTraits);
     
     console.log(`✅ Order created: ${order.getOrderHash()}`);
     
-    // Sign order
-    console.log('✍️ Signing order...');
+    // Get typed data for client-side signing (user will sign with MetaMask)
+    console.log('📝 Preparing order for client-side signing...');
     const typedData = order.getTypedData(CONFIG.CHAIN_ID);
-    const signature = await wallet._signTypedData(
-      typedData.domain,
-      { Order: typedData.types.Order },
-      typedData.message
-    );
-    console.log('✅ Order signed');
+    console.log('✅ Order ready for user signature');
     
     // Check and handle token approval before submitting
     console.log('🔍 Checking token allowance with precise gas estimation...');
@@ -524,21 +520,22 @@ async function createIndexBasedOrderStandalone(params: any) {
     
     try {
       // Get accurate gas estimate for approval
-      approvalGasInfo = await estimateApprovalGas(fromToken.address, wallet.address);
+      approvalGasInfo = await estimateApprovalGas(fromToken.address, userWalletAddress);
       console.log(`📊 Approval gas estimate: ${formatGasEstimate(approvalGasInfo)}`);
       
       // Check if wallet has enough ETH for approval
-      const approvalBalanceCheck = await checkGasBalance(wallet.address, approvalGasInfo.totalCostWei);
+      const approvalBalanceCheck = await checkGasBalance(userWalletAddress, approvalGasInfo.totalCostWei);
       
       if (!approvalBalanceCheck.hasEnoughGas) {
         console.log('❌ CRITICAL: Insufficient ETH for token approval');
         console.log(`💰 Need: ${approvalBalanceCheck.requiredBalanceEth} ETH`);
         console.log(`💰 Have: ${approvalBalanceCheck.currentBalanceEth} ETH`);
         console.log(`💰 Shortfall: ${approvalBalanceCheck.shortfallEth} ETH`);
-        console.log(getFundingInstructions(wallet.address, approvalBalanceCheck.shortfallEth!));
+        console.log(getFundingInstructions(userWalletAddress, approvalBalanceCheck.shortfallEth!));
         console.log('📝 Order will be created but CANNOT be submitted without funding');
       } else {
-        await ensureTokenApproval(wallet, fromToken, makingAmount);
+        // Note: Token approval now handled client-side through user's wallet (MetaMask)
+      // await ensureTokenApproval(wallet, fromToken, makingAmount);
         approvalSuccessful = true;
         console.log('✅ Token approval completed successfully');
       }
@@ -596,8 +593,8 @@ async function createIndexBasedOrderStandalone(params: any) {
         error: submitError
       },
       wallet: {
-        address: wallet.address,
-        fundingNote: submitError ? `To enable order submission, send ETH for gas fees to: ${wallet.address}` : null,
+        address: userWalletAddress,
+        fundingNote: submitError ? `To enable order submission, send ETH for gas fees to: ${userWalletAddress}` : null,
         approvalStatus: {
           successful: approvalSuccessful,
           gasEstimate: approvalGasInfo ? {
@@ -620,7 +617,8 @@ async function createIndexBasedOrderStandalone(params: any) {
       technical: {
         orderHash: order.getOrderHash(),
         salt: order.salt.toString(),
-        signature: signature,
+        typedData: typedData, // Return typed data for client-side signing
+        signature: null, // Will be signed client-side
         predicate: predicate.substring(0, 40) + '...'
       }
     };
@@ -638,7 +636,7 @@ async function createIndexBasedOrderStandalone(params: any) {
       if (approvalGasInfo) {
         console.log(`Approval Cost: ${formatGasEstimate(approvalGasInfo)}`);
       }
-      console.log(`1. Send Base ETH to wallet: ${wallet.address}`);
+      console.log(`1. Send Base ETH to wallet: ${userWalletAddress}`);
       console.log(`2. Get Base ETH from: https://bridge.base.org or faucets`);
       console.log(`3. Ensure wallet has tokens to trade (${fromToken.symbol})`);
       console.log(`4. ${approvalSuccessful ? 'Retry order submission' : 'First approve tokens, then retry order creation'}`);

@@ -14,8 +14,8 @@ export default function Home() {
   const router = useRouter();
   const { indices: blockchainIndices } = useBlockchain();
 
-  // Get blockchain indices 0-3 for featured section with appropriate icons
-  const featuredBlockchainIndices = blockchainIndices.slice(0, 4);
+  // Get blockchain indices 0-2 for featured section with appropriate icons
+  const featuredBlockchainIndices = blockchainIndices.slice(0, 3);
   
   // Icon mapping for blockchain indices based on what they represent
   const getIconForIndex = (index: any) => {
@@ -46,9 +46,9 @@ export default function Home() {
     }
   };
 
-  // Custom blockchain indices - exclude featured (0-3) and sort by most recent
+  // Custom blockchain indices - exclude featured (0-2) and sort by most recent
   const customBlockchainIndices = blockchainIndices
-    .filter(index => index.id > 3) // Exclude featured indices 0-3
+    .filter(index => index.id > 2) // Exclude featured indices 0-2
     .sort((a, b) => b.id - a.id); // Sort by most recent (highest ID first)
 
   // Top AlphaVantage categories
@@ -204,7 +204,7 @@ export default function Home() {
             </Button>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {featuredBlockchainIndices.length > 0 ? featuredBlockchainIndices.map((index) => (
               <Card 
                 key={index.id} 
