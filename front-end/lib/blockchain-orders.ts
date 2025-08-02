@@ -14,7 +14,7 @@ export class BlockchainOrders {
   private web3: Web3;
   private wallet: BlockchainWallet;
   private tokens: BlockchainTokens;
-  private factory: any;
+  private oneInchContract: any;
   private orderCache: Map<number, { orders: Order[], timestamp: number }> = new Map();
   private readonly CACHE_DURATION = 30000; // 30 seconds
 
@@ -26,107 +26,38 @@ export class BlockchainOrders {
   }
 
   /**
-   * Initialize contract instances
+   * Initialize contract instances (updated for new architecture)
    */
   private initializeContracts(): void {
-    this.factory = new this.web3.eth.Contract(
-      ABIS.IndexLimitOrderFactory,
-      CONTRACTS.IndexLimitOrderFactory
+    // Initialize 1inch protocol contract for direct interaction
+    this.oneInchContract = new this.web3.eth.Contract(
+      ABIS.OneInchProtocol,
+      CONTRACTS.OneInchProtocol
     );
   }
 
   /**
-   * Create a new order with index condition
+   * Create a new order with index condition (NEW ARCHITECTURE - NOT IMPLEMENTED YET)
+   * 
+   * NOTE: This needs to be completely rewritten to use the 1inch SDK directly
+   * as shown in the backend. For now, this throws an error to indicate the
+   * architectural change needed.
    */
   async createOrder(params: OrderParams): Promise<Order | null> {
-    try {
-      console.log("🔄 Creating order with params:", params);
+    throw new Error(`
+      🚧 ORDER CREATION NEEDS UPDATING FOR NEW ARCHITECTURE 🚧
       
-      if (!this.wallet.isWalletConnected() || !this.wallet.currentAccount) {
-        throw new Error("Wallet not connected. Please connect your wallet first.");
-      }
-
-      if (!this.factory) {
-        throw new Error("Factory contract not initialized");
-      }
-
-      // Generate a random salt for order uniqueness
-      const salt = Math.floor(Math.random() * 1000000);
-      const maker = this.wallet.currentAccount;
-      const receiver = this.wallet.currentAccount; // Same as maker for now
-      const makerAsset = params.fromToken;
-      const takerAsset = params.toToken;
+      The new backend uses the 1inch SDK directly instead of factory contracts.
       
-      // Convert amounts to wei/smallest unit
-      const makingAmount = parseTokenAmount(params.fromAmount, 6); // Assuming USDC (6 decimals)
-      const takingAmount = parseTokenAmount(params.toAmount, 18); // Assuming WETH (18 decimals)
+      To fix this, we need to:
+      1. Install @1inch/limit-order-sdk in the frontend
+      2. Rewrite this method to match the backend's index-order-creator.js
+      3. Use 1inch SDK's LimitOrder, MakerTraits, ExtensionBuilder etc.
       
-      const indexId = params.indexId;
-      const operator = params.operator;
-      const threshold = params.threshold;
-      const expiry = Math.floor(Date.now() / 1000) + (params.expiry || 3600); // Default 1 hour
-
-      console.log("🔄 Order parameters:", {
-        salt, maker, receiver, makerAsset, takerAsset,
-        makingAmount, takingAmount, indexId, operator, threshold, expiry
-      });
-
-      // First, approve the factory to spend the maker asset
-      console.log("🔄 Approving factory to spend tokens...");
-      await this.tokens.approveToken(params.fromToken, CONTRACTS.IndexLimitOrderFactory, makingAmount);
-      console.log("✅ Token approval successful");
-
-      // Now create the order using the new createIndexOrder function
-      console.log("🔄 Creating index order...");
-      const result = await this.factory.methods
-        .createIndexOrder(
-          salt, maker, receiver, makerAsset, takerAsset,
-          makingAmount, takingAmount, indexId, operator, threshold, expiry
-        )
-        .send({
-          from: this.wallet.currentAccount,
-          gas: "500000",
-        });
-
-      console.log("✅ Order created!", result.transactionHash);
-
-      // Extract the order hash from the IndexOrderCreated event
-      let orderHash = result.transactionHash; // fallback
-      if (result.events && result.events.IndexOrderCreated) {
-        orderHash = result.events.IndexOrderCreated.returnValues.orderHash;
-        console.log("📋 Order hash from event:", orderHash);
-      }
-
-      // Clear cache for this index so new order appears immediately
-      this.clearOrderCache(params.indexId);
-
-      // Return order object
-      return {
-        hash: orderHash,
-        indexId: params.indexId,
-        operator: params.operator,
-        threshold: params.threshold,
-        description: params.description,
-        makerAsset: params.fromToken,
-        takerAsset: params.toToken,
-        makingAmount: makingAmount,
-        takingAmount: takingAmount,
-        fromToken: params.fromToken,
-        toToken: params.toToken,
-        fromAmount: params.fromAmount,
-        toAmount: params.toAmount,
-        maker: this.wallet.currentAccount,
-        receiver: this.wallet.currentAccount,
-        expiry,
-        status: "active",
-        createdAt: Date.now(),
-        transactionHash: result.transactionHash,
-      };
-
-    } catch (error) {
-      console.error("❌ Error creating order:", error);
-      throw error;
-    }
+      See: unicorn-project/backend/src/index-order-creator.js for reference
+      
+      Parameters received: ${JSON.stringify(params, null, 2)}
+    `);
   }
 
   /**
