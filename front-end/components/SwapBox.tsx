@@ -275,7 +275,7 @@ export function SwapBox({
   };
 
   const getExplorerUrl = (hash: string) => {
-    return `https://sepolia-explorer.base.org/tx/${hash}`;
+    return `https://basescan.org/tx/${hash}`;
   };
 
   if (!isConfigured) {

@@ -36,7 +36,7 @@ export function WalletConnect({
     networkName,
     ethBalance,
     connectWallet,
-    switchToBaseSepoliaNetwork,
+    switchToBaseMainnet,
     clearError,
   } = useBlockchain();
 
@@ -59,7 +59,7 @@ export function WalletConnect({
     try {
       setIsSwitchingNetwork(true);
       clearError();
-      await switchToBaseSepoliaNetwork();
+      await switchToBaseMainnet();
     } catch (err) {
       console.error("Network switch failed:", err);
     } finally {
@@ -174,7 +174,7 @@ export function WalletConnect({
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Network:</span>
                   <Badge
-                    variant={chainId === 84532 ? "default" : "destructive"}
+                    variant={chainId === 8453 ? "default" : "destructive"}
                   >
                     {networkName}
                   </Badge>
@@ -191,12 +191,12 @@ export function WalletConnect({
               )}
             </div>
 
-            {chainId !== 84532 && (
+            {chainId !== 8453 && (
               <div className="space-y-3">
                 <Alert>
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
-                    Please switch to Base Sepolia network for full functionality.
+                    Please switch to Base Mainnet network for full functionality.
                   </AlertDescription>
                 </Alert>
                 <Button
@@ -212,7 +212,7 @@ export function WalletConnect({
                       Switching Network...
                     </>
                   ) : (
-                    "Switch to Base Sepolia"
+                    "Switch to Base Mainnet"
                   )}
                 </Button>
               </div>

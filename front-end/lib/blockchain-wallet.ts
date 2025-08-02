@@ -44,34 +44,34 @@ export class BlockchainWallet {
   }
 
   /**
-   * Switch to Base Sepolia network
+   * Switch to Base Mainnet network
    */
-  async switchToBaseSepoliaNetwork(): Promise<boolean> {
+  async switchToBaseMainnet(): Promise<boolean> {
     try {
       if (typeof window !== "undefined" && window.ethereum) {
-        // Base Sepolia chain parameters
-        const baseSepoliaChain = {
-          chainId: "0x14a34", // 84532 in hex
-          chainName: "Base Sepolia",
+        // Base Mainnet chain parameters
+        const baseMainnetChain = {
+          chainId: "0x2105", // 8453 in hex
+          chainName: "Base",
           nativeCurrency: {
             name: "Ethereum",
             symbol: "ETH",
             decimals: 18,
           },
-          rpcUrls: ["https://sepolia.base.org"],
-          blockExplorerUrls: ["https://sepolia-explorer.base.org"],
+          rpcUrls: ["https://mainnet.base.org"],
+          blockExplorerUrls: ["https://basescan.org"],
         };
 
         try {
           // Try to switch to the network
           await window.ethereum.request({
             method: "wallet_switchEthereumChain",
-            params: [{ chainId: baseSepoliaChain.chainId }],
+            params: [{ chainId: baseMainnetChain.chainId }],
           });
           
           // Re-initialize web3 with the new network
           this.web3 = new Web3(window.ethereum);
-          console.log("✅ Successfully switched to Base Sepolia");
+          console.log("✅ Successfully switched to Base Mainnet");
           return true;
         } catch (switchError: any) {
           // If the network doesn't exist, add it
@@ -79,19 +79,19 @@ export class BlockchainWallet {
             try {
               await window.ethereum.request({
                 method: "wallet_addEthereumChain",
-                params: [baseSepoliaChain],
+                params: [baseMainnetChain],
               });
               
               // Re-initialize web3 with the new network
               this.web3 = new Web3(window.ethereum);
-              console.log("✅ Successfully added and switched to Base Sepolia");
+              console.log("✅ Successfully added and switched to Base Mainnet");
               return true;
             } catch (addError) {
-              console.error("❌ Failed to add Base Sepolia network:", addError);
+              console.error("❌ Failed to add Base Mainnet network:", addError);
               throw addError;
             }
           } else {
-            console.error("❌ Failed to switch to Base Sepolia:", switchError);
+            console.error("❌ Failed to switch to Base Mainnet:", switchError);
             throw switchError;
           }
         }

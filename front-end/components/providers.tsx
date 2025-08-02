@@ -3,13 +3,13 @@
 import { WagmiProvider } from 'wagmi';
 import { RainbowKitProvider, getDefaultConfig } from '@rainbow-me/rainbowkit';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { sepolia, baseSepolia } from 'wagmi/chains';
+import { sepolia, base } from 'wagmi/chains';
 import '@rainbow-me/rainbowkit/styles.css';
 
 const config = getDefaultConfig({
           appName: 'c1nch',
         projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'c1nch-demo',
-  chains: [baseSepolia, sepolia],
+  chains: [base, sepolia],
   ssr: true,
 });
 

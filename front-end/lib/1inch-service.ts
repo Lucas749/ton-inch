@@ -373,7 +373,7 @@ export class OneInchService {
           gas,
           maxFeePerGas: fee.maxFeePerGas,
           maxPriorityFeePerGas: fee.maxPriorityFeePerGas,
-          chain: baseSepolia,
+          chain: base,
           nonce,
         });
       } else {
@@ -387,7 +387,7 @@ export class OneInchService {
           value: BigInt(tx.value),
           gas,
           gasPrice,
-          chain: baseSepolia,
+          chain: base,
           nonce,
         });
       }

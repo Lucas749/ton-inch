@@ -446,10 +446,10 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
             <SwapBox 
               walletAddress={walletAddress}
               apiKey={process.env.NEXT_PUBLIC_ONEINCH_API_KEY}
-              rpcUrl={process.env.NEXT_PUBLIC_ALCHEMY_API_KEY 
-                ? `https://base-sepolia.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`
-                : "https://sepolia.base.org"
-              }
+                                  rpcUrl={process.env.NEXT_PUBLIC_ALCHEMY_API_KEY
+                      ? `https://base-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`
+                      : "https://mainnet.base.org"
+                    }
               indexName={realIndexData.name}
             />
             

@@ -315,7 +315,7 @@ export function SwapInterface({
   };
 
   const getExplorerUrl = (hash: string) => {
-    return `https://sepolia.basescan.org/tx/${hash}`;
+    return `https://basescan.org/tx/${hash}`;
   };
 
   if (!isConfigured) {
@@ -349,7 +349,7 @@ export function SwapInterface({
             <span>1inch Swap</span>
           </div>
           <Badge variant="outline" className="text-xs">
-            Base Sepolia
+            Base Mainnet
           </Badge>
         </CardTitle>
       </CardHeader>

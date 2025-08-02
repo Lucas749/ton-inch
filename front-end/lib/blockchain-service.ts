@@ -30,7 +30,7 @@ export class BlockchainService {
   public orders: BlockchainOrders;
 
   private constructor() {
-    // Initialize Web3 with Alchemy or fallback to Base Sepolia
+    // Initialize Web3 with Alchemy or fallback to Base Mainnet
     const rpcUrl = getRpcUrl();
     console.log(`🌐 Initializing Web3 with RPC: ${getRpcDescription(rpcUrl)} (Singleton)`);
     this.web3 = new Web3(rpcUrl);
@@ -69,8 +69,8 @@ export class BlockchainService {
     return this.wallet.connectWallet();
   }
 
-  async switchToBaseSepoliaNetwork(): Promise<boolean> {
-    return this.wallet.switchToBaseSepoliaNetwork();
+  async switchToBaseMainnet(): Promise<boolean> {
+    return this.wallet.switchToBaseMainnet();
   }
 
   async getNetworkInfo(): Promise<{ chainId: number; networkName: string }> {

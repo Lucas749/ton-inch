@@ -59,7 +59,7 @@ export interface TokenDetails extends Token {
 }
 
 // Popular tokens for Base Sepolia (testnet)
-export const POPULAR_BASE_SEPOLIA_TOKENS: Token[] = [
+export const POPULAR_BASE_MAINNET_TOKENS: Token[] = [
   {
     address: '0x4200000000000000000000000000000000000006',
     chainId: 84532,
@@ -149,12 +149,12 @@ class TokenService {
       if (!this.apiKey) {
         console.warn('No 1inch API key provided, using fallback tokens');
         return {
-          name: 'Base Sepolia Fallback Token List',
+          name: 'Base Mainnet Fallback Token List',
           logoURI: 'https://1inch.io/img/logo.svg',
-          keywords: ['base', 'sepolia', 'testnet'],
+          keywords: ['base', 'mainnet'],
           version: { major: 1, minor: 0, patch: 0 },
           timestamp: new Date().toISOString(),
-          tokens: POPULAR_BASE_SEPOLIA_TOKENS
+          tokens: POPULAR_BASE_MAINNET_TOKENS
         };
       }
 
@@ -164,12 +164,12 @@ class TokenService {
       console.error('❌ Error fetching supported tokens:', error);
       // Fallback to popular tokens
       return {
-        name: 'Base Sepolia Fallback Token List',
+        name: 'Base Mainnet Fallback Token List',
         logoURI: 'https://1inch.io/img/logo.svg',
-        keywords: ['base', 'sepolia', 'testnet'],
+        keywords: ['base', 'mainnet'],
         version: { major: 1, minor: 0, patch: 0 },
         timestamp: new Date().toISOString(),
-        tokens: POPULAR_BASE_SEPOLIA_TOKENS
+        tokens: POPULAR_BASE_MAINNET_TOKENS
       };
     }
   }
@@ -182,7 +182,7 @@ class TokenService {
     try {
       if (!this.apiKey || !query.trim()) {
         // Fallback search in popular tokens
-        const filtered = POPULAR_BASE_SEPOLIA_TOKENS.filter(token =>
+        const filtered = POPULAR_BASE_MAINNET_TOKENS.filter(token =>
           token.name.toLowerCase().includes(query.toLowerCase()) ||
           token.symbol.toLowerCase().includes(query.toLowerCase()) ||
           token.address.toLowerCase().includes(query.toLowerCase())
@@ -202,7 +202,7 @@ class TokenService {
     } catch (error) {
       console.error('❌ Error searching tokens:', error);
       // Fallback search
-      const filtered = POPULAR_BASE_SEPOLIA_TOKENS.filter(token =>
+      const filtered = POPULAR_BASE_MAINNET_TOKENS.filter(token =>
         token.name.toLowerCase().includes(query.toLowerCase()) ||
         token.symbol.toLowerCase().includes(query.toLowerCase()) ||
         token.address.toLowerCase().includes(query.toLowerCase())
@@ -219,7 +219,7 @@ class TokenService {
     try {
       if (!this.apiKey) {
         // Fallback to popular tokens
-        const token = POPULAR_BASE_SEPOLIA_TOKENS.find(
+        const token = POPULAR_BASE_MAINNET_TOKENS.find(
           t => t.address.toLowerCase() === tokenAddress.toLowerCase()
         );
         if (token) {
@@ -243,7 +243,7 @@ class TokenService {
       console.error(`❌ Error fetching token details for ${tokenAddress}:`, error);
       
       // Fallback to popular tokens
-      const token = POPULAR_BASE_SEPOLIA_TOKENS.find(
+      const token = POPULAR_BASE_MAINNET_TOKENS.find(
         t => t.address.toLowerCase() === tokenAddress.toLowerCase()
       );
       if (token) {
@@ -278,7 +278,7 @@ class TokenService {
    * Get popular tokens for quick selection
    */
   getPopularTokens(): Token[] {
-    return POPULAR_BASE_SEPOLIA_TOKENS;
+    return POPULAR_BASE_MAINNET_TOKENS;
   }
 
   /**
