@@ -9,6 +9,13 @@ import { Badge } from '@/components/ui/badge';
 import { IndicesExplorer } from '@/components/IndicesExplorer';
 import { useBlockchain } from '@/hooks/useBlockchain';
 import { TrendingUp, BarChart3, ArrowRight, Sparkles, Activity, Users, Zap, Crown, Star, DollarSign, Bitcoin, TrendingDown, Target, Globe, Layers, ShieldCheck } from 'lucide-react';
+import { 
+  MarketNewsWidget, 
+  TopMoversWidget, 
+  MarketStatusWidget, 
+  TechnicalIndicatorWidget, 
+  InsiderTransactionsWidget 
+} from '@/components/widgets';
 
 export default function Home() {
   const router = useRouter();
@@ -416,6 +423,41 @@ export default function Home() {
             'WTI', 'GLD', 'EURUSD'   // Shown in Commodities & Forex
           ]}
         />
+
+        {/* Market Intelligence Widgets Section */}
+        <div className="mb-12">
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Market Intelligence</h2>
+            <p className="text-gray-600">Real-time market data, news, and technical analysis powered by Alpha Vantage</p>
+          </div>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            {/* News & Sentiment */}
+            <div className="lg:col-span-2 xl:col-span-1">
+              <MarketNewsWidget />
+            </div>
+            
+            {/* Top Movers */}
+            <div>
+              <TopMoversWidget />
+            </div>
+            
+            {/* Market Status */}
+            <div>
+              <MarketStatusWidget />
+            </div>
+            
+            {/* Technical Indicators */}
+            <div>
+              <TechnicalIndicatorWidget />
+            </div>
+            
+            {/* Insider Transactions */}
+            <div className="lg:col-span-2 xl:col-span-1">
+              <InsiderTransactionsWidget />
+            </div>
+          </div>
+        </div>
 
         {/* Bottom Stats Section */}
         <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-6">

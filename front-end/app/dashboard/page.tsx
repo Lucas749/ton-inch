@@ -34,30 +34,26 @@ interface IndexWithOrders extends CustomIndex {
 export default function Dashboard() {
   const [indices, setIndices] = useState<IndexWithOrders[]>([]);
   const [allOrders, setAllOrders] = useState<Order[]>([]);
+  const [openOrders, setOpenOrders] = useState<Order[]>([]);
+  const [closedOrders, setClosedOrders] = useState<Order[]>([]);
+  const [swapOrders, setSwapOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedTab, setSelectedTab] = useState("overview");
   const [cancellingOrderHash, setCancellingOrderHash] = useState<string | null>(null);
   const [cancelSuccess, setCancelSuccess] = useState<string | null>(null);
   const [cancelError, setCancelError] = useState<string | null>(null);
-
-  const handleTabChange = (value: string) => {
-    setSelectedTab(value);
-    
-    // Load orders when switching to Orders tab
-    if (value === "orders") {
-      loadOrdersOnDemand();
-    }
-  };
   
   const { isConnected, indices: blockchainIndices, refreshIndices, isOwner, walletAddress, getPrivateKeyForDemo } = useBlockchain();
   const { orders, cancelOrder } = useOrders();
   const router = useRouter();
 
-  // Convert blockchain indices to IndexWithOrders format
+  // Load all cached orders on page load
   useEffect(() => {
     if (!isConnected) {
       setIndices([]);
       setAllOrders([]);
+      setOpenOrders([]);
+      setClosedOrders([]);
+      setSwapOrders([]);
       setIsLoading(false);
       return;
     }
@@ -66,12 +62,13 @@ export default function Dashboard() {
     const indicesWithOrders: IndexWithOrders[] = blockchainIndices.map(index => ({
       ...index,
       orders: [],
-      orderCount: 0 // Will be loaded on-demand when viewing Orders tab
+      orderCount: 0
     }));
 
     setIndices(indicesWithOrders);
-    setAllOrders([]); // Don't load orders automatically
-    setIsLoading(false);
+    
+    // Load all cached orders immediately on page load
+    loadAllOrders();
   }, [isConnected, blockchainIndices]);
 
   // Auto-clear success/error messages
@@ -97,33 +94,28 @@ export default function Dashboard() {
     router.push(`/index/blockchain_${index.id}`);
   };
 
-  const loadOrdersOnDemand = async () => {
+  const loadAllOrders = async () => {
     if (!isConnected) return;
     
     setIsLoading(true);
     try {
-      console.log('📋 Loading all cached orders for Orders tab...');
+      console.log('📋 Loading all cached orders for dashboard...');
       
-      // Get all cached orders directly (no more index-by-index loading!)
+      // Get all cached orders directly from cache
       const allCachedOrders = await blockchainService.getAllCachedOrders();
       setAllOrders(allCachedOrders);
       
-      // Group orders by index for the indices display
-      const ordersByIndex = new Map<number, any[]>();
-      allCachedOrders.forEach(order => {
-        const existingOrders = ordersByIndex.get(order.indexId) || [];
-        ordersByIndex.set(order.indexId, [...existingOrders, order]);
-      });
+      // Categorize orders into three sections
+      const open = allCachedOrders.filter(order => order.status === 'active');
+      const closed = allCachedOrders.filter(order => order.status === 'cancelled' || order.status === 'filled');
+      // For now, swap orders are empty - this could be expanded later for regular swaps
+      const swaps: Order[] = [];
       
-      // Update indices with their respective orders
-      const updatedIndices = indices.map(index => ({
-        ...index,
-        orders: ordersByIndex.get(index.id) || [],
-        orderCount: ordersByIndex.get(index.id)?.length || 0
-      }));
+      setOpenOrders(open);
+      setClosedOrders(closed);
+      setSwapOrders(swaps);
       
-      setIndices(updatedIndices);
-      console.log(`📋 Loaded ${allCachedOrders.length} total cached orders`);
+      console.log(`📋 Loaded ${allCachedOrders.length} total orders: ${open.length} open, ${closed.length} closed, ${swaps.length} swaps`);
       
     } catch (error) {
       console.error("Error loading cached orders:", error);
@@ -161,7 +153,7 @@ export default function Dashboard() {
         console.log('✅ Order cancelled successfully:', orderHash);
         
         // Refresh the orders display using cache
-        await loadOrdersOnDemand();
+        await loadAllOrders();
         
       } else {
         throw new Error('Failed to cancel order');
@@ -276,17 +268,67 @@ export default function Dashboard() {
               </Card>
         </div>
 
-            {/* Main Content Tabs */}
-            <Tabs value={selectedTab} onValueChange={handleTabChange} className="space-y-6">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="indices">My Indices</TabsTrigger>
-                <TabsTrigger value="orders">My Orders</TabsTrigger>
-                <TabsTrigger value="fusion-orders">All Orders</TabsTrigger>
-          </TabsList>
+            {/* Three-Section Portfolio Layout */}
+            <div className="space-y-8">
+              
+              {/* Page Header */}
+              <div className="flex justify-between items-center">
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">Portfolio Overview</h1>
+                  <p className="text-gray-600 mt-1">Your conditional orders and trading activity</p>
+                </div>
+                <Button 
+                  onClick={loadAllOrders}
+                  variant="outline"
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    "Refresh Orders"
+                  )}
+                </Button>
+              </div>
 
-              {/* Overview Tab */}
-              <TabsContent value="overview" className="space-y-6">
+              {/* Cancel Status Messages */}
+              {cancelSuccess && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-center">
+                    <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
+                    <p className="text-green-800 text-sm">{cancelSuccess}</p>
+                  </div>
+                </div>
+              )}
+
+              {cancelError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-center">
+                    <AlertCircle className="w-5 h-5 text-red-500 mr-2" />
+                    <p className="text-red-800 text-sm">{cancelError}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Section 1: Open Orders (Conditional) */}
+              <Card className="border-l-4 border-l-green-500">
+                <CardHeader>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <CardTitle className="text-xl flex items-center gap-2">
+                        <Activity className="w-5 h-5 text-green-600" />
+                        Open Conditional Orders
+                      </CardTitle>
+                      <CardDescription>Active orders waiting for conditions to be met</CardDescription>
+                    </div>
+                    <Badge variant="outline" className="text-green-700 border-green-300">
+                      {openOrders.length} Active
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
                 <div className="max-w-2xl mx-auto">
                   {/* Recent Orders */}
                   <Card>
