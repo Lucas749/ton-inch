@@ -57,6 +57,11 @@ function validateResponseData(data: any, functionName: string): void {
     case 'WTI':
     case 'BRENT':
     case 'NATURAL_GAS':
+    case 'WHEAT':
+    case 'CORN':
+    case 'COFFEE':
+    case 'SUGAR':
+    case 'COTTON':
       if (!data["data"] || !Array.isArray(data["data"]) || data["data"].length === 0) {
         throw new Error(`Invalid ${functionName} response: Missing or empty "data" array`);
       }

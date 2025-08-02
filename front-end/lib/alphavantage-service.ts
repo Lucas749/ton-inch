@@ -756,6 +756,45 @@ export class AlphaVantageService {
       return result;
     }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }
+
+  // Commodity functions
+  async getWTIOil(interval: "monthly" | "weekly" | "daily" = "monthly") {
+    const params = {
+      function: "WTI",
+      interval: interval.toUpperCase(),
+      datatype: "json"
+    };
+    return this.callAPI<CommodityResponse>(params, "WTI");
+  }
+
+  async getBrentOil(interval: "monthly" | "weekly" | "daily" = "monthly") {
+    const params = {
+      function: "BRENT",
+      interval: interval.toUpperCase(),
+      datatype: "json"
+    };
+    return this.callAPI<CommodityResponse>(params, "BRENT");
+  }
+
+  async getWheat(interval: "monthly" | "quarterly" | "annual" = "monthly") {
+    const params = {
+      function: "WHEAT",
+      interval: interval.toUpperCase(),
+      datatype: "json"
+    };
+    return this.callAPI<CommodityResponse>(params, "WHEAT");
+  }
+
+  async getCorn(interval: "monthly" | "quarterly" | "annual" = "monthly") {
+    const params = {
+      function: "CORN",
+      interval: interval.toUpperCase(),
+      datatype: "json"
+    };
+    return this.callAPI<CommodityResponse>(params, "CORN");
+  }
+
+
 }
 
 export default AlphaVantageService;

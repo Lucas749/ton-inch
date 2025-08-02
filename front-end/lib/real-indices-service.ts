@@ -148,8 +148,8 @@ export class RealIndicesService {
       const previousDate = dates[1];
       const previousData = previousDate ? timeSeriesData[previousDate] : null;
       
-      // Extract current price (close price in USD)
-      const price = parseFloat(latestData["4a. close (USD)"]);
+      // Extract current price (close price)
+      const price = parseFloat(latestData["4. close"]);
       if (isNaN(price) || price <= 0) {
         throw new Error(`Invalid price data for ${symbol}`);
       }
@@ -158,7 +158,7 @@ export class RealIndicesService {
       let change = 0;
       let changePercent = "0.00%";
       if (previousData) {
-        const previousPrice = parseFloat(previousData["4a. close (USD)"]);
+        const previousPrice = parseFloat(previousData["4. close"]);
         if (!isNaN(previousPrice) && previousPrice > 0) {
           change = price - previousPrice;
           const changePercentNum = (change / previousPrice) * 100;
