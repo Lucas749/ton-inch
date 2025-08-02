@@ -738,7 +738,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
         expiry: "2" // 2 hours
       });
       
-      alert(`🚀 Demo order data loaded! Buy ${toToken?.symbol || 'WETH'} when ${realIndexData.name} > threshold using 0.0001 ${fromToken?.symbol || 'ETH'}`);
+      alert(`🚀 Demo order data loaded! Buy ${toToken?.symbol || 'WETH'} when ${realIndexData.name} > threshold using 0.0001 ${fromToken?.symbol || 'ETH'} (expires in 2 hours)`);
     } catch (error) {
       console.error('❌ Error setting demo data:', error);
       alert('Failed to load demo data');
