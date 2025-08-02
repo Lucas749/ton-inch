@@ -83,6 +83,32 @@ export function IndicesExplorer() {
   
   const router = useRouter();
   const { isConnected, indices: blockchainIndices, isOwner, walletAddress, getPrivateKeyForDemo } = useBlockchain();
+  
+  // Helper functions for tracking owned indices
+  const getOwnedIndicesKey = (address: string) => `ownedIndices_${address.toLowerCase()}`;
+  
+  const getOwnedIndices = (): number[] => {
+    if (!walletAddress) return [];
+    try {
+      const stored = localStorage.getItem(getOwnedIndicesKey(walletAddress));
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  };
+  
+  const addOwnedIndex = (indexId: number) => {
+    if (!walletAddress) return;
+    const current = getOwnedIndices();
+    if (!current.includes(indexId)) {
+      const updated = [...current, indexId];
+      localStorage.setItem(getOwnedIndicesKey(walletAddress), JSON.stringify(updated));
+    }
+  };
+  
+  const isIndexOwned = (indexId: number): boolean => {
+    return getOwnedIndices().includes(indexId);
+  };
 
   // Load real data from Alpha Vantage
   const loadIndicesData = async (isRefresh = false) => {
@@ -251,6 +277,12 @@ export function IndicesExplorer() {
       if (result.success) {
         setRequestSuccess(`✅ Successfully created blockchain index "${index.name}" with ID ${result.indexId}! Transaction: ${result.transactionHash}`);
         console.log('✅ Index created successfully:', result);
+        
+        // Track ownership of the newly created index
+        if (result.indexId) {
+          addOwnedIndex(result.indexId);
+          console.log('👑 Added index', result.indexId, 'to owned indices for', walletAddress);
+        }
         
         // Refresh blockchain indices
         setTimeout(() => {
@@ -426,8 +458,8 @@ export function IndicesExplorer() {
                     <div>
                       <div className="flex items-center space-x-2">
                         <div className="font-semibold text-gray-900">{index.name}</div>
-                        {/* Show owner badge for custom blockchain indices */}
-                        {index.name.startsWith('Custom Index') && isConnected && (
+                        {/* Show owner badge for custom blockchain indices owned by current wallet */}
+                        {(index as ExtendedRealIndexData).blockchainId && isConnected && isIndexOwned((index as ExtendedRealIndexData).blockchainId!) && (
                           <Badge variant="default" className="text-xs bg-orange-500 hover:bg-orange-600">
                             👑 Owner
                           </Badge>
