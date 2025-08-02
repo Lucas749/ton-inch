@@ -233,7 +233,7 @@ export function useBlockchain(): UseBlockchainReturn {
           setEthBalance(balance);
         });
 
-        refreshIndices();
+        // Indices will be loaded explicitly by pages when needed
       }
     }
 
