@@ -127,11 +127,8 @@ export class BlockchainOrders {
 
       console.log('✅ Order created successfully via backend:', result.orderHash);
 
-      // Clear cache so new order appears
-      this.clearOrderCache(params.indexId);
-
-      // Convert backend result to frontend Order format
-      return {
+      // Create order object for caching
+      const newOrder = {
         hash: result.orderHash,
         indexId: params.indexId,
         operator: params.operator,
@@ -148,10 +145,26 @@ export class BlockchainOrders {
         maker: this.wallet.currentAccount,
         receiver: this.wallet.currentAccount,
         expiry: Math.floor(Date.now() / 1000) + (orderParams.expirationHours * 3600),
-        status: result.submission?.submitted ? "active" : "active" as const,
+        status: "active" as const,
         createdAt: Date.now(),
         transactionHash: result.orderHash
       };
+
+      // Add to cache instead of clearing it
+      console.log('💾 Adding order to cache for index', params.indexId);
+      const cached = this.orderCache.get(params.indexId);
+      if (cached) {
+        cached.orders.unshift(newOrder); // Add to beginning
+        cached.timestamp = Date.now(); // Update timestamp
+      } else {
+        this.orderCache.set(params.indexId, {
+          orders: [newOrder],
+          timestamp: Date.now()
+        });
+      }
+
+      // Return the cached order object
+      return newOrder;
 
     } catch (error) {
       console.error("❌ Error creating order:", error);
@@ -206,14 +219,14 @@ export class BlockchainOrders {
     console.log(`   Threshold: ${condition.threshold}`);
     
     // Oracle call encoding (ethers v6 syntax)
-    const getIndexValueSelector = ethers.id('getIndexValue(uint256)').slice(0, 10);
-    const oracleCallData = ethers.AbiCoder.defaultAbiCoder().encode(
+    const getIndexValueSelector = ethers.utils.id('getIndexValue(uint256)').slice(0, 10);
+    const oracleCallData = ethers.utils.defaultAbiCoder.encode(
       ['bytes4', 'uint256'],
       [getIndexValueSelector, condition.indexId]
     );
     
     // Predicate structure: operator(threshold, arbitraryStaticCall(oracle, callData))
-    const arbitraryStaticCallData = ethers.AbiCoder.defaultAbiCoder().encode(
+    const arbitraryStaticCallData = ethers.utils.defaultAbiCoder.encode(
       ['address', 'bytes'],
       [CONFIG.INDEX_ORACLE_ADDRESS, oracleCallData]
     );
@@ -224,34 +237,34 @@ export class BlockchainOrders {
     switch (condition.operator) {
       case 'gt':
       case 'gte': // Treat >= as > for simplicity
-        predicateData = ethers.AbiCoder.defaultAbiCoder().encode(
+        predicateData = ethers.utils.defaultAbiCoder.encode(
           ['uint256', 'bytes'],
           [condition.threshold, arbitraryStaticCallData]
         );
         break;
       case 'lt':
       case 'lte': // Treat <= as < for simplicity
-        predicateData = ethers.AbiCoder.defaultAbiCoder().encode(
+        predicateData = ethers.utils.defaultAbiCoder.encode(
           ['uint256', 'bytes'],
           [condition.threshold, arbitraryStaticCallData]
         );
         break;
       case 'eq':
-        predicateData = ethers.AbiCoder.defaultAbiCoder().encode(
+        predicateData = ethers.utils.defaultAbiCoder.encode(
           ['uint256', 'bytes'],
           [condition.threshold, arbitraryStaticCallData]
         );
         break;
       default:
         // Default to gt
-        predicateData = ethers.AbiCoder.defaultAbiCoder().encode(
+        predicateData = ethers.utils.defaultAbiCoder.encode(
           ['uint256', 'bytes'],
           [condition.threshold, arbitraryStaticCallData]
         );
     }
     
     // Complete predicate with protocol address (ethers v6 syntax)
-    const completePredicate = ethers.solidityPacked(
+    const completePredicate = ethers.utils.solidityPack(
       ['address', 'bytes'],
       [CONFIG.LIMIT_ORDER_PROTOCOL, predicateData]
     );
@@ -347,11 +360,20 @@ export class BlockchainOrders {
         transactionHash: event.transactionHash,
       }));
 
-      // Cache the results
-      this.orderCache.set(indexId, { orders, timestamp: Date.now() });
-      console.log(`✅ Loaded ${orders.length} orders for index ${indexId}`);
+      // Merge with existing cached orders (don't overwrite manually added orders)
+      const existingCached = this.orderCache.get(indexId);
+      const existingOrders = existingCached?.orders || [];
+      
+      // Combine orders, but avoid duplicates based on hash
+      const existingHashes = new Set(existingOrders.map(o => o.hash));
+      const newOrders = orders.filter(o => !existingHashes.has(o.hash));
+      const allOrders = [...existingOrders, ...newOrders];
+      
+      // Cache the merged results
+      this.orderCache.set(indexId, { orders: allOrders, timestamp: Date.now() });
+      console.log(`✅ Loaded ${orders.length} orders from blockchain, ${existingOrders.length} from cache, total: ${allOrders.length} for index ${indexId}`);
 
-      return orders;
+      return allOrders;
     } catch (error) {
       console.error(`❌ Error fetching orders for index ${indexId}:`, error);
 
