@@ -27,6 +27,14 @@ interface ExtendedRealIndexData extends RealIndexData {
   blockchainId?: number;
   blockchainValue?: number;
   onChain?: boolean;
+  oracleStatus?: {
+    hasOracle: boolean;
+    oracleType: number;
+    oracleTypeName: string;
+    isChainlink: boolean;
+    isMock: boolean;
+    loading: boolean;
+  };
 }
 
 const categories = ["All", "Stocks", "Crypto", "Commodities", "Forex", "ETFs", "Indices", "Economics", "Intelligence", "Custom"];
@@ -154,6 +162,36 @@ export function IndicesExplorer() {
     return getOwnedIndices().includes(indexId);
   };
 
+  // Check oracle status for a blockchain index
+  const checkOracleStatus = async (blockchainId: number) => {
+    try {
+      const response = await fetch(`/api/orders?action=check-oracle&indexId=${blockchainId}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        return {
+          hasOracle: data.hasOracle,
+          oracleType: data.oracleType || 0,
+          oracleTypeName: data.oracleTypeName || 'MOCK',
+          isChainlink: data.isChainlink || false,
+          isMock: data.isMock !== false,
+          loading: false
+        };
+      }
+    } catch (error) {
+      console.error(`Failed to check oracle status for index ${blockchainId}:`, error);
+    }
+    
+    return {
+      hasOracle: false,
+      oracleType: 0,
+      oracleTypeName: 'UNKNOWN',
+      isChainlink: false,
+      isMock: true,
+      loading: false
+    };
+  };
+
   // Load real data from Alpha Vantage
   const loadIndicesData = async (isRefresh = false) => {
     try {
@@ -206,7 +244,15 @@ export function IndicesExplorer() {
             // Keep Alpha Vantage display data but indicate blockchain availability
             blockchainId: blockchainIndex.id,
             blockchainValue: blockchainIndex.value,
-            onChain: true
+            onChain: true,
+            oracleStatus: {
+              hasOracle: true, // Will be populated asynchronously
+              oracleType: 0,
+              oracleTypeName: 'UNKNOWN',
+              isChainlink: false,
+              isMock: true,
+              loading: true
+            }
           });
         }
       }
@@ -238,7 +284,15 @@ export function IndicesExplorer() {
           lastUpdated: new Date(blockchainIndex.timestamp * 1000).toISOString().split('T')[0],
           blockchainId: blockchainIndex.id,
           blockchainValue: blockchainIndex.value,
-          onChain: true
+          onChain: true,
+          oracleStatus: {
+            hasOracle: true, // Will be populated asynchronously
+            oracleType: 0,
+            oracleTypeName: 'UNKNOWN',
+            isChainlink: false,
+            isMock: true,
+            loading: true
+          }
         });
       } else {
         // Has Alpha Vantage symbol but no market data match, create enhanced entry
@@ -269,7 +323,15 @@ export function IndicesExplorer() {
             lastUpdated: new Date(blockchainIndex.timestamp * 1000).toISOString().split('T')[0],
             blockchainId: blockchainIndex.id,
             blockchainValue: blockchainIndex.value,
-            onChain: true
+            onChain: true,
+            oracleStatus: {
+              hasOracle: true, // Will be populated asynchronously
+              oracleType: 0,
+              oracleTypeName: 'UNKNOWN',
+              isChainlink: false,
+              isMock: true,
+              loading: true
+            }
           });
         }
       }
@@ -278,7 +340,58 @@ export function IndicesExplorer() {
     return integratedIndices;
   };
 
+  const [contractIndicesWithOracles, setContractIndicesWithOracles] = useState<ExtendedRealIndexData[]>([]);
+  
   const availableContractIndices = createIntegratedContractIndices();
+
+  // Load oracle status for all blockchain indices
+  useEffect(() => {
+    const loadOracleStatuses = async () => {
+      if (availableContractIndices.length === 0) return;
+      
+      const updatedIndices = [...availableContractIndices];
+      
+      for (const index of updatedIndices) {
+        if (index.blockchainId !== undefined) {
+          const oracleStatus = await checkOracleStatus(index.blockchainId);
+          index.oracleStatus = oracleStatus;
+        }
+      }
+      
+      setContractIndicesWithOracles(updatedIndices);
+    };
+    
+    loadOracleStatuses();
+  }, [blockchainIndices.length, indices.length]); // Re-run when blockchain indices or regular indices change
+  
+  // Split contract indices into two groups based on oracle status
+  const indicesWithOracles = contractIndicesWithOracles.filter(index => 
+    index.oracleStatus?.hasOracle && !index.oracleStatus?.loading
+  );
+  const indicesNeedingSetup = contractIndicesWithOracles.filter(index => 
+    !index.oracleStatus?.hasOracle && !index.oracleStatus?.loading
+  );
+  const indicesLoading = contractIndicesWithOracles.filter(index => 
+    index.oracleStatus?.loading
+  );
+
+  // Apply filters to oracle-ready indices
+  const filteredOracleIndices = indicesWithOracles.filter(index => {
+    const matchesSearch = index.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      index.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      index.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = selectedCategory === "All" || index.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
+
+  // Apply filters to setup-required indices  
+  const filteredSetupIndices = indicesNeedingSetup.filter(index => {
+    const matchesSearch = index.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      index.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      index.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = selectedCategory === "All" || index.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
   
   // Filter out Alpha Vantage indices that are available as contract indices from market indices
   const availableContractSymbols = availableContractIndices.map(index => index.symbol);
@@ -489,24 +602,22 @@ export function IndicesExplorer() {
         </div>
       )}
 
-      {/* Available Contract Indices Section */}
-      {!isLoading && filteredContractIndices.length > 0 && (
+      {/* Ready for Trading - Indices with Oracles */}
+      {!isLoading && filteredOracleIndices.length > 0 && (
         <div className="space-y-4">
           <div className="text-center">
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">Available Contract Indices</h3>
+            <h3 className="text-2xl font-bold text-green-900 mb-2">✅ Ready for Trading</h3>
             <p className="text-md text-gray-600 max-w-2xl mx-auto">
-              These indices are live on the blockchain with oracle data. Click anywhere on a card to start trading with these indices.
+              These indices have oracles configured and are ready for conditional orders. Click any card to start trading.
             </p>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Show filtered blockchain indices that are available */}
-          {filteredContractIndices.map((index) => (
+          {filteredOracleIndices.map((index) => (
             <Card 
               key={index.id} 
-              className="hover:shadow-lg transition-all duration-200 cursor-pointer border border-gray-200 rounded-xl"
+              className="hover:shadow-lg transition-all duration-200 cursor-pointer border border-green-200 bg-green-50 rounded-xl"
               onClick={() => {
-                // For blockchain indices, route to individual index page with blockchain prefix
                 const extendedIndex = index as ExtendedRealIndexData;
                 if (extendedIndex.onChain && extendedIndex.blockchainId !== undefined) {
                   router.push(`/index/blockchain_${extendedIndex.blockchainId}`);
@@ -525,7 +636,15 @@ export function IndicesExplorer() {
                     <div>
                       <div className="flex items-center space-x-2">
                         <div className="font-semibold text-gray-900">{index.name}</div>
-                        {/* Show owner badge for custom blockchain indices owned by current wallet */}
+                        {/* Oracle type badge */}
+                        <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          index.oracleStatus?.isChainlink 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {index.oracleStatus?.oracleTypeName}
+                        </div>
+                        {/* Owner badge */}
                         {(index as ExtendedRealIndexData).blockchainId && isConnected && isIndexOwned((index as ExtendedRealIndexData).blockchainId!) && (
                           <Badge variant="default" className="text-xs bg-orange-500 hover:bg-orange-600">
                             👑 Owner
@@ -574,6 +693,104 @@ export function IndicesExplorer() {
             </Card>
           ))}
           </div>
+        </div>
+      )}
+
+      {/* Setup Required - Indices without Oracles */}
+      {!isLoading && filteredSetupIndices.length > 0 && (
+        <div className="space-y-4">
+          <div className="text-center">
+            <h3 className="text-2xl font-bold text-orange-900 mb-2">🔧 Setup Required</h3>
+            <p className="text-md text-gray-600 max-w-2xl mx-auto">
+              These indices need oracle configuration before conditional orders can be created. Click to view details and setup instructions.
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredSetupIndices.map((index) => (
+            <Card 
+              key={index.id} 
+              className="hover:shadow-lg transition-all duration-200 cursor-pointer border border-orange-200 bg-orange-50 rounded-xl"
+              onClick={() => {
+                const extendedIndex = index as ExtendedRealIndexData;
+                if (extendedIndex.onChain && extendedIndex.blockchainId !== undefined) {
+                  router.push(`/index/blockchain_${extendedIndex.blockchainId}`);
+                } else {
+                  handleViewIndex(index);
+                }
+              }}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  {/* Left side - Avatar and info */}
+                  <div className="flex items-center space-x-3">
+                    <div className={`w-10 h-10 rounded-full ${index.color} flex items-center justify-center text-white text-lg font-bold`}>
+                      {index.avatar}
+                    </div>
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <div className="font-semibold text-gray-900">{index.name}</div>
+                        {/* Setup required badge */}
+                        <div className="px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                          Setup Required
+                        </div>
+                        {/* Owner badge */}
+                        {(index as ExtendedRealIndexData).blockchainId && isConnected && isIndexOwned((index as ExtendedRealIndexData).blockchainId!) && (
+                          <Badge variant="default" className="text-xs bg-orange-500 hover:bg-orange-600">
+                            👑 Owner
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="text-sm text-gray-500">{index.handle}</div>
+                    </div>
+                  </div>
+
+                  {/* Right side - Price change and sparkline */}
+                  <div className="flex items-center space-x-3">
+                    <div className="text-right">
+                      <div className={`text-sm font-medium ${
+                        index.isPositive ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {index.change}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {index.isPositive ? '▲' : '▼'} {index.changeValue}
+                      </div>
+                    </div>
+                    <div className="w-20">
+                      <Sparkline 
+                        data={index.sparklineData} 
+                        isPositive={index.isPositive}
+                        width={80}
+                        height={24}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bottom row - Current value and mindshare */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-lg font-bold text-gray-900">{index.valueLabel}</div>
+                    <div className="text-xs text-gray-500">Current Price</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm font-medium text-gray-700">{index.mindshare}</div>
+                    <div className="text-xs text-gray-500">Mindshare</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+          </div>
+        </div>
+      )}
+
+      {/* Loading state for oracle checks */}
+      {!isLoading && indicesLoading.length > 0 && (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin mr-2" />
+          <span className="text-sm text-gray-500">Checking oracle configurations...</span>
         </div>
       )}
 
