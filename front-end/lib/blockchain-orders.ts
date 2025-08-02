@@ -117,9 +117,9 @@ export class BlockchainOrders {
       
       console.log(`📊 Trading: ${params.fromAmount} ${fromToken.symbol} → ${params.toAmount} ${toToken.symbol}`);
 
-      // Parse amounts (ethers v6 syntax)
-      const makingAmount = ethers.parseUnits(params.fromAmount.toString(), fromToken.decimals);
-      const takingAmount = ethers.parseUnits(params.toAmount.toString(), toToken.decimals);
+      // Parse amounts (ethers v5 syntax - matching backend)
+      const makingAmount = ethers.utils.parseUnits(params.fromAmount.toString(), fromToken.decimals);
+      const takingAmount = ethers.utils.parseUnits(params.toAmount.toString(), toToken.decimals);
 
       // Create index predicate
       console.log('🔮 Creating index predicate...');
@@ -136,10 +136,12 @@ export class BlockchainOrders {
       
       console.log('✅ Extension created with predicate');
 
-      // Setup timing
-      const expirationHours = 24; // Default 24 hours
+      // Setup timing (matching backend pattern)
+      const expirationHours = params.expiry ? Math.floor(params.expiry / 3600) : 24; // Convert seconds to hours, default 24
       const expiration = BigInt(Math.floor(Date.now() / 1000) + (expirationHours * 3600));
       const UINT_40_MAX = (1n << 40n) - 1n;
+      
+      console.log(`⏰ Order expires in ${expirationHours} hours`);
 
       // Create MakerTraits
       const makerTraits = MakerTraits.default()
@@ -260,15 +262,15 @@ export class BlockchainOrders {
     console.log(`   Operator: ${condition.operator}`);
     console.log(`   Threshold: ${condition.threshold}`);
     
-    // Oracle call encoding (ethers v6 syntax)
-    const getIndexValueSelector = ethers.id('getIndexValue(uint256)').slice(0, 10);
-    const oracleCallData = ethers.AbiCoder.defaultAbiCoder().encode(
+    // Oracle call encoding (ethers v5 syntax - matching backend)
+    const getIndexValueSelector = ethers.utils.id('getIndexValue(uint256)').slice(0, 10);
+    const oracleCallData = ethers.utils.defaultAbiCoder.encode(
       ['bytes4', 'uint256'],
       [getIndexValueSelector, condition.indexId]
     );
     
     // Predicate structure: operator(threshold, arbitraryStaticCall(oracle, callData))
-    const arbitraryStaticCallData = ethers.AbiCoder.defaultAbiCoder().encode(
+    const arbitraryStaticCallData = ethers.utils.defaultAbiCoder.encode(
       ['address', 'bytes'],
       [CONFIG.INDEX_ORACLE_ADDRESS, oracleCallData]
     );
@@ -279,34 +281,34 @@ export class BlockchainOrders {
     switch (condition.operator) {
       case 'gt':
       case 'gte': // Treat >= as > for simplicity
-        predicateData = ethers.AbiCoder.defaultAbiCoder().encode(
+        predicateData = ethers.utils.defaultAbiCoder.encode(
           ['uint256', 'bytes'],
           [condition.threshold, arbitraryStaticCallData]
         );
         break;
       case 'lt':
       case 'lte': // Treat <= as < for simplicity
-        predicateData = ethers.AbiCoder.defaultAbiCoder().encode(
+        predicateData = ethers.utils.defaultAbiCoder.encode(
           ['uint256', 'bytes'],
           [condition.threshold, arbitraryStaticCallData]
         );
         break;
       case 'eq':
-        predicateData = ethers.AbiCoder.defaultAbiCoder().encode(
+        predicateData = ethers.utils.defaultAbiCoder.encode(
           ['uint256', 'bytes'],
           [condition.threshold, arbitraryStaticCallData]
         );
         break;
       default:
         // Default to gt
-        predicateData = ethers.AbiCoder.defaultAbiCoder().encode(
+        predicateData = ethers.utils.defaultAbiCoder.encode(
           ['uint256', 'bytes'],
           [condition.threshold, arbitraryStaticCallData]
         );
     }
     
-    // Complete predicate with protocol address (ethers v6 syntax)
-    const completePredicate = ethers.solidityPacked(
+    // Complete predicate with protocol address (ethers v5 syntax - matching backend)
+    const completePredicate = ethers.utils.solidityPack(
       ['address', 'bytes'],
       [CONFIG.LIMIT_ORDER_PROTOCOL, predicateData]
     );
