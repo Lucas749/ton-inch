@@ -552,6 +552,8 @@ export class BlockchainIndices {
         sourceUrl,
         oracleType
       });
+      
+      console.log(`💰 Using your connected wallet: ${this.wallet.currentAccount}`);
 
       // Estimate gas first
       const gasEstimate = await this.oracle.methods

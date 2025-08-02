@@ -221,9 +221,6 @@ export function IndicesExplorer() {
     setRequestSuccess(null);
 
     try {
-      // Get private key from wallet (DEMO method - shows security warning)
-      const privateKey = await getPrivateKeyForDemo();
-
       console.log('🏗️ Requesting blockchain index creation:', {
         name: index.name,
         symbol: index.symbol,
@@ -240,21 +237,16 @@ export function IndicesExplorer() {
       
       console.log('📊 Created Alpha Vantage URL for oracle:', sourceUrl);
 
-      const response = await fetch('/api/oracle', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'create-index',
-          name: index.name,
-          initialValue: initialValue,
-          sourceUrl: sourceUrl,
-          privateKey: privateKey
-        }),
-      });
-
-      const result = await response.json();
+      // Use the blockchain service directly instead of API route
+      const { ORACLE_TYPES } = await import('@/lib/blockchain-constants');
+      const { blockchainService } = await import('@/lib/blockchain-service');
+      
+      const result = await blockchainService.createIndexWithOracleType(
+        index.name,
+        initialValue,
+        sourceUrl,
+        ORACLE_TYPES.CHAINLINK
+      );
 
       if (result.success) {
         setRequestSuccess(`✅ Successfully created blockchain index "${index.name}" with ID ${result.indexId}! Transaction: ${result.transactionHash}`);
@@ -265,7 +257,7 @@ export function IndicesExplorer() {
           window.location.reload(); // Simple refresh to show new index
         }, 2000);
       } else {
-        throw new Error(result.message || result.error || 'Failed to create index');
+        throw new Error(result.error || 'Failed to create index');
       }
 
     } catch (error) {
