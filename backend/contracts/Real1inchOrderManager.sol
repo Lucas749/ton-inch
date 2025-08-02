@@ -11,10 +11,22 @@ import "./interfaces/I1inch.sol";
 // Additional 1inch types we need
 type TakerTraits is uint256;
 
+// CORRECT 1inch Order struct format (from verified contract)
+struct Order {
+    uint256 salt;
+    uint256 maker;        // uint256, not address!
+    uint256 receiver;     // uint256, not address!
+    uint256 makerAsset;   // uint256, not address!
+    uint256 takerAsset;   // uint256, not address!
+    uint256 makingAmount;
+    uint256 takingAmount;
+    uint256 makerTraits;  // This replaces offsets/interactions
+}
+
 // Interface for the real 1inch protocol
 interface IRealLimitOrderProtocol {
     function fillOrderArgs(
-        IOrderMixin.Order calldata order,
+        Order calldata order,
         bytes32 r,
         bytes32 vs,
         uint256 amount,
@@ -23,9 +35,15 @@ interface IRealLimitOrderProtocol {
     ) external payable returns(uint256 makingAmount, uint256 takingAmount, bytes32 orderHash);
 
     function cancelOrder(MakerTraits makerTraits, bytes32 orderHash) external;
-    function hashOrder(IOrderMixin.Order calldata order) external view returns(bytes32 orderHash);
+    function hashOrder(Order calldata order) external view returns(bytes32 orderHash);
     function remainingInvalidatorForOrder(address maker, bytes32 orderHash) external view returns(uint256 remaining);
     function DOMAIN_SEPARATOR() external view returns(bytes32);
+    
+    // Add postOrder function to actually submit orders
+    function postOrder(
+        Order calldata order,
+        bytes calldata extension
+    ) external returns (bytes32 orderHash);
 }
 
 /**
@@ -50,13 +68,19 @@ contract Real1inchOrderManager {
         uint256 indexed indexId,
         IndexPreInteraction.ComparisonOperator operator,
         uint256 thresholdValue,
-        IOrderMixin.Order order
+        Order order
     );
     
     event OrderFilledOnRealProtocol(
         bytes32 indexed orderHash,
         uint256 makingAmount,
         uint256 takingAmount
+    );
+    
+    event OrderPostedToRealProtocol(
+        bytes32 indexed orderHash,
+        address indexed maker,
+        bool success
     );
 
     constructor(
@@ -95,7 +119,7 @@ contract Real1inchOrderManager {
         IndexPreInteraction.ComparisonOperator operator,
         uint256 thresholdValue,
         uint40 expiry
-    ) external returns (IOrderMixin.Order memory order, bytes32 orderHash) {
+    ) external returns (Order memory order, bytes32 orderHash) {
         
         // Create MakerTraits with PreInteraction flag and expiry
         uint256 traits = _PRE_INTERACTION_CALL_FLAG | _HAS_EXTENSION_FLAG;
@@ -110,16 +134,16 @@ contract Real1inchOrderManager {
         
         MakerTraits makerTraits = MakerTraits.wrap(traits);
         
-        // Create the order using 1inch format
-        order = IOrderMixin.Order({
+        // Create the order using CORRECT 1inch format (addresses as uint256)
+        order = Order({
             salt: salt,
-            maker: maker.toAddress(),
-            receiver: receiver != address(0) ? receiver.toAddress() : maker.toAddress(),
-            makerAsset: makerAsset.toAddress(),
-            takerAsset: takerAsset.toAddress(),
+            maker: uint256(uint160(maker)),
+            receiver: receiver != address(0) ? uint256(uint160(receiver)) : uint256(uint160(maker)),
+            makerAsset: uint256(uint160(makerAsset)),
+            takerAsset: uint256(uint160(takerAsset)),
             makingAmount: makingAmount,
             takingAmount: takingAmount,
-            makerTraits: makerTraits
+            makerTraits: traits  // Use raw traits, not MakerTraits wrapper
         });
         
         // Get order hash from the real protocol
@@ -146,6 +170,55 @@ contract Real1inchOrderManager {
     }
 
     /**
+     * @notice Creates and POSTS a real 1inch order with index condition
+     * @dev This actually submits the order to the 1inch protocol
+     */
+    function createAndPostRealIndexOrder(
+        uint256 salt,
+        address maker,
+        address receiver,
+        address makerAsset,
+        address takerAsset,
+        uint256 makingAmount,
+        uint256 takingAmount,
+        uint256 indexId,
+        IndexPreInteraction.ComparisonOperator operator,
+        uint256 thresholdValue,
+        uint40 expiry
+    ) external returns (Order memory order, bytes32 orderHash, bool posted) {
+        
+        // Step 1: Create the order (existing functionality)
+        (order, orderHash) = this.createRealIndexOrder(
+            salt,
+            maker,
+            receiver,
+            makerAsset,
+            takerAsset,
+            makingAmount,
+            takingAmount,
+            indexId,
+            operator,
+            thresholdValue,
+            expiry
+        );
+        
+        // Step 2: Create extension data for posting
+        bytes memory extensionData = this.createExtensionData(indexId, operator, thresholdValue);
+        
+        // Step 3: POST order to real 1inch protocol
+        try limitOrderProtocol.postOrder(order, extensionData) returns (bytes32 postedHash) {
+            require(postedHash == orderHash, "Hash mismatch after posting");
+            posted = true;
+            emit OrderPostedToRealProtocol(orderHash, maker, true);
+        } catch {
+            posted = false;
+            emit OrderPostedToRealProtocol(orderHash, maker, false);
+        }
+        
+        return (order, orderHash, posted);
+    }
+
+    /**
      * @notice Fills a real 1inch order
      * @param order The order to fill
      * @param r R component of maker's signature
@@ -157,7 +230,7 @@ contract Real1inchOrderManager {
      * @return orderHash Hash of the filled order
      */
     function fillRealOrder(
-        IOrderMixin.Order calldata order,
+        Order calldata order,
         bytes32 r,
         bytes32 vs,
         uint256 amount,
@@ -196,7 +269,7 @@ contract Real1inchOrderManager {
      * @param order The order to hash
      * @return orderHash The order hash
      */
-    function getRealOrderHash(IOrderMixin.Order calldata order) external view returns (bytes32 orderHash) {
+    function getRealOrderHash(Order calldata order) external view returns (bytes32 orderHash) {
         return limitOrderProtocol.hashOrder(order);
     }
 
