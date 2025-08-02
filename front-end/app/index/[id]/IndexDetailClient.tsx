@@ -38,6 +38,7 @@ import { TokenSelector } from "@/components/TokenSelector";
 import { Token, tokenService } from "@/lib/token-service";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ethers } from "ethers";
 
 interface IndexDetailClientProps {
   indexData: any;
@@ -278,7 +279,9 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
       clearTimeout(mountTimeout);
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, []); // Only run once on mount
+  // Only run once on mount - intentionally excluding dependencies
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Check token approval status
   const checkTokenApproval = async (tokenAddress: string, amount: string) => {
@@ -313,9 +316,9 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
       
       // Get token decimals
       const decimals = await tokenContract.methods.decimals().call();
-      const requiredAmount = web3.utils.toBN(amount).mul(web3.utils.toBN(10).pow(web3.utils.toBN(decimals)));
+      const requiredAmount = ethers.utils.parseUnits(amount, Number(decimals));
       
-      return web3.utils.toBN(allowance).gte(requiredAmount);
+      return ethers.BigNumber.from(String(allowance)).gte(requiredAmount);
       
     } catch (error) {
       console.error('Error checking approval:', error);
@@ -369,7 +372,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
         maxApproval
       ).send({
         from: walletAddress,
-        gas: 25000 // MetaMask-aggressive gas limit for Base L2
+        gas: '25000' // MetaMask-aggressive gas limit for Base L2
       });
       
       console.log('✅ Token approval successful:', tx.transactionHash);
@@ -395,15 +398,15 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
   // Update realIndexData with blockchain parsed names when available
   useEffect(() => {
     if (blockchainIndex && blockchainIndex.name && !blockchainIndex.name.startsWith('Custom Index')) {
-      setRealIndexData(prev => ({
+      setRealIndexData((prev: any) => ({
         ...prev,
         name: blockchainIndex.name,
-        symbol: blockchainIndex.symbol || prev.symbol,
-        avatar: blockchainIndex.avatar || prev.avatar,
-        color: blockchainIndex.color || prev.color,  
-        category: blockchainIndex.category || prev.category,
-        description: blockchainIndex.description || prev.description,
-        sourceUrl: blockchainIndex.sourceUrl || prev.sourceUrl
+        symbol: (blockchainIndex as any).symbol || prev.symbol,
+        avatar: (blockchainIndex as any).avatar || prev.avatar,
+        color: (blockchainIndex as any).color || prev.color,  
+        category: (blockchainIndex as any).category || prev.category,
+        description: (blockchainIndex as any).description || prev.description,
+        sourceUrl: (blockchainIndex as any).sourceUrl || prev.sourceUrl
       }));
     }
   }, [blockchainIndex]);
@@ -420,33 +423,33 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
   const loadCurrentPrice = async () => {
     try {
       const apiKey = process.env.NEXT_PUBLIC_ALPHAVANTAGE || "123";
-      let currentPrice = null;
-      let priceChange = null;
+      let currentPrice: number | null = null;
+      let priceChange: string | null = null;
       let isPositive = true;
 
       // Priority 1: Try Alpha Vantage using blockchain sourceUrl
-      if (blockchainIndex && blockchainIndex.sourceUrl && blockchainIndex.sourceUrl.includes('alphavantage.co')) {
+      if (blockchainIndex && (blockchainIndex as any).sourceUrl && (blockchainIndex as any).sourceUrl.includes('alphavantage.co')) {
         try {
-          const url = new URL(blockchainIndex.sourceUrl);
+          const url = new URL((blockchainIndex as any).sourceUrl);
           const alphaVantageFunction = url.searchParams.get('function');
           const alphaVantageSymbol = url.searchParams.get('symbol');
           
           if (alphaVantageFunction && alphaVantageSymbol) {
-            const alphaVantageService = new AlphaVantageService(apiKey);
+            const alphaVantageService = new AlphaVantageService({ apiKey });
             
             // Handle different Alpha Vantage functions
             if (alphaVantageFunction === 'CORN' && alphaVantageSymbol === 'WTI') {
               const cornData = await alphaVantageService.getCorn();
-              if (cornData && cornData.data && cornData.data.length > 0) {
-                currentPrice = cornData.data[0].value;
-                if (cornData.data.length > 1) {
-                  const prevPrice = cornData.data[1].value;
+              if (cornData && (cornData as any).data && (cornData as any).data.length > 0) {
+                currentPrice = Number((cornData as any).data[0].value);
+                if ((cornData as any).data.length > 1) {
+                  const prevPrice = Number((cornData as any).data[1].value);
                   priceChange = ((currentPrice - prevPrice) / prevPrice * 100).toFixed(2);
                   isPositive = currentPrice >= prevPrice;
                 }
               }
             } else if (alphaVantageFunction === 'EARNINGS_ESTIMATES') {
-              const earningsData = await alphaVantageService.getEarningsEstimates(alphaVantageSymbol);
+              const earningsData = await (alphaVantageService as any).getEarningsEstimates(alphaVantageSymbol);
               if (earningsData && earningsData.quarterlyEarnings && earningsData.quarterlyEarnings.length > 0) {
                 const latest = earningsData.quarterlyEarnings[0];
                 currentPrice = latest.estimatedEarningsPerShare;
@@ -454,7 +457,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                 priceChange = latest.numberOfEstimatesRevisions > 0 ? '+' + latest.numberOfEstimatesRevisions : latest.numberOfEstimatesRevisions;
               }
             } else if (alphaVantageFunction === 'GLOBAL_QUOTE') {
-              const quoteData = await alphaVantageService.getGlobalQuote(alphaVantageSymbol);
+              const quoteData = await (alphaVantageService as any).getGlobalQuote(alphaVantageSymbol);
               if (quoteData) {
                 currentPrice = parseFloat(quoteData.price);
                 priceChange = quoteData.changePercent;
@@ -462,20 +465,20 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
               }
             } else if (alphaVantageFunction === 'DIGITAL_CURRENCY_DAILY') {
               const cryptoData = await alphaVantageService.getCryptoTimeSeries(alphaVantageSymbol);
-              if (cryptoData && cryptoData.data && cryptoData.data.length > 0) {
-                currentPrice = cryptoData.data[0].close;
-                if (cryptoData.data.length > 1) {
-                  const prevPrice = cryptoData.data[1].close;
+              if (cryptoData && (cryptoData as any).data && (cryptoData as any).data.length > 0) {
+                currentPrice = Number((cryptoData as any).data[0].close);
+                if ((cryptoData as any).data.length > 1) {
+                  const prevPrice = Number((cryptoData as any).data[1].close);
                   priceChange = ((currentPrice - prevPrice) / prevPrice * 100).toFixed(2);
                   isPositive = currentPrice >= prevPrice;
                 }
               }
             } else if (alphaVantageFunction === 'FX_DAILY') {
               const fxData = await alphaVantageService.getDailyTimeSeries(alphaVantageSymbol);
-              if (fxData && fxData.data && fxData.data.length > 0) {
-                currentPrice = fxData.data[0].close;
-                if (fxData.data.length > 1) {
-                  const prevPrice = fxData.data[1].close;
+              if (fxData && (fxData as any).data && (fxData as any).data.length > 0) {
+                currentPrice = Number((fxData as any).data[0].close);
+                if ((fxData as any).data.length > 1) {
+                  const prevPrice = Number((fxData as any).data[1].close);
                   priceChange = ((currentPrice - prevPrice) / prevPrice * 100).toFixed(2);
                   isPositive = currentPrice >= prevPrice;
                 }
@@ -496,14 +499,14 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
 
       // Update the price display if we found current data
       if (currentPrice !== null) {
-        setRealIndexData(prev => ({
+        setRealIndexData((prev: any) => ({
           ...prev,
           price: currentPrice,
-          valueLabel: currentPrice >= 1000 ? 
-            `$${(currentPrice / 1000).toFixed(1)}K` :
-            currentPrice >= 1 ?
-            `$${currentPrice.toFixed(2)}` :
-            `$${currentPrice.toFixed(4)}`,
+          valueLabel: currentPrice! >= 1000 ? 
+            `$${(currentPrice! / 1000).toFixed(1)}K` :
+            currentPrice! >= 1 ?
+            `$${currentPrice!.toFixed(2)}` :
+            `$${currentPrice!.toFixed(4)}`,
           change: priceChange ? 
             (isPositive ? `+${priceChange}%` : `${priceChange}%`) : 
             'N/A',
@@ -541,9 +544,9 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
     let alphaVantageFunction = null;
     let alphaVantageSymbol = null;
     
-    if (blockchainIndex && blockchainIndex.sourceUrl && blockchainIndex.sourceUrl.includes('alphavantage.co')) {
+    if (blockchainIndex && (blockchainIndex as any).sourceUrl && (blockchainIndex as any).sourceUrl.includes('alphavantage.co')) {
       try {
-        const url = new URL(blockchainIndex.sourceUrl);
+        const url = new URL((blockchainIndex as any).sourceUrl);
         alphaVantageFunction = url.searchParams.get('function');
         alphaVantageSymbol = url.searchParams.get('symbol');
         useRealAlphaVantageData = true;
@@ -646,15 +649,15 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
           console.log(`📈 Fetching stock data for earnings symbol: ${alphaVantageSymbol} via cached API`);
           const apiResponse = await fetch(`/api/alphavantage?function=TIME_SERIES_DAILY&symbol=${alphaVantageSymbol}&outputsize=compact`);
           response = await apiResponse.json();
-          if (!apiResponse.ok) throw new Error(response.error || 'Failed to fetch stock data');
-          parsedData = AlphaVantageService.parseTimeSeriesData(response);
+          if (!apiResponse.ok) throw new Error((response as any)?.error || 'Failed to fetch stock data');
+          parsedData = AlphaVantageService.parseTimeSeriesData(response!);
         } else if (alphaVantageFunction === 'GLOBAL_QUOTE' && alphaVantageSymbol) {
           // Stock quote - use daily time series
           console.log(`📈 Fetching stock data for: ${alphaVantageSymbol} via cached API`);
           const apiResponse = await fetch(`/api/alphavantage?function=TIME_SERIES_DAILY&symbol=${alphaVantageSymbol}&outputsize=compact`);
           response = await apiResponse.json();
-          if (!apiResponse.ok) throw new Error(response.error || 'Failed to fetch stock data');
-          parsedData = AlphaVantageService.parseTimeSeriesData(response);
+          if (!apiResponse.ok) throw new Error((response as any)?.error || 'Failed to fetch stock data');
+          parsedData = AlphaVantageService.parseTimeSeriesData(response!);
         } else if (alphaVantageFunction === 'DIGITAL_CURRENCY_DAILY' && alphaVantageSymbol) {
           // Crypto currency
           console.log(`📈 Fetching crypto data for: ${alphaVantageSymbol} via cached API`);
@@ -675,8 +678,8 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
             // For other commodities, fallback to SPY data
             const fallbackResponse = await fetch(`/api/alphavantage?function=TIME_SERIES_DAILY&symbol=SPY&outputsize=compact`);
             response = await fallbackResponse.json();
-            if (!fallbackResponse.ok) throw new Error(response.error || 'Failed to fetch fallback data');
-            parsedData = AlphaVantageService.parseTimeSeriesData(response);
+            if (!fallbackResponse.ok) throw new Error((response as any)?.error || 'Failed to fetch fallback data');
+            parsedData = AlphaVantageService.parseTimeSeriesData(response!);
           } else {
             parsedData = AlphaVantageService.parseTimeSeriesData(commodityResponse);
           }
@@ -685,8 +688,8 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
           console.log(`📈 Fallback: fetching stock data for: ${symbol} via cached API`);
           const apiResponse = await fetch(`/api/alphavantage?function=TIME_SERIES_DAILY&symbol=${symbol}&outputsize=compact`);
           response = await apiResponse.json();
-          if (!apiResponse.ok) throw new Error(response.error || 'Failed to fetch stock data');
-          parsedData = AlphaVantageService.parseTimeSeriesData(response);
+          if (!apiResponse.ok) throw new Error((response as any)?.error || 'Failed to fetch stock data');
+          parsedData = AlphaVantageService.parseTimeSeriesData(response!);
         }
       } else if (symbol.includes('USD') && !symbol.includes('/')) {
         // Crypto symbols like BTCUSD, ETHUSD
@@ -701,8 +704,8 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
           console.warn(`Failed to fetch crypto data for ${symbol}, falling back to SPY`);
           const apiResponse = await fetch(`/api/alphavantage?function=TIME_SERIES_DAILY&symbol=SPY&outputsize=compact`);
           response = await apiResponse.json();
-          if (!apiResponse.ok) throw new Error(response.error || 'Failed to fetch fallback data');
-          parsedData = AlphaVantageService.parseTimeSeriesData(response);
+          if (!apiResponse.ok) throw new Error((response as any)?.error || 'Failed to fetch fallback data');
+          parsedData = AlphaVantageService.parseTimeSeriesData(response!);
         }
       } else if (symbol.includes('/')) {
         // Forex pairs like EUR/USD
@@ -717,8 +720,8 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
           console.warn(`Failed to fetch forex data for ${symbol}, falling back to SPY`);
           const apiResponse = await fetch(`/api/alphavantage?function=TIME_SERIES_DAILY&symbol=SPY&outputsize=compact`);
           response = await apiResponse.json();
-          if (!apiResponse.ok) throw new Error(response.error || 'Failed to fetch fallback data');
-          parsedData = AlphaVantageService.parseTimeSeriesData(response);
+          if (!apiResponse.ok) throw new Error((response as any)?.error || 'Failed to fetch fallback data');
+          parsedData = AlphaVantageService.parseTimeSeriesData(response!);
         }
       } else if (['WTI', 'BRENT', 'WHEAT', 'CORN'].includes(symbol)) {
         // Commodity symbols - use cached API for proper commodity APIs
@@ -746,7 +749,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
               close: parseFloat(item.value),
               volume: 1000000 // Mock volume
             }))
-            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+            .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
           
           // Fetch token price data for commodities
           const fromTokenPriceData = canFetchFromToken ? await fetchTokenData(fromToken!.symbol) : 
@@ -784,8 +787,8 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
         console.log(`📈 Fetching stock data for ${symbol} via cached API`);
         const apiResponse = await fetch(`/api/alphavantage?function=TIME_SERIES_DAILY&symbol=${symbol}&outputsize=full`);
         response = await apiResponse.json();
-        if (!apiResponse.ok) throw new Error(response.error || 'Failed to fetch stock data');
-        parsedData = AlphaVantageService.parseTimeSeriesData(response);
+        if (!apiResponse.ok) throw new Error((response as any)?.error || 'Failed to fetch stock data');
+        parsedData = AlphaVantageService.parseTimeSeriesData(response!);
       }
       
       if (!(['WTI', 'BRENT', 'WHEAT', 'CORN'].includes(symbol))) {
@@ -829,7 +832,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
         stack: (error as Error).stack,
         symbol,
         indexId: index.id,
-        apiKey: apiKey.substring(0, 8) + '...'
+        apiKey: (process.env.NEXT_PUBLIC_ALPHAVANTAGE || "123").substring(0, 8) + '...'
       });
       setChartError(`Failed to load chart data for ${symbol}. Using demo visualization.`);
       
@@ -1618,7 +1621,6 @@ This matches the backend test-index-order-creator.js values exactly!`);
                   </div>
 
                   </>
-                  )}
                 </CardContent>
               </Card>
             )}
