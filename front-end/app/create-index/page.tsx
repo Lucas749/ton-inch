@@ -80,11 +80,18 @@ export default function CreateIndex() {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const selectedIndexId = urlParams.get('selectedIndex');
+    console.log('🔍 URL selectedIndex:', selectedIndexId);
+    console.log('📊 Available indices:', indices.map(i => `${i.id}: ${i.name}`));
+    
     if (selectedIndexId && indices.length > 0) {
       const index = indices.find(i => i.id.toString() === selectedIndexId);
+      console.log('🎯 Found matching index:', index);
+      
       if (index) {
         setSelectedIndex(index);
         setSelectedTab("manage");
+      } else {
+        console.warn(`⚠️ Index with ID ${selectedIndexId} not found in available indices`);
       }
     }
   }, [indices]);

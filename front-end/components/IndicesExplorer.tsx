@@ -258,15 +258,8 @@ export function IndicesExplorer() {
                     className="ml-4"
                     onClick={(e) => {
                       e.stopPropagation();
-                      // Map symbol to indexId for available contract indices
-                      const symbolToIndexId: Record<string, number> = {
-                        'AAPL': 0,
-                        'TSLA': 1, 
-                        'VIX': 2,
-                        'BTCUSD': 3
-                      };
-                      const indexId = symbolToIndexId[index.symbol];
-                      router.push(`/create-index?selectedIndex=${indexId}`);
+                      // Route to the index detail page
+                      router.push(`/index/${index.id}`);
                     }}
                   >
                     <Plus className="w-4 h-4 mr-1" />

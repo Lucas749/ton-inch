@@ -30,10 +30,13 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { useBlockchain } from "@/hooks/useBlockchain";
-import { blockchainService } from "@/lib/blockchain-service";
+import { useOrders, OPERATORS } from "@/hooks/useOrders";
+import { blockchainService, CONTRACTS } from "@/lib/blockchain-service";
 import AlphaVantageService, { TimeSeriesResponse } from "@/lib/alphavantage-service";
 import { RealIndicesService } from "@/lib/real-indices-service";
 import { SwapBox } from "@/components/SwapBox";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface IndexDetailClientProps {
   indexData: any;
@@ -63,15 +66,44 @@ const getAlphaVantageSymbol = (indexId: string): string => {
   return symbolMap[indexId] || 'IBM'; // Default to IBM if not found
 };
 
+// Map index IDs to blockchain index IDs
+const getBlockchainIndexId = (indexId: string): number | null => {
+  const indexMap: Record<string, number> = {
+    'aapl_stock': 0,   // Apple
+    'tsla_stock': 1,   // Tesla  
+    'vix_index': 2,    // VIX
+    'btc_price': 3     // Bitcoin
+  };
+  return indexMap[indexId] ?? null;
+};
+
 export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) {
   const router = useRouter();
-  const [isAddingToPortfolio, setIsAddingToPortfolio] = useState(false);
+  const [isRequestingIndex, setIsRequestingIndex] = useState(false);
   const [chartData, setChartData] = useState<any[]>([]);
   const [isLoadingChart, setIsLoadingChart] = useState(true);
   const [chartError, setChartError] = useState<string | null>(null);
   const [realIndexData, setRealIndexData] = useState(index);
   
-  const { isConnected, walletAddress } = useBlockchain();
+  // Order creation form
+  const [orderForm, setOrderForm] = useState({
+    description: "",
+    fromToken: CONTRACTS.USDC,
+    toToken: CONTRACTS.WETH,
+    fromAmount: "",
+    toAmount: "",
+    operator: OPERATORS.GT,
+    threshold: "",
+    expiry: "24" // hours
+  });
+  
+  const { isConnected, walletAddress, indices: blockchainIndices } = useBlockchain();
+  const { createOrder, isLoading: isCreatingOrder } = useOrders();
+  
+  // Check if this index exists on blockchain
+  const blockchainIndexId = getBlockchainIndexId(index.id);
+  const isAvailableOnBlockchain = blockchainIndexId !== null;
+  const blockchainIndex = blockchainIndices.find(idx => idx.id === blockchainIndexId);
 
   // Load real Alpha Vantage data for this index
   const loadRealIndexData = async () => {
@@ -167,32 +199,67 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
     loadChartData();
   }, [index.id]);
 
-  const handleAddToPortfolio = async () => {
-    if (!isConnected) {
+  const handleRequestIndex = async () => {
+    setIsRequestingIndex(true);
+    
+    try {
+      // Simulate request submission
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      alert(`📝 Request submitted for ${realIndexData.name}! We'll notify you when it's available on-chain.`);
+    } catch (error) {
+      alert("Failed to submit request. Please try again.");
+    } finally {
+      setIsRequestingIndex(false);
+    }
+  };
+
+  const handleCreateOrder = async () => {
+    if (!isConnected || !blockchainIndexId) {
       alert("Please connect your wallet first");
       return;
     }
 
     try {
-      setIsAddingToPortfolio(true);
-      
-      const indexId = await blockchainService.createIndex(
-        realIndexData.id,
-        realIndexData.description,
-        realIndexData.currentValue
-      );
+      await createOrder({
+        indexId: blockchainIndexId,
+        operator: orderForm.operator,
+        threshold: parseInt(orderForm.threshold),
+        description: orderForm.description,
+        fromToken: orderForm.fromToken,
+        toToken: orderForm.toToken,
+        fromAmount: orderForm.fromAmount,
+        toAmount: orderForm.toAmount,
+        expiry: parseInt(orderForm.expiry) * 3600 // Convert hours to seconds
+      });
 
-      console.log("✅ Index created with ID:", indexId);
-      alert(`🎉 Successfully added ${realIndexData.name} to your portfolio!`);
-      
-      // Redirect to dashboard to see the new index
-      router.push("/dashboard");
+      // Reset form
+      setOrderForm({
+        description: "",
+        fromToken: CONTRACTS.USDC,
+        toToken: CONTRACTS.WETH,
+        fromAmount: "",
+        toAmount: "",
+        operator: OPERATORS.GT,
+        threshold: "",
+        expiry: "24"
+      });
+
+      alert(`🎉 Order created successfully! It will execute when ${realIndexData.name} ${getOperatorSymbol(orderForm.operator)} ${orderForm.threshold}`);
       
     } catch (error) {
-      console.error("❌ Error creating index:", error);
-      alert("Failed to add index: " + (error as Error).message);
-    } finally {
-      setIsAddingToPortfolio(false);
+      console.error("❌ Error creating order:", error);
+      alert("Failed to create order: " + (error as Error).message);
+    }
+  };
+
+  const getOperatorSymbol = (operator: number) => {
+    switch (operator) {
+      case OPERATORS.GT: return ">";
+      case OPERATORS.LT: return "<";
+      case OPERATORS.GTE: return "≥";
+      case OPERATORS.LTE: return "≤";
+      case OPERATORS.EQ: return "=";
+      default: return "?";
     }
   };
 
@@ -250,20 +317,30 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                   <RefreshCw className={`w-4 h-4 mr-2 ${isLoadingChart ? 'animate-spin' : ''}`} />
                   Refresh
                 </Button>
-                <Button
-                  onClick={handleAddToPortfolio}
-                  disabled={!isConnected || isAddingToPortfolio}
-                  className="px-6"
-                >
-                  {isAddingToPortfolio ? (
-                    "Adding..."
-                  ) : (
-                    <>
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add to Portfolio
-                    </>
-                  )}
-                </Button>
+                
+                {isAvailableOnBlockchain ? (
+                  <div className="flex items-center space-x-2">
+                    <div className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
+                      Available On-Chain
+                    </div>
+                  </div>
+                ) : (
+                  <Button
+                    onClick={handleRequestIndex}
+                    disabled={isRequestingIndex}
+                    variant="outline"
+                    className="px-6"
+                  >
+                    {isRequestingIndex ? (
+                      "Requesting..."
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4 mr-2" />
+                        Request Index
+                      </>
+                    )}
+                  </Button>
+                )}
               </div>
             </div>
 
@@ -440,18 +517,114 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
             </Card>
           </div>
 
-          {/* Right Column - Swap & Social Feed */}
+          {/* Right Column - Trading & Social Feed */}
           <div className="space-y-6">
-            {/* Quick Swap Box */}
-            <SwapBox 
-              walletAddress={walletAddress || undefined}
-              apiKey={process.env.NEXT_PUBLIC_ONEINCH_API_KEY}
-                                  rpcUrl={process.env.NEXT_PUBLIC_ALCHEMY_API_KEY
-                      ? `https://base-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`
-                      : "https://mainnet.base.org"
-                    }
-              indexName={realIndexData.name}
-            />
+            {isAvailableOnBlockchain ? (
+              <>
+                {/* Quick Swap Box */}
+                <SwapBox 
+                  walletAddress={walletAddress || undefined}
+                  apiKey={process.env.NEXT_PUBLIC_ONEINCH_API_KEY}
+                  rpcUrl={process.env.NEXT_PUBLIC_ALCHEMY_API_KEY
+                    ? `https://base-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`
+                    : "https://mainnet.base.org"
+                  }
+                  indexName={realIndexData.name}
+                />
+
+                {/* Order Creation Box */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Create Conditional Order</CardTitle>
+                    <div className="text-sm text-gray-500">
+                      Set up an order that executes when {realIndexData.name} meets your conditions
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium">Description</label>
+                      <Input
+                        placeholder={`Buy when ${realIndexData.name} hits target`}
+                        value={orderForm.description}
+                        onChange={(e) => setOrderForm(prev => ({ ...prev, description: e.target.value }))}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-sm font-medium">From Amount</label>
+                        <Input
+                          placeholder="0.1"
+                          value={orderForm.fromAmount}
+                          onChange={(e) => setOrderForm(prev => ({ ...prev, fromAmount: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">To Amount</label>
+                        <Input
+                          placeholder="0.0001"
+                          value={orderForm.toAmount}
+                          onChange={(e) => setOrderForm(prev => ({ ...prev, toAmount: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-sm font-medium">Condition</label>
+                        <Select value={orderForm.operator.toString()} onValueChange={(value) => setOrderForm(prev => ({ ...prev, operator: parseInt(value) }))}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={OPERATORS.GT.toString()}>Greater than (&gt;)</SelectItem>
+                            <SelectItem value={OPERATORS.LT.toString()}>Less than (&lt;)</SelectItem>
+                            <SelectItem value={OPERATORS.GTE.toString()}>Greater or equal (≥)</SelectItem>
+                            <SelectItem value={OPERATORS.LTE.toString()}>Less or equal (≤)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Threshold</label>
+                        <Input
+                          placeholder="18000"
+                          value={orderForm.threshold}
+                          onChange={(e) => setOrderForm(prev => ({ ...prev, threshold: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+
+                    <Button 
+                      onClick={handleCreateOrder}
+                      disabled={!isConnected || isCreatingOrder || !orderForm.threshold || !orderForm.fromAmount}
+                      className="w-full"
+                    >
+                      {isCreatingOrder ? "Creating Order..." : "Create Order"}
+                    </Button>
+                  </CardContent>
+                </Card>
+              </>
+            ) : (
+              /* Request Index Card */
+              <Card className="border-orange-200 bg-orange-50">
+                <CardContent className="p-6 text-center">
+                  <div className="w-16 h-16 mx-auto mb-4 bg-orange-100 rounded-full flex items-center justify-center">
+                    <Plus className="w-8 h-8 text-orange-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-orange-900 mb-2">Index Not Available</h3>
+                  <p className="text-orange-700 mb-4">
+                    This index is not yet available for on-chain trading. Request it to be added to the platform.
+                  </p>
+                  <Button 
+                    onClick={handleRequestIndex}
+                    disabled={isRequestingIndex}
+                    className="bg-orange-600 hover:bg-orange-700"
+                  >
+                    {isRequestingIndex ? "Requesting..." : "Request Index"}
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
             
             <Card>
               <CardHeader>
