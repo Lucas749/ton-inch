@@ -376,7 +376,7 @@ export function IndicesExplorer() {
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center space-x-3">
                       <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white text-lg font-bold">
-                        {index.name.charAt(0)}
+                        {(index.name || 'U').charAt(0)}
                       </div>
                       <div>
                                               <div className="font-semibold text-gray-900">{index.name || 'Unknown Index'}</div>
@@ -401,7 +401,7 @@ export function IndicesExplorer() {
                     </div>
                     <div className="text-right">
                       <div className="text-sm font-medium text-blue-700">
-                        {index.isActive ? 'Active' : 'Inactive'}
+                        {index.active ? 'Active' : 'Inactive'}
                       </div>
                       <div className="text-xs text-gray-500">Status</div>
                     </div>
