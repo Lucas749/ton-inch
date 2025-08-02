@@ -1,200 +1,260 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { ServerCSVCacheService } from '@/lib/server-csv-cache';
+
+// Mark this route as dynamic to avoid static generation issues
+export const dynamic = 'force-dynamic';
+
+// Initialize the cache service
+const cacheService = new ServerCSVCacheService();
+
+// Validation function to check if AlphaVantage response is valid
+function validateResponseData(data: any, functionName: string): void {
+  if (!data || typeof data !== 'object') {
+    throw new Error(`Invalid response: Expected object, got ${typeof data}`);
+  }
+
+  // Handle different API function types
+  switch (functionName) {
+    case 'GLOBAL_QUOTE':
+      if (!data["Global Quote"] || typeof data["Global Quote"] !== 'object') {
+        throw new Error('Invalid Global Quote response: Missing or invalid "Global Quote" object');
+      }
+      const quote = data["Global Quote"];
+      const requiredFields = ["01. symbol", "05. price", "09. change", "10. change percent"];
+      for (const field of requiredFields) {
+        if (!quote[field] || quote[field] === "" || quote[field] === "N/A") {
+          throw new Error(`Invalid Global Quote response: Missing or invalid field "${field}"`);
+        }
+      }
+      break;
+
+    case 'CURRENCY_EXCHANGE_RATE':
+      if (!data["Realtime Currency Exchange Rate"] || typeof data["Realtime Currency Exchange Rate"] !== 'object') {
+        throw new Error('Invalid Currency Exchange response: Missing or invalid "Realtime Currency Exchange Rate" object');
+      }
+      const exchangeRate = data["Realtime Currency Exchange Rate"];
+      const requiredExchangeFields = ["5. Exchange Rate", "1. From_Currency Code", "3. To_Currency Code"];
+      for (const field of requiredExchangeFields) {
+        if (!exchangeRate[field] || exchangeRate[field] === "" || exchangeRate[field] === "N/A") {
+          throw new Error(`Invalid Currency Exchange response: Missing or invalid field "${field}"`);
+        }
+      }
+      break;
+
+    case 'TOP_GAINERS_LOSERS':
+      if (!data["top_gainers"] || !Array.isArray(data["top_gainers"]) || data["top_gainers"].length === 0) {
+        throw new Error('Invalid Top Gainers/Losers response: Missing or empty "top_gainers" array');
+      }
+      const topGainer = data["top_gainers"][0];
+      const requiredTopGainerFields = ["ticker", "price", "change_amount", "change_percentage"];
+      for (const field of requiredTopGainerFields) {
+        if (!topGainer[field] || topGainer[field] === "" || topGainer[field] === "N/A") {
+          throw new Error(`Invalid Top Gainers response: Missing or invalid field "${field}" in top gainer`);
+        }
+      }
+      break;
+
+    case 'WTI':
+    case 'BRENT':
+    case 'NATURAL_GAS':
+    case 'WHEAT':
+    case 'CORN':
+    case 'COFFEE':
+    case 'SUGAR':
+    case 'COTTON':
+      if (!data["data"] || !Array.isArray(data["data"]) || data["data"].length === 0) {
+        throw new Error(`Invalid ${functionName} response: Missing or empty "data" array`);
+      }
+      const commodityData = data["data"][0];
+      const requiredCommodityFields = ["value", "date"];
+      for (const field of requiredCommodityFields) {
+        if (commodityData[field] === undefined || commodityData[field] === "" || commodityData[field] === "N/A") {
+          throw new Error(`Invalid ${functionName} response: Missing or invalid field "${field}"`);
+        }
+      }
+      break;
+
+    case 'REAL_GDP':
+    case 'INFLATION':
+    case 'UNEMPLOYMENT':
+    case 'FEDERAL_FUNDS_RATE':
+      if (!data["data"] || !Array.isArray(data["data"]) || data["data"].length === 0) {
+        throw new Error(`Invalid ${functionName} response: Missing or empty "data" array`);
+      }
+      const economicData = data["data"][0];
+      const requiredEconomicFields = ["value", "date"];
+      for (const field of requiredEconomicFields) {
+        if (economicData[field] === undefined || economicData[field] === "" || economicData[field] === "N/A") {
+          throw new Error(`Invalid ${functionName} response: Missing or invalid field "${field}"`);
+        }
+      }
+      break;
+
+          case 'TIME_SERIES_INTRADAY':
+      case 'TIME_SERIES_DAILY':
+      case 'TIME_SERIES_WEEKLY':
+      case 'TIME_SERIES_MONTHLY':
+        // For time series, just check that we have metadata and at least one data point
+        if (!data["Meta Data"]) {
+          throw new Error(`Invalid Time Series response: Missing "Meta Data"`);
+        }
+        const timeSeriesKeys = Object.keys(data).filter(key => key.includes('Time Series'));
+        if (timeSeriesKeys.length === 0) {
+          throw new Error('Invalid Time Series response: No time series data found');
+        }
+        const timeSeriesData = data[timeSeriesKeys[0]];
+        if (!timeSeriesData || typeof timeSeriesData !== 'object' || Object.keys(timeSeriesData).length === 0) {
+          throw new Error('Invalid Time Series response: Empty or invalid time series data');
+        }
+        break;
+
+      case 'DIGITAL_CURRENCY_DAILY':
+      case 'DIGITAL_CURRENCY_WEEKLY':
+      case 'DIGITAL_CURRENCY_MONTHLY':
+        // For crypto time series, check that we have metadata and crypto data
+        if (!data["Meta Data"]) {
+          throw new Error(`Invalid Crypto Time Series response: Missing "Meta Data"`);
+        }
+        const cryptoTimeSeriesKeys = Object.keys(data).filter(key => key.includes('Time Series (Digital Currency'));
+        if (cryptoTimeSeriesKeys.length === 0) {
+          throw new Error('Invalid Crypto Time Series response: No crypto time series data found');
+        }
+        const cryptoTimeSeriesData = data[cryptoTimeSeriesKeys[0]];
+        if (!cryptoTimeSeriesData || typeof cryptoTimeSeriesData !== 'object' || Object.keys(cryptoTimeSeriesData).length === 0) {
+          throw new Error('Invalid Crypto Time Series response: Empty or invalid crypto time series data');
+        }
+        break;
+
+    default:
+      // For unknown functions, just do basic validation
+      if (Object.keys(data).length === 0) {
+        throw new Error(`Invalid response for ${functionName}: Empty data object`);
+      }
+      break;
+  }
+}
 
 export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  
+  // Extract all query parameters
+  const function_ = searchParams.get('function');
+  const symbol = searchParams.get('symbol');
+  const interval = searchParams.get('interval');
+  const outputsize = searchParams.get('outputsize');
+  const datatype = searchParams.get('datatype');
+  
+  // Extract additional parameters for specific function types
+  const market = searchParams.get('market'); // For crypto functions
+  const from_currency = searchParams.get('from_currency'); // For forex functions
+  const to_currency = searchParams.get('to_currency'); // For forex functions
+  
+  // Use server-side API key from environment
+  const apikey = process.env.NEXT_ALPHAVANTAGE;
+  
+  if (!function_ || !apikey) {
+    return NextResponse.json({ error: 'Missing required parameters or API key not configured' }, { status: 400 });
+  }
+
+  // Check if we should use cached data
+  // Create cache key that includes all relevant parameters
+  const cacheSymbol = symbol || from_currency || 'unknown';
+  const cacheKey = [cacheSymbol, function_, interval, market, from_currency, to_currency].filter(Boolean).join('_');
+  
+  if (cacheService.shouldUseCache(cacheKey, function_, interval || undefined)) {
+    const cachedData = cacheService.getCachedData(cacheKey, function_, interval || undefined);
+    if (cachedData) {
+      return NextResponse.json(cachedData, {
+        headers: {
+          'X-Cache-Status': 'HIT',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        },
+      });
+    }
+  }
+
   try {
-    const { searchParams } = new URL(request.url);
-    const functionType = searchParams.get('function');
-    const symbol = searchParams.get('symbol');
-    const market = searchParams.get('market') || 'USD';
-    const interval = searchParams.get('interval') || '1min';
-    const outputsize = searchParams.get('outputsize') || 'compact';
-    const datatype = searchParams.get('datatype') || 'json';
-    
-    // Get API key from environment
-    const apiKey = process.env.NEXT_PUBLIC_ALPHAVANTAGE || process.env.ALPHAVANTAGE_API_KEY;
-    
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: 'Alpha Vantage API key not configured' },
-        { status: 500 }
-      );
-    }
-
-    if (!functionType) {
-      return NextResponse.json(
-        { error: 'Missing required parameter: function' },
-        { status: 400 }
-      );
-    }
-
-    // Build Alpha Vantage API URL
+    // Build the Alpha Vantage API URL
     const alphaVantageUrl = new URL('https://www.alphavantage.co/query');
-    alphaVantageUrl.searchParams.set('function', functionType);
-    alphaVantageUrl.searchParams.set('apikey', apiKey);
     
-    // Add parameters based on function type
-    if (symbol) {
-      alphaVantageUrl.searchParams.set('symbol', symbol);
-    }
+    // Add all parameters to the Alpha Vantage request
+    alphaVantageUrl.searchParams.set('function', function_);
+    alphaVantageUrl.searchParams.set('apikey', apikey);
     
-    if (market && (functionType === 'DIGITAL_CURRENCY_DAILY' || functionType === 'DIGITAL_CURRENCY_WEEKLY' || functionType === 'DIGITAL_CURRENCY_MONTHLY')) {
-      alphaVantageUrl.searchParams.set('market', market);
-    }
+    if (symbol) alphaVantageUrl.searchParams.set('symbol', symbol);
+    if (interval) alphaVantageUrl.searchParams.set('interval', interval);
+    if (outputsize) alphaVantageUrl.searchParams.set('outputsize', outputsize);
+    if (datatype) alphaVantageUrl.searchParams.set('datatype', datatype);
     
-    if (interval && functionType === 'TIME_SERIES_INTRADAY') {
-      alphaVantageUrl.searchParams.set('interval', interval);
-    }
-    
-    if (outputsize && (functionType.includes('TIME_SERIES') || functionType.includes('DAILY') || functionType.includes('WEEKLY') || functionType.includes('MONTHLY'))) {
-      alphaVantageUrl.searchParams.set('outputsize', outputsize);
-    }
-    
-    if (datatype) {
-      alphaVantageUrl.searchParams.set('datatype', datatype);
-    }
+    // Add function-specific parameters
+    if (market) alphaVantageUrl.searchParams.set('market', market);
+    if (from_currency) alphaVantageUrl.searchParams.set('from_currency', from_currency);
+    if (to_currency) alphaVantageUrl.searchParams.set('to_currency', to_currency);
 
-    // Handle FX functions
-    if (functionType.startsWith('FX_')) {
-      const fromSymbol = searchParams.get('from_symbol');
-      const toSymbol = searchParams.get('to_symbol');
-      if (fromSymbol) alphaVantageUrl.searchParams.set('from_symbol', fromSymbol);
-      if (toSymbol) alphaVantageUrl.searchParams.set('to_symbol', toSymbol);
-    }
+    console.log('🌐 Fetching fresh AlphaVantage data:', function_, symbol || '', interval || '');
 
-    // Handle technical indicators
-    if (functionType === 'SMA' || functionType === 'EMA' || functionType === 'RSI' || functionType === 'MACD') {
-      const timePeriod = searchParams.get('time_period');
-      const seriesType = searchParams.get('series_type');
-      if (timePeriod) alphaVantageUrl.searchParams.set('time_period', timePeriod);
-      if (seriesType) alphaVantageUrl.searchParams.set('series_type', seriesType);
-    }
-
-    console.log(`📡 Alpha Vantage API call: ${alphaVantageUrl.toString()}`);
-
-    // Make request to Alpha Vantage
     const response = await fetch(alphaVantageUrl.toString(), {
+      method: 'GET',
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; AlphaVantageProxy/1.0)',
+        'User-Agent': 'c1nch/1.0',
       },
     });
 
     if (!response.ok) {
-      return NextResponse.json(
-        { error: `Alpha Vantage API error: ${response.status} ${response.statusText}` },
-        { status: response.status }
-      );
+      throw new Error(`Alpha Vantage API error: ${response.status}`);
     }
 
     const data = await response.json();
-
-    // Check for Alpha Vantage API errors
-    if (data['Error Message']) {
-      return NextResponse.json(
-        { error: data['Error Message'] },
-        { status: 400 }
-      );
+    
+    // Check for API error messages
+    if (data["Error Message"]) {
+      throw new Error(`Alpha Vantage API Error: ${data["Error Message"]}`);
+    }
+    
+    if (data["Note"]) {
+      throw new Error(`Alpha Vantage API Note: ${data["Note"]}`);
     }
 
-    if (data['Information']) {
-      return NextResponse.json(
-        { error: 'API call frequency limit reached. Please try again later.' },
-        { status: 429 }
-      );
+    // Validate data structure
+    validateResponseData(data, function_);
+
+    // Cache the successful response
+    if (cacheKey && cacheKey !== 'unknown') {
+      cacheService.cacheData(cacheKey, function_, interval || undefined, data);
     }
-
-    // Return the data
-    return NextResponse.json(data);
-
+    
+    return NextResponse.json(data, {
+      headers: {
+        'X-Cache-Status': 'MISS',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      },
+    });
   } catch (error) {
     console.error('Alpha Vantage API proxy error:', error);
+    
+    // Mark failed request for retry logic
+    if (cacheKey && cacheKey !== 'unknown') {
+      cacheService.markFailedRequest(cacheKey, function_, interval || undefined);
+    }
+    
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Failed to fetch from Alpha Vantage API', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
 }
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { action, ...params } = body;
-
-    const apiKey = process.env.NEXT_PUBLIC_ALPHAVANTAGE || process.env.ALPHAVANTAGE_API_KEY;
-    
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: 'Alpha Vantage API key not configured' },
-        { status: 500 }
-      );
-    }
-
-    // Handle different action types
-    switch (action) {
-      case 'NEWS_SENTIMENT':
-        const newsUrl = new URL('https://www.alphavantage.co/query');
-        newsUrl.searchParams.set('function', 'NEWS_SENTIMENT');
-        newsUrl.searchParams.set('apikey', apiKey);
-        if (params.topics) newsUrl.searchParams.set('topics', params.topics);
-        if (params.time_from) newsUrl.searchParams.set('time_from', params.time_from);
-        if (params.time_to) newsUrl.searchParams.set('time_to', params.time_to);
-        if (params.limit) newsUrl.searchParams.set('limit', params.limit.toString());
-
-        const newsResponse = await fetch(newsUrl.toString());
-        const newsData = await newsResponse.json();
-        return NextResponse.json(newsData);
-
-      case 'TOP_GAINERS_LOSERS':
-        const topUrl = new URL('https://www.alphavantage.co/query');
-        topUrl.searchParams.set('function', 'TOP_GAINERS_LOSERS');
-        topUrl.searchParams.set('apikey', apiKey);
-
-        const topResponse = await fetch(topUrl.toString());
-        const topData = await topResponse.json();
-        return NextResponse.json(topData);
-
-      case 'MARKET_STATUS':
-        const statusUrl = new URL('https://www.alphavantage.co/query');
-        statusUrl.searchParams.set('function', 'MARKET_STATUS');
-        statusUrl.searchParams.set('apikey', apiKey);
-
-        const statusResponse = await fetch(statusUrl.toString());
-        const statusData = await statusResponse.json();
-        return NextResponse.json(statusData);
-
-      case 'INSIDER_TRANSACTIONS':
-        const insiderUrl = new URL('https://www.alphavantage.co/query');
-        insiderUrl.searchParams.set('function', 'INSIDER_TRANSACTIONS');
-        insiderUrl.searchParams.set('apikey', apiKey);
-        if (params.symbol) insiderUrl.searchParams.set('symbol', params.symbol);
-
-        const insiderResponse = await fetch(insiderUrl.toString());
-        const insiderData = await insiderResponse.json();
-        return NextResponse.json(insiderData);
-
-      case 'TIME_SERIES':
-        const tsUrl = new URL('https://www.alphavantage.co/query');
-        tsUrl.searchParams.set('function', params.function || 'TIME_SERIES_DAILY');
-        tsUrl.searchParams.set('apikey', apiKey);
-        if (params.symbol) tsUrl.searchParams.set('symbol', params.symbol);
-        if (params.interval) tsUrl.searchParams.set('interval', params.interval);
-        if (params.outputsize) tsUrl.searchParams.set('outputsize', params.outputsize);
-
-        const tsResponse = await fetch(tsUrl.toString());
-        const tsData = await tsResponse.json();
-        return NextResponse.json(tsData);
-
-      default:
-        return NextResponse.json(
-          { error: `Unknown action: ${action}` },
-          { status: 400 }
-        );
-    }
-
-  } catch (error) {
-    console.error('Alpha Vantage API POST error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
-  }
+export async function OPTIONS(request: NextRequest) {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    },
+  });
 }
