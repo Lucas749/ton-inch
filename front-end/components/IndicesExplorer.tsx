@@ -203,7 +203,7 @@ export function IndicesExplorer() {
           {availableContractIndices.map((index) => (
             <Card 
               key={index.id} 
-              className="hover:shadow-lg transition-all duration-200 cursor-pointer border border-blue-200 rounded-xl bg-blue-50"
+              className="hover:shadow-lg transition-all duration-200 cursor-pointer border border-gray-200 rounded-xl"
               onClick={() => handleViewIndex(index)}
             >
               <CardContent className="p-4">
@@ -254,8 +254,8 @@ export function IndicesExplorer() {
                   </div>
                   <Button 
                     size="sm" 
-                    variant="default" 
-                    className="ml-4 bg-blue-600 hover:bg-blue-700"
+                    variant="outline" 
+                    className="ml-4"
                     onClick={(e) => {
                       e.stopPropagation();
                       // Map symbol to indexId for available contract indices
@@ -363,8 +363,8 @@ export function IndicesExplorer() {
         </div>
       )}
 
-      {/* Blockchain Indices Section */}
-      {!isLoading && isConnected && blockchainIndices.length > 0 && (
+      {/* Blockchain Indices Section - Hidden since we show Available Contract Indices above */}
+      {false && !isLoading && isConnected && blockchainIndices.length > 0 && (
         <div className="space-y-4">
           <div className="text-center">
             <h3 className="text-2xl font-bold text-gray-900 mb-2">Available Contract Indices</h3>
