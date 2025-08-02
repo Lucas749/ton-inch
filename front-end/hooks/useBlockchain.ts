@@ -176,8 +176,8 @@ export function useBlockchain(): UseBlockchainReturn {
       console.log('🔍 useBlockchain: Wallet connected:', isConnected);
       console.log('🔍 useBlockchain: Wallet address:', walletAddress);
       
-      // Clear cache first to force fresh data
-      blockchainService.clearIndicesCache();
+      // DON'T clear cache - we want to preserve cached orders and data
+      // Only fetch fresh data and merge with existing cache
       const allIndices = await blockchainService.getAllIndices();
       
       console.log('🔍 useBlockchain: Loaded indices from service:', allIndices);

@@ -75,8 +75,8 @@ export class BlockchainOrders {
       maker: '0x2fd13180574f0a81eec90a6e021f6eb7dc1a9b9b', // User's actual wallet
       receiver: '0x2fd13180574f0a81eec90a6e021f6eb7dc1a9b9b',
       expiry: Math.floor(Date.now() / 1000) + (2 * 3600), // 2 hours from now
-      status: "active" as const,
-      createdAt: Date.now(),
+      status: "cancelled" as const, // Updated to reflect that user cancelled this order
+      createdAt: Date.now() - (30 * 60 * 1000), // 30 minutes ago to show it was created earlier
       transactionHash: '0x1c163afb0d50e5db8596bf442d064b014c4370af97fdbc495f6e641fb50ad5a1'
     };
 
@@ -86,7 +86,7 @@ export class BlockchainOrders {
       timestamp: Date.now()
     });
 
-    console.log('💾 Pre-populated cache with existing successful order:', existingOrder.hash);
+    console.log('💾 Pre-populated cache with existing cancelled order:', existingOrder.hash);
   }
 
   /**
