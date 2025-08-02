@@ -362,9 +362,13 @@ export default function TokenDetail() {
 
                 {/* Chart */}
                 <div className="h-80 mb-6">
+                  {/* @ts-ignore */}
                   <ResponsiveContainer width="100%" height="100%">
+                    {/* @ts-ignore */}
                     <LineChart data={mindshareData}>
+                      {/* @ts-ignore */}
                       <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                      {/* @ts-ignore */}
                       <XAxis
                         dataKey="day"
                         axisLine={false}

@@ -19,7 +19,7 @@ export default function AlphaVantagePage() {
               </h3>
               <div className="space-y-4 text-sm text-yellow-700">
                 <p>
-                  You're currently using the demo API key with limited
+                  You are currently using the demo API key with limited
                   functionality. To unlock full access to real-time and
                   historical data:
                 </p>
