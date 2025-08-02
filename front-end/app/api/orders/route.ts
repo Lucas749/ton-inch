@@ -339,7 +339,7 @@ async function ensureTokenApproval(wallet: Wallet, token: any, amount: any) {
     
     // Approve exact amount needed to reduce gas costs
     const approveTx = await tokenContract.approve(CONFIG.LIMIT_ORDER_PROTOCOL, amount, {
-      gasLimit: 30000, // Ultra-low gas limit for ERC20 approve on Base L2
+      gasLimit: 25000, // MetaMask-aggressive gas limit for Base L2
     });
     
     console.log(`📝 Approval transaction sent: ${approveTx.hash}`);
