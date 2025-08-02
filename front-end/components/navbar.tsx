@@ -1,7 +1,7 @@
 "use client";
 
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { Search, Bell, TrendingUp, BarChart3 } from "lucide-react";
+import { Search, Bell, TrendingUp, BarChart3, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
@@ -51,6 +51,13 @@ export function Navbar() {
             >
               <BarChart3 className="w-4 h-4" />
               <span>Market Data</span>
+            </button>
+            <button
+              onClick={() => router.push("/admin")}
+              className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors flex items-center space-x-1"
+            >
+              <Settings className="w-4 h-4" />
+              <span>Admin</span>
             </button>
           </div>
 
