@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { WalletConnect } from "@/components/WalletConnect";
-import { CustomIndexDialog } from "@/components/CustomIndexDialog";
 import { 
   Plus, 
   TrendingUp, 
@@ -16,8 +15,7 @@ import {
   AlertCircle,
   X,
   Loader2,
-  CheckCircle,
-  Zap
+  CheckCircle
 } from "lucide-react";
 import { useBlockchain } from "@/hooks/useBlockchain";
 import { useOrders, OPERATORS } from "@/hooks/useOrders";
@@ -238,35 +236,20 @@ export default function Dashboard() {
                   <h2 className="text-2xl font-bold text-gray-900">Portfolio Overview</h2>
                   <p className="text-gray-600 mt-1">Your conditional orders and trading activity</p>
                 </div>
-                <div className="flex space-x-3">
-                  <CustomIndexDialog 
-                    onIndexCreated={(indexId) => {
-                      console.log(`🎉 New custom index created with ID: ${indexId}`);
-                      // Refresh blockchain indices to show the new index
-                      refreshIndices();
-                    }}
-                    trigger={
-                      <Button variant="default">
-                        <Zap className="w-4 h-4 mr-2" />
-                        Create Custom Index
-                      </Button>
-                    }
-                  />
-                  <Button 
-                    onClick={loadAllOrders}
-                    variant="outline"
-                    disabled={isLoading}
-                  >
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Loading...
-                      </>
-                    ) : (
-                      "Refresh Orders"
-                    )}
-                  </Button>
-                </div>
+                <Button 
+                  onClick={loadAllOrders}
+                  variant="outline"
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    "Refresh Orders"
+                  )}
+                </Button>
               </div>
 
               {/* Cancel Status Messages */}
