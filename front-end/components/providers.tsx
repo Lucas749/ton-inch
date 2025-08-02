@@ -8,8 +8,8 @@ import { WalletErrorBoundary } from './WalletErrorBoundary';
 import '@rainbow-me/rainbowkit/styles.css';
 
 const config = getDefaultConfig({
-          appName: 'c1nch',
-        projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'c1nch-demo',
+  appName: 'c1nch',
+  projectId: process.env.NEXT_PUBLIC_WALLETID || '8ac9e16abce841daf165cffe1ce24e1e', // Fallback demo project ID
   chains: [base],
   ssr: true,
 });
