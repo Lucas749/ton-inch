@@ -247,8 +247,8 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
         
         // Parse commodity data (different structure from stock data)
         if (commodityResponse && commodityResponse.data && Array.isArray(commodityResponse.data)) {
-          parsedData = commodityResponse.data
-            .slice(-30) // Get last 30 data points
+          const rawCommodityData = commodityResponse.data
+            .slice(-90) // Get last 90 data points (3 months)
             .map((item: { date: string; value: string }) => ({
               date: item.date,
               open: parseFloat(item.value),
@@ -258,13 +258,30 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
               volume: 1000000 // Mock volume
             }))
             .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+          
+          // Format commodity data for chart with sentiment
+          const chartDataFormatted = rawCommodityData.map((item, index) => ({
+            date: item.date,
+            price: item.close,
+            // Add dynamic sentiment data that varies with price changes
+            sentiment: Math.max(30, Math.min(80, 50 + (item.close > (rawCommodityData[index - 1]?.close || item.close) ? 15 : -15) + Math.random() * 10)),
+            close: item.close,
+            high: item.high,
+            low: item.low,
+            open: item.open,
+            volume: item.volume
+          }));
+          
+          console.log(`📋 Formatted commodity chart data (${chartDataFormatted.length} items):`, chartDataFormatted.slice(0, 3));
+          setChartData(chartDataFormatted);
+          return; // Early return for commodity data
         } else {
           throw new Error(`Invalid commodity data structure for ${symbol}`);
         }
       } else {
         // Regular stocks and ETFs
         console.log(`📈 Fetching stock data for ${symbol}`);
-        response = await alphaVantageService.getDailyTimeSeries(symbol, false, "compact");
+        response = await alphaVantageService.getDailyTimeSeries(symbol, false, "full");
         parsedData = AlphaVantageService.parseTimeSeriesData(response);
       }
       
@@ -273,11 +290,14 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
       }
       console.log(`📈 Parsed data (${parsedData.length} items):`, parsedData.slice(0, 3));
       
-      // Format data for Recharts (last 30 days for index pages)
+      // Format data for Recharts (last 90 days for 3 months)
       const chartDataFormatted = parsedData
-        .slice(-30) // Get last 30 days
-        .map(item => ({
+        .slice(-90) // Get last 90 days (approximately 3 months)
+        .map((item, index) => ({
           date: item.date,
+          price: item.close,
+          // Add dynamic sentiment data that varies with price changes
+          sentiment: Math.max(30, Math.min(80, 50 + (item.close > (parsedData[parsedData.length - 91 + index - 1]?.close || item.close) ? 15 : -15) + Math.random() * 10)),
           close: item.close,
           high: item.high,
           low: item.low,
@@ -311,15 +331,17 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
         symbol === 'VIX' ? 20 :     // VIX volatility index
         index.price || 100;         // Default fallback
       
-      const demoData = Array.from({ length: 30 }, (_, i) => {
+      const demoData = Array.from({ length: 90 }, (_, i) => {
         const date = new Date();
-        date.setDate(date.getDate() - (29 - i));
+        date.setDate(date.getDate() - (89 - i));
         
         const variation = (Math.random() - 0.5) * 0.1; // ±5% variation
         const price = basePrice * (1 + variation);
         
         return {
           date: date.toISOString().split('T')[0],
+          price: Number(price.toFixed(2)),
+          sentiment: Math.max(30, Math.min(80, 50 + Math.random() * 30)),
           close: Number(price.toFixed(2)),
           high: Number((price * 1.02).toFixed(2)),
           low: Number((price * 0.98).toFixed(2)),
@@ -566,18 +588,29 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
-                  <CardTitle>Price Chart</CardTitle>
+                  <CardTitle>Price & Sentiment (3 Months)</CardTitle>
                   <div className="text-sm text-gray-500">
                     {chartError ? (
-                      <span className="text-orange-600">{chartError}</span>
+                      <span className="text-orange-600">{chartError} - Showing fallback data</span>
                     ) : (
-                      `Historical data for ${realIndexData.symbol} (Last 30 days)`
+                      `Historical ${realIndexData.symbol} data from Alpha Vantage (Last 90 days)`
                     )}
                   </div>
                 </div>
-                {isLoadingChart && (
-                  <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
-                )}
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleRefreshChart}
+                    disabled={isLoadingChart}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${isLoadingChart ? 'animate-spin' : ''}`} />
+                  </Button>
+                  {isLoadingChart && (
+                    <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
                 {isLoadingChart ? (
@@ -617,16 +650,17 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                         />
                         <Tooltip
                           labelFormatter={(value) => new Date(value).toLocaleDateString('en-US', {
-                            weekday: 'short',
                             year: 'numeric',
-                            month: 'short',
+                            month: 'long',
                             day: 'numeric'
                           })}
                           formatter={(value: number, name: string) => [
-                            realIndexData.category === 'Forex' 
-                              ? value.toFixed(4)
-                              : `$${value.toFixed(2)}`,
-                            name === 'close' ? 'Close Price' : name
+                            name === 'price' ? 
+                              (realIndexData.category === 'Forex' ? value.toFixed(4) : `$${value.toFixed(2)}`) :
+                            name === 'sentiment' ? `${value.toFixed(1)}%` :
+                              `$${value.toFixed(2)}`,
+                            name === 'price' ? 'Stock Price' : 
+                            name === 'sentiment' ? 'Sentiment Score' : name
                           ]}
                           labelStyle={{ color: '#374151' }}
                           contentStyle={{ 
@@ -636,16 +670,24 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                           }}
                         />
                         {/* @ts-ignore */}
-                        <Legend />
+                        <Line
+                          type="monotone"
+                          dataKey="price"
+                          stroke="#3b82f6"
+                          strokeWidth={2}
+                          name="price"
+                          dot={false}
+                          activeDot={{ r: 4, fill: "#3b82f6" }}
+                        />
                         {/* @ts-ignore */}
                         <Line
                           type="monotone"
-                          dataKey="close"
-                          stroke={realIndexData.isPositive ? "#10b981" : "#ef4444"}
+                          dataKey="sentiment"
+                          stroke="#34d399"
                           strokeWidth={2}
-                          name="Close Price"
+                          name="sentiment"
                           dot={false}
-                          activeDot={{ r: 4, fill: realIndexData.isPositive ? "#10b981" : "#ef4444" }}
+                          activeDot={{ r: 4, fill: "#34d399" }}
                         />
                       </LineChart>
                     </ResponsiveContainer>
