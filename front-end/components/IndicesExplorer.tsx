@@ -49,7 +49,7 @@ export function IndicesExplorer() {
       }
       setError(null);
 
-      const apiKey = process.env.NEXT_PUBLIC_ALPHAVANTAGE_API_KEY || "123";
+      const apiKey = process.env.NEXT_PUBLIC_ALPHAVANTAGE || "123";
       const realIndicesService = new RealIndicesService(apiKey);
       
       const realIndices = await realIndicesService.getAllRealIndices();

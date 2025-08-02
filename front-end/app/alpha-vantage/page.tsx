@@ -2,7 +2,7 @@ import { Navbar } from "@/components/navbar";
 import { AlphaVantageExplorer } from "@/components/AlphaVantageExplorer";
 
 export default function AlphaVantagePage() {
-  const apiKey = process.env.NEXT_PUBLIC_ALPHAVANTAGE_API_KEY || "123";
+  const apiKey = process.env.NEXT_PUBLIC_ALPHAVANTAGE || "123";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">

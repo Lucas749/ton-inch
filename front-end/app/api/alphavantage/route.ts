@@ -118,13 +118,15 @@ export async function GET(request: NextRequest) {
   // Extract all query parameters
   const function_ = searchParams.get('function');
   const symbol = searchParams.get('symbol');
-  const apikey = searchParams.get('apikey');
   const interval = searchParams.get('interval');
   const outputsize = searchParams.get('outputsize');
   const datatype = searchParams.get('datatype');
   
+  // Use server-side API key from environment
+  const apikey = process.env.NEXT_ALPHAVANTAGE;
+  
   if (!function_ || !apikey) {
-    return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
+    return NextResponse.json({ error: 'Missing required parameters or API key not configured' }, { status: 400 });
   }
 
   // Check if we should use cached data

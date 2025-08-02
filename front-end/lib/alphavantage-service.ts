@@ -348,8 +348,8 @@ export class AlphaVantageService {
     private async callAPI<T>(params: Record<string, string>, functionName?: string): Promise<T> {
     // Use our proxy endpoint that handles server-side caching and validation
     const url = new URL('/api/alphavantage', window.location.origin);
-    url.searchParams.set("apikey", this.config.apiKey);
     
+    // Don't pass API key - server will use environment variable
     Object.entries(params).forEach(([key, value]) => {
       url.searchParams.set(key, value);
     });
