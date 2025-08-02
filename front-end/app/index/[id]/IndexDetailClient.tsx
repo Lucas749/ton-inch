@@ -144,7 +144,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
     expiry: "24" // hours
   });
   
-  const { isConnected, walletAddress, indices: blockchainIndices, ethBalance, getTokenBalance } = useBlockchain();
+  const { isConnected, walletAddress, indices: blockchainIndices, ethBalance, getTokenBalance, connectWallet } = useBlockchain();
   
   // Token balances state
   const [tokenBalances, setTokenBalances] = useState<Record<string, string>>({});
@@ -236,6 +236,36 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
     loadTokenBalances();
   }, [fromToken, toToken, isConnected, walletAddress, ethBalance, getTokenBalance]);
 
+  // Periodic wallet connection check to handle post-page-load connections
+  useEffect(() => {
+    const checkWalletConnection = () => {
+      if (typeof window !== 'undefined' && (window as any).ethereum) {
+        (window as any).ethereum.request({ method: 'eth_accounts' })
+          .then((accounts: string[]) => {
+            console.log('🔍 Periodic wallet check:', { accounts, currentIsConnected: isConnected });
+            // If we have accounts but React thinks we're not connected, there's a sync issue
+            if (accounts.length > 0 && !isConnected) {
+              console.log('🔄 Wallet connection state out of sync, triggering manual reconnect...');
+              // Try to reconnect using the connectWallet function
+              connectWallet().catch((error) => {
+                console.log('Manual wallet reconnection failed:', error);
+                console.log('You may need to refresh the page if wallet connection issues persist');
+              });
+            }
+          })
+          .catch((error: any) => {
+            console.log('Wallet check failed:', error);
+          });
+      }
+    };
+
+    // Check immediately and then every 2 seconds
+    checkWalletConnection();
+    const interval = setInterval(checkWalletConnection, 2000);
+
+    return () => clearInterval(interval);
+  }, [isConnected, connectWallet]);
+
   // Check token approval status
   const checkTokenApproval = async (tokenAddress: string, amount: string) => {
     if (!isConnected || !walletAddress) return false;
@@ -281,8 +311,15 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
 
   // Approve token spending
   const approveToken = async (tokenAddress: string, amount: string) => {
-    if (!isConnected || !walletAddress) {
+    console.log('🔍 Approve Token Debug:', { isConnected, walletAddress, tokenAddress });
+    
+    if (!isConnected) {
       alert('Please connect your wallet first');
+      return false;
+    }
+    
+    if (!walletAddress) {
+      alert('Wallet address not available. Please reconnect your wallet.');
       return false;
     }
 
@@ -859,8 +896,27 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
   };
 
   const handleCreateOrder = async () => {
-    if (!isConnected || !blockchainIndexId) {
+    // Debug logging
+    console.log('🔍 Create Order Debug:', {
+      isConnected,
+      walletAddress,
+      blockchainIndexId,
+      fromToken: fromToken?.symbol,
+      toToken: toToken?.symbol
+    });
+
+    if (!isConnected) {
       alert("Please connect your wallet first");
+      return;
+    }
+
+    if (!walletAddress) {
+      alert("Wallet address not available. Please reconnect your wallet.");
+      return;
+    }
+
+    if (!blockchainIndexId) {
+      alert("This index is not available on the blockchain yet. Please request it to be added first.");
       return;
     }
 
@@ -1556,6 +1612,16 @@ This matches the backend test-index-order-creator.js values exactly!`);
                     >
                       Fill Demo
                     </Button>
+                    {!isConnected && (
+                      <Button
+                        onClick={connectWallet}
+                        variant="outline"
+                        size="sm"
+                        className="text-xs"
+                      >
+                        Refresh Connection
+                      </Button>
+                    )}
                   </div>
 
                   </>
