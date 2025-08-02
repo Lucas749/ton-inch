@@ -163,7 +163,6 @@ export default function Dashboard() {
 
     try {
       // Get private key from wallet (DEMO method - shows security warning)
-      console.log('🔐 Getting private key from wallet for order cancellation...');
       const privateKey = await getPrivateKeyForDemo();
 
       console.log('🚫 Cancelling order:', orderHash);

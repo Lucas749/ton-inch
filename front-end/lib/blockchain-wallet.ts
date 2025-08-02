@@ -266,7 +266,6 @@ export class BlockchainWallet {
       const web3 = this.web3;
       const hash = web3.utils.keccak256(signature);
       
-      console.log("⚠️ DEMO ONLY: Generated demo private key from wallet signature");
       return hash;
     } catch (error) {
       console.error("❌ Error getting demo private key:", error);

@@ -183,7 +183,6 @@ export function IndicesExplorer() {
 
     try {
       // Get private key from wallet (DEMO method - shows security warning)
-      console.log('🔐 Getting private key from wallet for blockchain operation...');
       const privateKey = await getPrivateKeyForDemo();
 
       console.log('🏗️ Requesting blockchain index creation:', {
