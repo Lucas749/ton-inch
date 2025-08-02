@@ -197,7 +197,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
   useEffect(() => {
     loadRealIndexData();
     loadChartData();
-  }, [index.id]);
+  }, [index.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleRequestIndex = async () => {
     setIsRequestingIndex(true);

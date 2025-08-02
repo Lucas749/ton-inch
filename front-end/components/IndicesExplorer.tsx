@@ -195,7 +195,7 @@ export function IndicesExplorer() {
           <div className="text-center">
             <h3 className="text-2xl font-bold text-gray-900 mb-2">Available Contract Indices</h3>
             <p className="text-md text-gray-600 max-w-2xl mx-auto">
-              These indices are live on the blockchain with oracle data. Click "Add" to start trading with these indices.
+              These indices are live on the blockchain with oracle data. Click &ldquo;Add&rdquo; to start trading with these indices.
             </p>
           </div>
           
@@ -279,7 +279,7 @@ export function IndicesExplorer() {
           <div className="text-center">
             <h3 className="text-2xl font-bold text-gray-900 mb-2">Market Indices (Request Data)</h3>
             <p className="text-md text-gray-600 max-w-2xl mx-auto">
-              Real-time market data from Alpha Vantage. Click "Request" to request adding these indices to the system.
+              Real-time market data from Alpha Vantage. Click &ldquo;Request&rdquo; to request adding these indices to the system.
             </p>
           </div>
           
@@ -362,7 +362,7 @@ export function IndicesExplorer() {
           <div className="text-center">
             <h3 className="text-2xl font-bold text-gray-900 mb-2">Available Contract Indices</h3>
             <p className="text-md text-gray-600 max-w-2xl mx-auto">
-              These indices are available on the blockchain with oracle data. Click "Add" to start trading with these indices.
+              These indices are available on the blockchain with oracle data. Click &ldquo;Add&rdquo; to start trading with these indices.
             </p>
           </div>
           
