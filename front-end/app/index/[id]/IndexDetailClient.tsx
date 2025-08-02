@@ -144,7 +144,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
     expiry: "24" // hours
   });
   
-  const { isConnected, walletAddress, indices: blockchainIndices } = useBlockchain();
+  const { isConnected, walletAddress, indices: blockchainIndices, ethBalance, getTokenBalance } = useBlockchain();
   const { createOrder, isLoading: isCreatingOrder } = useOrders();
 
   // Check oracle status for conditional orders
@@ -806,6 +806,20 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
     }
   };
 
+  const handleSwapTokens = () => {
+    const tempToken = fromToken;
+    const tempAmount = orderForm.fromAmount;
+    
+    setFromToken(toToken);
+    setToToken(tempToken);
+    
+    setOrderForm(prev => ({
+      ...prev,
+      fromAmount: prev.toAmount,
+      toAmount: tempAmount
+    }));
+  };
+
   const getOperatorSymbol = (operator: number) => {
     switch (operator) {
       case OPERATORS.GT: return ">";
@@ -1220,7 +1234,17 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
 
                   {/* From Token */}
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">From</label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium">From</label>
+                      {fromToken && isConnected && (
+                        <span className="text-xs text-gray-500">
+                          Balance: {fromToken.symbol === 'ETH' 
+                            ? (ethBalance ? parseFloat(ethBalance).toFixed(4) : '0.00')
+                            : '0.00'
+                          } {fromToken.symbol}
+                        </span>
+                      )}
+                    </div>
                     <div className="flex space-x-2">
                       <div className="w-32">
                         <TokenSelector
@@ -1232,15 +1256,28 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                           className="w-full"
                         />
                       </div>
-                      <div className="flex-1">
+                      <div className="flex-1 relative">
                         <Input
                           type="number"
                           placeholder="0.0001"
                           value={orderForm.fromAmount}
                           onChange={(e) => setOrderForm(prev => ({ ...prev, fromAmount: e.target.value }))}
                           disabled={isCreatingOrder}
-                          className="h-12"
+                          className="h-12 pr-12"
                         />
+                        {fromToken?.symbol === 'ETH' && ethBalance && parseFloat(ethBalance) > 0 && isConnected && !isCreatingOrder && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              const maxAmount = Math.max(0, parseFloat(ethBalance) - 0.001); // Reserve for gas
+                              setOrderForm(prev => ({ ...prev, fromAmount: maxAmount.toString() }));
+                            }}
+                            className="absolute right-1 top-1/2 -translate-y-1/2 h-6 px-2 text-xs text-blue-600 hover:text-blue-800"
+                          >
+                            MAX
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1259,7 +1296,17 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
 
                   {/* To Token */}
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">To</label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium">To</label>
+                      {toToken && isConnected && (
+                        <span className="text-xs text-gray-500">
+                          Balance: {toToken.symbol === 'ETH' 
+                            ? (ethBalance ? parseFloat(ethBalance).toFixed(4) : '0.00')
+                            : '0.00'
+                          } {toToken.symbol}
+                        </span>
+                      )}
+                    </div>
                     <div className="flex space-x-2">
                       <div className="w-32">
                         <TokenSelector
