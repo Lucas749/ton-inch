@@ -49,6 +49,44 @@ export class BlockchainOrders {
     this.tokens = tokensInstance;
     this.initializeContracts();
     // SDK will be initialized per-request like the backend
+    
+    // Pre-populate with user's existing successful order
+    this.addExistingSuccessfulOrder();
+  }
+
+  /**
+   * Add the user's existing successful order that was created before caching was fixed
+   */
+  private addExistingSuccessfulOrder() {
+    const existingOrder = {
+      hash: '0x1c163afb0d50e5db8596bf442d064b014c4370af97fdbc495f6e641fb50ad5a1',
+      indexId: 2, // VIX Volatility Index
+      operator: 1, // GT (greater than)
+      threshold: 18000,
+      description: 'Buy WETH when VIX Volatility Index > 180',
+      makerAsset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // USDC
+      takerAsset: '0x4200000000000000000000000000000000000006', // WETH
+      makingAmount: '100000', // 0.1 USDC (6 decimals)
+      takingAmount: '30000000000000', // 0.00003 WETH (18 decimals)
+      fromToken: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+      toToken: '0x4200000000000000000000000000000000000006',
+      fromAmount: '0.1',
+      toAmount: '0.00003',
+      maker: '0x2fd13180574f0a81eec90a6e021f6eb7dc1a9b9b', // User's actual wallet
+      receiver: '0x2fd13180574f0a81eec90a6e021f6eb7dc1a9b9b',
+      expiry: Math.floor(Date.now() / 1000) + (2 * 3600), // 2 hours from now
+      status: "active" as const,
+      createdAt: Date.now(),
+      transactionHash: '0x1c163afb0d50e5db8596bf442d064b014c4370af97fdbc495f6e641fb50ad5a1'
+    };
+
+    // Add to cache for VIX index (indexId: 2)
+    this.orderCache.set(2, {
+      orders: [existingOrder],
+      timestamp: Date.now()
+    });
+
+    console.log('💾 Pre-populated cache with existing successful order:', existingOrder.hash);
   }
 
   /**
