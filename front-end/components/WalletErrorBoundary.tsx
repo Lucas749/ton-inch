@@ -87,15 +87,23 @@ export class WalletErrorBoundary extends React.Component<
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
               <div className="space-y-2">
-                <p className="font-medium">Wallet Connection Error</p>
+                <p className="font-medium">Wallet Connection Interrupted</p>
                 <p className="text-sm">
-                  There was an issue with your wallet connection. This usually happens when:
+                  {this.state.error?.message?.includes('Connection interrupted') 
+                    ? 'Your wallet connection was interrupted. This is common with WalletConnect and mobile wallets.'
+                    : 'There was an issue with your wallet connection. This usually happens when:'}
                 </p>
-                <ul className="text-sm list-disc list-inside space-y-1 ml-2">
-                  <li>Your wallet is disconnected or closed</li>
-                  <li>Network connectivity is unstable</li>
-                  <li>Your wallet session has expired</li>
-                </ul>
+                {!this.state.error?.message?.includes('Connection interrupted') && (
+                  <ul className="text-sm list-disc list-inside space-y-1 ml-2">
+                    <li>Your wallet is disconnected or closed</li>
+                    <li>Network connectivity is unstable</li>
+                    <li>Your wallet session has expired</li>
+                  </ul>
+                )}
+                <div className="text-xs text-gray-600 mt-2 p-2 bg-gray-50 rounded">
+                  <strong>Quick fix:</strong> Try refreshing the page or reconnecting your wallet. 
+                  If using a mobile wallet, ensure it's running in the background.
+                </div>
                 <div className="pt-2">
                   <Button
                     onClick={this.resetError}
@@ -144,11 +152,15 @@ export class WalletErrorBoundary extends React.Component<
   }
 }
 
-// Hook version for functional components
+// Hook version for functional components with enhanced error recovery
 export function useWalletErrorHandler() {
+  const [retryCount, setRetryCount] = React.useState(0);
+  const [lastErrorTime, setLastErrorTime] = React.useState(0);
+  
   React.useEffect(() => {
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
       const error = event.reason;
+      const now = Date.now();
       
       // Check if this is a wallet-related error
       if (
@@ -160,8 +172,35 @@ export function useWalletErrorHandler() {
         console.warn('🚨 Unhandled wallet error caught:', error);
         event.preventDefault(); // Prevent the error from being logged as unhandled
         
-        // You could also show a toast notification here instead
-        // toast.error('Wallet connection interrupted. Please reconnect your wallet.');
+        // Implement exponential backoff for reconnection attempts
+        const timeSinceLastError = now - lastErrorTime;
+        if (timeSinceLastError > 10000) { // Reset retry count if 10+ seconds since last error
+          setRetryCount(0);
+        }
+        
+        setLastErrorTime(now);
+        
+        // Only attempt automatic recovery for connection interruptions
+        if (error?.message?.includes('Connection interrupted') && retryCount < 3) {
+          const backoffDelay = Math.min(1000 * Math.pow(2, retryCount), 10000); // Max 10 second delay
+          console.log(`🔄 Attempting wallet reconnection in ${backoffDelay}ms (attempt ${retryCount + 1}/3)`);
+          
+          setTimeout(() => {
+            // Try to trigger a reconnection by checking if wallet is still available
+            if (typeof window !== 'undefined' && (window as any).ethereum) {
+              (window as any).ethereum.request({ method: 'eth_accounts' })
+                .then((accounts: string[]) => {
+                  if (accounts.length > 0) {
+                    console.log('✅ Wallet connection restored');
+                    setRetryCount(0);
+                  }
+                })
+                .catch(() => {
+                  setRetryCount(prev => prev + 1);
+                });
+            }
+          }, backoffDelay);
+        }
       }
     };
 
@@ -170,5 +209,5 @@ export function useWalletErrorHandler() {
     return () => {
       window.removeEventListener('unhandledrejection', handleUnhandledRejection);
     };
-  }, []);
+  }, [retryCount, lastErrorTime]);
 }

@@ -236,21 +236,24 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
     loadTokenBalances();
   }, [fromToken, toToken, isConnected, walletAddress, ethBalance, getTokenBalance]);
 
-  // Periodic wallet connection check to handle post-page-load connections
+  // One-time wallet connection check on component mount
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    
     const checkWalletConnection = () => {
       if (typeof window !== 'undefined' && (window as any).ethereum) {
         (window as any).ethereum.request({ method: 'eth_accounts' })
           .then((accounts: string[]) => {
-            console.log('🔍 Periodic wallet check:', { accounts, currentIsConnected: isConnected });
+            console.log('🔍 One-time wallet check:', { accounts, currentIsConnected: isConnected });
             // If we have accounts but React thinks we're not connected, there's a sync issue
             if (accounts.length > 0 && !isConnected) {
-              console.log('🔄 Wallet connection state out of sync, triggering manual reconnect...');
-              // Try to reconnect using the connectWallet function
-              connectWallet().catch((error) => {
-                console.log('Manual wallet reconnection failed:', error);
-                console.log('You may need to refresh the page if wallet connection issues persist');
-              });
+              console.log('🔄 Wallet connection state out of sync, will attempt reconnection...');
+              // Delay reconnection to avoid race conditions
+              timeoutId = setTimeout(() => {
+                connectWallet().catch((error) => {
+                  console.log('Manual wallet reconnection failed:', error);
+                });
+              }, 1000);
             }
           })
           .catch((error: any) => {
@@ -259,12 +262,14 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
       }
     };
 
-    // Check immediately and then every 2 seconds
-    checkWalletConnection();
-    const interval = setInterval(checkWalletConnection, 2000);
+    // Check only once after component mount, with a delay to let wagmi settle
+    const mountTimeout = setTimeout(checkWalletConnection, 500);
 
-    return () => clearInterval(interval);
-  }, [isConnected, connectWallet]);
+    return () => {
+      clearTimeout(mountTimeout);
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, []); // Only run once on mount
 
   // Check token approval status
   const checkTokenApproval = async (tokenAddress: string, amount: string) => {

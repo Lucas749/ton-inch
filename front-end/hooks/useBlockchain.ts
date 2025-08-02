@@ -75,15 +75,22 @@ export function useBlockchain(): UseBlockchainReturn {
     setError(null);
   }, []);
 
-  // Connect wallet using RainbowKit
+  // Connect wallet using RainbowKit with improved error handling
   const connectWallet = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
 
+      // Check if we already have a connection attempt in progress
+      if (isLoading) {
+        console.log("⏳ Connection already in progress, skipping duplicate attempt");
+        return;
+      }
+
       // Use the first available connector (usually MetaMask/injected)
       const connector = connectors[0];
       if (connector) {
+        console.log("🔌 Attempting to connect with connector:", connector.name);
         connect({ connector });
       } else {
         throw new Error("No wallet connector available");
@@ -91,12 +98,18 @@ export function useBlockchain(): UseBlockchainReturn {
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to connect wallet";
-      setError(errorMessage);
+      
+      // Don't set error for user rejection or connection interruption
+      if (!errorMessage.includes("User rejected") && 
+          !errorMessage.includes("Connection interrupted")) {
+        setError(errorMessage);
+      }
+      
       console.error("❌ Wallet connection failed:", err);
     } finally {
       setIsLoading(false);
     }
-  }, [connect, connectors]);
+  }, [connect, connectors, isLoading]);
 
   // Create new index
   const createIndex = useCallback(
@@ -275,9 +288,42 @@ export function useBlockchain(): UseBlockchainReturn {
       // Reset indices when wallet disconnects
       setIndices([]);
       setIsOwner(false);
+      // Clear errors on disconnect to prevent stale error states
       setError(null);
     }
   }, [isConnected, walletAddress]); // Removed refreshIndices from dependency array to prevent infinite loop
+
+  // Handle wallet disconnect events and connection recovery
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleAccountsChanged = (accounts: string[]) => {
+      console.log('🔄 Accounts changed:', accounts);
+      if (accounts.length === 0) {
+        console.log('🚪 Wallet disconnected');
+        // Clear any connection errors when wallet is manually disconnected
+        setError(null);
+      }
+    };
+
+    const handleDisconnect = () => {
+      console.log('🚪 Wallet disconnected event');
+      setError(null);
+    };
+
+    // Listen for wallet events
+    if ((window as any).ethereum) {
+      (window as any).ethereum.on('accountsChanged', handleAccountsChanged);
+      (window as any).ethereum.on('disconnect', handleDisconnect);
+    }
+
+    return () => {
+      if ((window as any).ethereum) {
+        (window as any).ethereum.removeListener('accountsChanged', handleAccountsChanged);
+        (window as any).ethereum.removeListener('disconnect', handleDisconnect);
+      }
+    };
+  }, []);
 
   return {
     // State
