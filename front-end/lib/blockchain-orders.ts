@@ -375,13 +375,20 @@ export class BlockchainOrders {
       console.log('🔧 For now, marking order as cancelled in cache');
       
       // Update cache to mark order as cancelled
+      let orderFound = false;
       for (const [indexId, cacheData] of this.orderCache.entries()) {
         const order = cacheData.orders.find(o => o.hash === orderHash);
         if (order) {
           order.status = 'cancelled' as const;
-          console.log(`✅ Marked order ${orderHash} as cancelled in cache`);
+          order.cancelledAt = Date.now(); // Track when it was cancelled
+          console.log(`✅ Marked order ${orderHash} as cancelled in cache for index ${indexId}`);
+          orderFound = true;
           break;
         }
+      }
+      
+      if (!orderFound) {
+        console.warn(`⚠️ Order ${orderHash} not found in cache - may already be cancelled or doesn't exist`);
       }
       
       return true;
@@ -415,6 +422,34 @@ export class BlockchainOrders {
     
     console.log(`📋 Loaded ${orders.length} cached orders for index ${indexId}`);
     return orders;
+  }
+
+  /**
+   * Get ALL cached orders across all indices (for portfolio overview)
+   */
+  async getAllCachedOrders(): Promise<any[]> {
+    const allOrders: any[] = [];
+    
+    for (const [indexId, cacheData] of this.orderCache.entries()) {
+      allOrders.push(...cacheData.orders);
+    }
+    
+    // Sort by creation time (newest first)
+    allOrders.sort((a, b) => b.createdAt - a.createdAt);
+    
+    console.log(`📋 Loaded ${allOrders.length} total cached orders across all indices`);
+    return allOrders;
+  }
+
+  /**
+   * Get orders by status across all indices
+   */
+  async getOrdersByStatus(status: 'active' | 'cancelled' | 'filled'): Promise<any[]> {
+    const allOrders = await this.getAllCachedOrders();
+    const filteredOrders = allOrders.filter(order => order.status === status);
+    
+    console.log(`📋 Found ${filteredOrders.length} ${status} orders`);
+    return filteredOrders;
   }
 
   /**

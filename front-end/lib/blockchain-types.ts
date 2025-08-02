@@ -31,6 +31,8 @@ export interface Order {
   status: "active" | "filled" | "cancelled" | "expired";
   createdAt: number;
   transactionHash: string;
+  // Optional cancellation timestamp
+  cancelledAt?: number;
 }
 
 export interface OrderParams {

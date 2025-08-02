@@ -205,6 +205,14 @@ export class BlockchainService {
     return this.orders.getOrdersByIndex(indexId);
   }
 
+  async getAllCachedOrders(): Promise<any[]> {
+    return this.orders.getAllCachedOrders();
+  }
+
+  async getOrdersByStatus(status: 'active' | 'cancelled' | 'filled'): Promise<any[]> {
+    return this.orders.getOrdersByStatus(status);
+  }
+
   clearOrderCache(indexId?: number): void {
     this.orders.clearOrderCache(indexId);
   }

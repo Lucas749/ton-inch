@@ -26,6 +26,11 @@ export interface UseOrdersReturn {
   getOrderStatus: (orderHash: string) => Promise<number>;
   refreshOrders: () => Promise<void>;
   
+  // New cache-based methods
+  getAllCachedOrders: () => Promise<Order[]>;
+  getOrdersByStatus: (status: 'active' | 'cancelled' | 'filled') => Promise<Order[]>;
+  getOrdersByIndex: (indexId: number) => Promise<Order[]>;
+  
   // Utils
   clearError: () => void;
   getOperatorName: (operator: number) => string;
@@ -194,6 +199,39 @@ export function useOrders(): UseOrdersReturn {
     }
   }, [orders]);
 
+  // Get all cached orders across all indices
+  const getAllCachedOrders = useCallback(async (): Promise<Order[]> => {
+    try {
+      return await blockchainService.getAllCachedOrders();
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to get cached orders";
+      setError(errorMessage);
+      throw err;
+    }
+  }, []);
+
+  // Get orders by status
+  const getOrdersByStatus = useCallback(async (status: 'active' | 'cancelled' | 'filled'): Promise<Order[]> => {
+    try {
+      return await blockchainService.getOrdersByStatus(status);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to get orders by status";
+      setError(errorMessage);
+      throw err;
+    }
+  }, []);
+
+  // Get orders by index
+  const getOrdersByIndex = useCallback(async (indexId: number): Promise<Order[]> => {
+    try {
+      return await blockchainService.getOrdersByIndex(indexId);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to get orders by index";
+      setError(errorMessage);
+      throw err;
+    }
+  }, []);
+
   return {
     // State
     orders,
@@ -206,6 +244,11 @@ export function useOrders(): UseOrdersReturn {
     validateCondition,
     getOrderStatus,
     refreshOrders,
+    
+    // New cache-based methods
+    getAllCachedOrders,
+    getOrdersByStatus,
+    getOrdersByIndex,
     
     // Utils
     clearError,
