@@ -9,6 +9,9 @@ export class BlockchainWallet {
   private web3: Web3;
   private account: string | null = null;
   private isInitialized = false;
+  private eventListenersSetup = false;
+  private accountChangeHandler: ((accounts: string[]) => void) | null = null;
+  private networkChangeHandler: ((chainId: string) => void) | null = null;
 
   constructor(web3Instance: Web3) {
     this.web3 = web3Instance;
@@ -190,16 +193,38 @@ export class BlockchainWallet {
    */
   onAccountChanged(callback: (account: string | null) => void): void {
     if (typeof window !== "undefined" && window.ethereum) {
-      window.ethereum.on("accountsChanged", (accounts: string[]) => {
-        if (accounts.length > 0) {
-          this.account = accounts[0];
-          callback(accounts[0]);
-        } else {
-          this.account = null;
-          this.isInitialized = false;
-          callback(null);
+      try {
+        // Remove existing listener if any
+        if (this.accountChangeHandler) {
+          window.ethereum.removeListener("accountsChanged", this.accountChangeHandler);
         }
-      });
+
+        // Create new handler
+        this.accountChangeHandler = (accounts: string[]) => {
+          try {
+            if (accounts.length > 0) {
+              this.account = accounts[0];
+              callback(accounts[0]);
+            } else {
+              this.account = null;
+              this.isInitialized = false;
+              callback(null);
+            }
+          } catch (error) {
+            console.warn("⚠️ Error handling account change:", error);
+            // Gracefully handle the error and still call callback with null
+            this.account = null;
+            this.isInitialized = false;
+            callback(null);
+          }
+        };
+
+        // Add the listener
+        window.ethereum.on("accountsChanged", this.accountChangeHandler);
+        this.eventListenersSetup = true;
+      } catch (error) {
+        console.warn("⚠️ Could not set up account change listener:", error);
+      }
     }
   }
 
@@ -208,12 +233,36 @@ export class BlockchainWallet {
    */
   onNetworkChanged(callback: (chainId: string) => void, onNetworkChange?: () => void): void {
     if (typeof window !== "undefined" && window.ethereum) {
-      window.ethereum.on("chainChanged", (chainId: string) => {
-        // Re-initialize web3 with new network
-        this.web3 = new Web3(window.ethereum);
-        onNetworkChange?.(); // Callback to reinitialize contracts
-        callback(chainId);
-      });
+      try {
+        // Remove existing listener if any
+        if (this.networkChangeHandler) {
+          window.ethereum.removeListener("chainChanged", this.networkChangeHandler);
+        }
+
+        // Create new handler
+        this.networkChangeHandler = (chainId: string) => {
+          try {
+            // Re-initialize web3 with new network
+            this.web3 = new Web3(window.ethereum);
+            onNetworkChange?.(); // Callback to reinitialize contracts
+            callback(chainId);
+          } catch (error) {
+            console.warn("⚠️ Error handling network change:", error);
+            // Still try to call the callback to maintain app state
+            try {
+              callback(chainId);
+            } catch (callbackError) {
+              console.warn("⚠️ Error calling network change callback:", callbackError);
+            }
+          }
+        };
+
+        // Add the listener
+        window.ethereum.on("chainChanged", this.networkChangeHandler);
+        this.eventListenersSetup = true;
+      } catch (error) {
+        console.warn("⚠️ Could not set up network change listener:", error);
+      }
     }
   }
 
@@ -273,6 +322,58 @@ export class BlockchainWallet {
     }
   }
 
+  /**
+   * Clean up event listeners
+   */
+  cleanup(): void {
+    if (typeof window !== "undefined" && window.ethereum) {
+      try {
+        if (this.accountChangeHandler) {
+          window.ethereum.removeListener("accountsChanged", this.accountChangeHandler);
+          this.accountChangeHandler = null;
+        }
+        if (this.networkChangeHandler) {
+          window.ethereum.removeListener("chainChanged", this.networkChangeHandler);
+          this.networkChangeHandler = null;
+        }
+        this.eventListenersSetup = false;
+        console.log("🧹 Wallet event listeners cleaned up");
+      } catch (error) {
+        console.warn("⚠️ Error cleaning up event listeners:", error);
+      }
+    }
+  }
+
+  /**
+   * Check if wallet connection is stable
+   */
+  isConnectionStable(): boolean {
+    if (typeof window === "undefined" || !window.ethereum) {
+      return false;
+    }
+
+    try {
+      // Check if ethereum provider is still available and responsive
+      return !!window.ethereum && !!window.ethereum.isConnected && 
+             (typeof window.ethereum.isConnected !== 'function' || window.ethereum.isConnected());
+    } catch (error) {
+      console.warn("⚠️ Connection stability check failed:", error);
+      return false;
+    }
+  }
+
+  /**
+   * Safely check wallet connection with error handling
+   */
+  safeIsWalletConnected(): boolean {
+    try {
+      return this.isWalletConnected() && this.isConnectionStable();
+    } catch (error) {
+      console.warn("⚠️ Error checking wallet connection:", error);
+      return false;
+    }
+  }
+
   // Getters for internal state
   get currentAccount(): string | null {
     return this.account;
@@ -280,5 +381,9 @@ export class BlockchainWallet {
 
   get initialized(): boolean {
     return this.isInitialized;
+  }
+
+  get hasEventListeners(): boolean {
+    return this.eventListenersSetup;
   }
 }

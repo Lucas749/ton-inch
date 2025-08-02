@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Wallet, AlertCircle, CheckCircle, Loader2 } from "lucide-react";
 import { useBlockchain } from "@/hooks/useBlockchain";
+import { useWalletErrorHandler } from "./WalletErrorBoundary";
 
 interface WalletConnectProps {
   className?: string;
@@ -27,6 +28,9 @@ export function WalletConnect({
   showNetwork = true,
   compact = false,
 }: WalletConnectProps) {
+  // Set up wallet error handler to catch unhandled connection errors
+  useWalletErrorHandler();
+
   const {
     isConnected,
     walletAddress,

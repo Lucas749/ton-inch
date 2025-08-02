@@ -251,78 +251,132 @@ export function useBlockchain(): UseBlockchainReturn {
 
   // Set up event listeners on mount
   useEffect(() => {
-    // Check if already connected
-    if (blockchainService.isWalletConnected()) {
-      const address = blockchainService.getWalletAddress();
-      if (address) {
-        setWalletAddress(address);
-        setIsConnected(true);
-
-        // Load initial data
-        blockchainService.getNetworkInfo().then((networkInfo) => {
-          setChainId(networkInfo.chainId);
-          setNetworkName(networkInfo.networkName);
-        });
-
-        blockchainService.getETHBalance().then((balance) => {
-          setEthBalance(balance);
-        });
-
-        refreshIndices();
-      }
-    }
-
-    // Listen for account changes
-    blockchainService.onAccountChanged((account) => {
-      if (account) {
-        setWalletAddress(account);
-        setIsConnected(true);
-
-        // Refresh balances and data for new account
-        blockchainService.getETHBalance().then(setEthBalance);
-        refreshIndices();
-      } else {
-        setWalletAddress(null);
-        setIsConnected(false);
-        setEthBalance(null);
-        setIndices([]);
-      }
-    });
-
-    // Listen for network changes
-    blockchainService.onNetworkChanged(async (chainId) => {
-      try {
-        // Re-check wallet connection status after network change
-        if (blockchainService.isWalletConnected()) {
-          const address = blockchainService.getWalletAddress();
+    try {
+      // Check if already connected (with safe connection check)
+      if (blockchainService.wallet.safeIsWalletConnected()) {
+        const address = blockchainService.getWalletAddress();
+        if (address) {
           setWalletAddress(address);
           setIsConnected(true);
-          
-          // Update network info
-          const networkInfo = await blockchainService.getNetworkInfo();
-          setChainId(networkInfo.chainId);
-          setNetworkName(networkInfo.networkName);
-          
-          // Refresh balance and indices for new network
-          try {
-            const balance = await blockchainService.getETHBalance();
+
+          // Load initial data with error handling
+          blockchainService.getNetworkInfo().then((networkInfo) => {
+            setChainId(networkInfo.chainId);
+            setNetworkName(networkInfo.networkName);
+          }).catch((err) => {
+            console.warn("Warning: Failed to get network info on mount:", err);
+          });
+
+          blockchainService.getETHBalance().then((balance) => {
             setEthBalance(balance);
-            await refreshIndices();
-          } catch (err) {
-            console.warn("Warning: Failed to refresh data after network switch:", err);
+          }).catch((err) => {
+            console.warn("Warning: Failed to get ETH balance on mount:", err);
+          });
+
+          refreshIndices().catch((err) => {
+            console.warn("Warning: Failed to refresh indices on mount:", err);
+          });
+        }
+      }
+
+      // Listen for account changes with error handling
+      blockchainService.onAccountChanged((account) => {
+        try {
+          if (account) {
+            setWalletAddress(account);
+            setIsConnected(true);
+
+            // Refresh balances and data for new account
+            blockchainService.getETHBalance().then(setEthBalance).catch((err) => {
+              console.warn("Warning: Failed to refresh ETH balance after account change:", err);
+            });
+            refreshIndices().catch((err) => {
+              console.warn("Warning: Failed to refresh indices after account change:", err);
+            });
+          } else {
+            setWalletAddress(null);
+            setIsConnected(false);
+            setEthBalance(null);
+            setIndices([]);
+            setIsOwner(false);
+            // Clear any error state when disconnecting
+            setError(null);
           }
-        } else {
-          // Wallet disconnected
+        } catch (err) {
+          console.error("Error handling account change:", err);
+          // Reset state on error
+          setWalletAddress(null);
+          setIsConnected(false);
+          setEthBalance(null);
+          setIndices([]);
+          setIsOwner(false);
+        }
+      });
+
+      // Listen for network changes with error handling
+      blockchainService.onNetworkChanged(async (chainId) => {
+        try {
+          // Re-check wallet connection status after network change
+          if (blockchainService.wallet.safeIsWalletConnected()) {
+            const address = blockchainService.getWalletAddress();
+            setWalletAddress(address);
+            setIsConnected(true);
+            
+            // Update network info
+            try {
+              const networkInfo = await blockchainService.getNetworkInfo();
+              setChainId(networkInfo.chainId);
+              setNetworkName(networkInfo.networkName);
+            } catch (err) {
+              console.warn("Warning: Failed to get network info after network change:", err);
+            }
+            
+            // Refresh balance and indices for new network
+            try {
+              const balance = await blockchainService.getETHBalance();
+              setEthBalance(balance);
+            } catch (err) {
+              console.warn("Warning: Failed to refresh ETH balance after network change:", err);
+            }
+
+            try {
+              await refreshIndices();
+            } catch (err) {
+              console.warn("Warning: Failed to refresh indices after network change:", err);
+            }
+          } else {
+            // Wallet disconnected
+            setIsConnected(false);
+            setWalletAddress(null);
+            setEthBalance(null);
+            setIndices([]);
+            setIsOwner(false);
+            setError(null); // Clear error state
+          }
+        } catch (err) {
+          console.error("Error handling network change:", err);
+          // On error, assume disconnection
           setIsConnected(false);
           setWalletAddress(null);
           setEthBalance(null);
           setIndices([]);
           setIsOwner(false);
         }
+      });
+    } catch (err) {
+      console.error("Error setting up wallet event listeners:", err);
+      setError("Failed to initialize wallet connection");
+    }
+
+    // Cleanup function
+    return () => {
+      try {
+        // Clean up event listeners when component unmounts
+        blockchainService.wallet.cleanup();
       } catch (err) {
-        console.error("Error handling network change:", err);
+        console.warn("Warning: Error during wallet cleanup:", err);
       }
-    });
+    };
   }, [refreshIndices]);
 
   return {
