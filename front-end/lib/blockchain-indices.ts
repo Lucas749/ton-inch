@@ -14,6 +14,10 @@ export class BlockchainIndices {
   private wallet: BlockchainWallet;
   private oracle: any;
   private preInteraction: any;
+  private indicesCache: CustomIndex[] | null = null;
+  private cacheTimestamp: number = 0;
+  private readonly CACHE_DURATION = 30000; // 30 seconds
+  private pendingRequest: Promise<CustomIndex[]> | null = null;
 
   constructor(web3Instance: Web3, walletInstance: BlockchainWallet) {
     this.web3 = web3Instance;
@@ -36,12 +40,52 @@ export class BlockchainIndices {
   }
 
   /**
-   * Get all custom indices from the oracle with rate limiting
+   * Get all custom indices from the oracle with rate limiting and caching
    */
   async getAllIndices(): Promise<CustomIndex[]> {
     try {
+      // Check cache first
+      const now = Date.now();
+      if (this.indicesCache && (now - this.cacheTimestamp) < this.CACHE_DURATION) {
+        console.log('📊 Using cached indices data');
+        return this.indicesCache;
+      }
+
+      // If there's already a pending request, return it to avoid duplicate calls
+      if (this.pendingRequest) {
+        console.log('📊 Waiting for existing indices request...');
+        return this.pendingRequest;
+      }
+
       console.log('📊 Fetching all indices with rate limiting...');
-      const indices: CustomIndex[] = [];
+      
+      // Create and store the promise
+      this.pendingRequest = this.fetchAllIndices();
+      
+      try {
+        const indices = await this.pendingRequest;
+        
+        // Cache the results
+        this.indicesCache = indices;
+        this.cacheTimestamp = now;
+        
+        return indices;
+      } finally {
+        // Clear the pending request
+        this.pendingRequest = null;
+      }
+    } catch (error) {
+      console.error("❌ Error fetching indices:", error);
+      this.pendingRequest = null; // Clear on error
+      return []; // Return empty array instead of throwing
+    }
+  }
+
+  /**
+   * Internal method to actually fetch indices from the blockchain
+   */
+  private async fetchAllIndices(): Promise<CustomIndex[]> {
+    const indices: CustomIndex[] = [];
 
       // Get the actual list of created custom indices from the oracle
       try {
@@ -138,10 +182,6 @@ export class BlockchainIndices {
 
       console.log(`✅ Loaded ${indices.length} total indices`);
       return indices.sort((a, b) => a.id - b.id);
-    } catch (error) {
-      console.error("❌ Error fetching indices:", error);
-      return []; // Return empty array instead of throwing
-    }
   }
 
   /**
@@ -167,6 +207,16 @@ export class BlockchainIndices {
       console.error(`❌ Error getting index ${indexId} value:`, error);
       throw error;
     }
+  }
+
+  /**
+   * Clear the indices cache (call after creating/updating indices)
+   */
+  clearCache(): void {
+    this.indicesCache = null;
+    this.cacheTimestamp = 0;
+    this.pendingRequest = null;
+    console.log('🗑️ Cleared indices cache');
   }
 
   /**
@@ -215,6 +265,9 @@ export class BlockchainIndices {
       console.log("✅ Index registered in PreInteraction:", preIntTx.transactionHash);
       console.log(`🎉 Index "${name}" created with ID: ${indexId}`);
 
+      // Clear cache so next fetch gets fresh data
+      this.clearCache();
+
       return parseInt(indexId);
 
     } catch (error) {
@@ -240,6 +293,10 @@ export class BlockchainIndices {
         });
 
       console.log("✅ Index updated:", tx.transactionHash);
+      
+      // Clear cache so next fetch gets fresh data
+      this.clearCache();
+      
       return true;
     } catch (error) {
       console.error("❌ Error updating index:", error);
@@ -403,5 +460,7 @@ export class BlockchainIndices {
    */
   reinitialize(): void {
     this.initializeContracts();
+    // Clear cache when network changes
+    this.clearCache();
   }
 }

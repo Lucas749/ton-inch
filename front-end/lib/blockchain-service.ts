@@ -138,6 +138,10 @@ export class BlockchainService {
     return this.indices.searchIndicesByName(searchTerm);
   }
 
+  clearIndicesCache(): void {
+    this.indices.clearCache();
+  }
+
   // === ORDER OPERATIONS ===
 
   async createOrder(params: OrderParams): Promise<Order | null> {

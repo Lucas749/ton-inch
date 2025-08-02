@@ -71,7 +71,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
   const [chartError, setChartError] = useState<string | null>(null);
   const [realIndexData, setRealIndexData] = useState(index);
   
-  const { isConnected } = useBlockchain();
+  const { isConnected, walletAddress } = useBlockchain();
 
   // Load real Alpha Vantage data for this index
   const loadRealIndexData = async () => {
