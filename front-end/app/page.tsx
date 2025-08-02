@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { IndicesExplorer } from '@/components/IndicesExplorer';
 import { useBlockchain } from '@/hooks/useBlockchain';
-import { TrendingUp, BarChart3, ArrowRight, Sparkles, Activity, Users, Zap, Crown, Star, DollarSign, Bitcoin, TrendingDown } from 'lucide-react';
+import { TrendingUp, BarChart3, ArrowRight, Sparkles, Activity, Users, Zap, Crown, Star, DollarSign, Bitcoin, TrendingDown, Target, Globe, Layers, ShieldCheck } from 'lucide-react';
 
 export default function Home() {
   const router = useRouter();
@@ -46,8 +46,10 @@ export default function Home() {
     }
   };
 
-  // All blockchain indices for custom section (instead of mock data)
-  const customBlockchainIndices = blockchainIndices;
+  // Custom blockchain indices - exclude featured (0-4) and sort by most recent
+  const customBlockchainIndices = blockchainIndices
+    .filter(index => index.id > 4) // Exclude featured indices 0-4
+    .sort((a, b) => b.id - a.id); // Sort by most recent (highest ID first)
 
   // Top AlphaVantage categories
   const topStocks = [
@@ -70,6 +72,137 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-white">
       <Navbar />
+      
+      {/* Interactive Hero Section - How c1nch Works */}
+      <section className="relative overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 py-16 md:py-24">
+        <div className="absolute inset-0 bg-grid-slate-100 [mask-image:linear-gradient(0deg,transparent,black)] opacity-20"></div>
+        
+        <div className="container mx-auto px-4 relative">
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center px-4 py-2 rounded-full bg-blue-100 text-blue-800 text-sm font-medium mb-4">
+              <Zap className="w-4 h-4 mr-2" />
+              Next-Gen Conditional Trading
+            </div>
+            <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
+              Trade When
+              <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"> Conditions </span>
+              Are Perfect
+            </h1>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-8">
+              c1nch enables intelligent conditional trading using real-world data. Set conditions, sit back, and let your trades execute automatically when your criteria are met.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button size="lg" className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-3">
+                Start Trading <ArrowRight className="w-5 h-5 ml-2" />
+              </Button>
+              <Button variant="outline" size="lg" className="px-8 py-3">
+                Watch Demo <Globe className="w-5 h-5 ml-2" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Interactive Flow Diagram */}
+          <div className="max-w-6xl mx-auto">
+            <div className="grid md:grid-cols-4 gap-6 mb-12">
+              {/* Step 1 */}
+              <div className="relative group">
+                <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
+                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                    <Target className="w-6 h-6 text-white" />
+                  </div>
+                  <h3 className="font-semibold text-gray-900 mb-2">1. Set Conditions</h3>
+                  <p className="text-sm text-gray-600">Choose real-world indices like VIX, inflation, or custom metrics as triggers</p>
+                </div>
+                <div className="hidden md:block absolute top-1/2 -right-3 transform -translate-y-1/2 z-10">
+                  <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                    <ArrowRight className="w-4 h-4 text-white" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Step 2 */}
+              <div className="relative group">
+                <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
+                  <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                    <Layers className="w-6 h-6 text-white" />
+                  </div>
+                  <h3 className="font-semibold text-gray-900 mb-2">2. Configure Trade</h3>
+                  <p className="text-sm text-gray-600">Define your swap parameters - tokens, amounts, and execution preferences</p>
+                </div>
+                <div className="hidden md:block absolute top-1/2 -right-3 transform -translate-y-1/2 z-10">
+                  <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center">
+                    <ArrowRight className="w-4 h-4 text-white" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Step 3 */}
+              <div className="relative group">
+                <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
+                  <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                    <ShieldCheck className="w-6 h-6 text-white" />
+                  </div>
+                  <h3 className="font-semibold text-gray-900 mb-2">3. Smart Monitoring</h3>
+                  <p className="text-sm text-gray-600">Our oracle network continuously monitors your conditions 24/7</p>
+                </div>
+                <div className="hidden md:block absolute top-1/2 -right-3 transform -translate-y-1/2 z-10">
+                  <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                    <ArrowRight className="w-4 h-4 text-white" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Step 4 */}
+              <div className="relative group">
+                <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
+                  <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                    <Zap className="w-6 h-6 text-white" />
+                  </div>
+                  <h3 className="font-semibold text-gray-900 mb-2">4. Auto Execute</h3>
+                  <p className="text-sm text-gray-600">When conditions are met, your trade executes automatically via 1inch</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Live Example */}
+            <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-8 text-white">
+              <div className="text-center mb-6">
+                <h3 className="text-2xl font-bold mb-2">Live Example</h3>
+                <p className="text-blue-100">See how intelligent conditions work in real-time</p>
+              </div>
+              
+              <div className="bg-white/10 backdrop-blur rounded-xl p-6 max-w-2xl mx-auto">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                      <span className="text-lg">⚡</span>
+                    </div>
+                    <div>
+                      <div className="font-semibold">VIX Volatility Trade</div>
+                      <div className="text-sm text-blue-100">Active Condition</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                    <span className="text-sm">Monitoring</span>
+                  </div>
+                </div>
+                
+                <div className="bg-white/10 rounded-lg p-4 font-mono text-sm">
+                  <div className="flex justify-between items-center">
+                    <span>IF VIX Index > 25.0</span>
+                    <span className="text-blue-200">Current: 22.57</span>
+                  </div>
+                  <div className="flex justify-between items-center mt-2">
+                    <span>THEN Swap 0.1 ETH → USDC</span>
+                    <span className="text-green-300">Ready</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
       
       <main className="container mx-auto px-4 py-6">
         {/* Featured Blockchain Indices Section */}
