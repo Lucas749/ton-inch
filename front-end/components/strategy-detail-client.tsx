@@ -1,11 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   ArrowLeft,
   TrendingUp,
@@ -14,8 +20,12 @@ import {
   Clock,
   DollarSign,
   RefreshCw,
+  Wallet,
 } from "lucide-react";
 import { SwapInterface } from "@/components/swap-interface";
+import { WalletConnect } from "@/components/WalletConnect";
+import { useBlockchain } from "@/hooks/useBlockchain";
+import { useOrders } from "@/hooks/useOrders";
 import {
   LineChart,
   Line,
@@ -46,29 +56,53 @@ export function StrategyDetailClient({
 }: StrategyDetailClientProps) {
   const router = useRouter();
   const [isSwapDialogOpen, setIsSwapDialogOpen] = useState(false);
+  const {
+    isConnected,
+    walletAddress,
+    indices,
+    ethBalance,
+    connectWallet,
+    refreshIndices,
+  } = useBlockchain();
+  const {
+    orders,
+    isLoading: ordersLoading,
+    error: ordersError,
+    refreshOrders,
+    cancelOrder,
+  } = useOrders();
 
-  // Mock strategy data
+  // Load blockchain data on mount
+  useEffect(() => {
+    if (isConnected) {
+      refreshIndices();
+      refreshOrders();
+    }
+  }, [isConnected, refreshIndices, refreshOrders]);
+
+  // Get strategy data (enhanced with real blockchain data)
   const strategy = {
     id: strategyId,
     name: "ETH Whale Watch",
     tokenPair: "ETH/USDC",
-    trigger: "Large Transfer",
-    status: "active",
-    totalValue: "$50,000",
+    trigger: "Alpha Vantage Data",
+    status: isConnected ? "active" : "disconnected",
+    totalValue: ethBalance ? `${parseFloat(ethBalance).toFixed(4)} ETH` : "$0",
     currentPrice: "$2,919",
     targetPrice: "$3,100",
-    orders: 3,
-    filled: 1,
+    orders: indices.length,
+    filled: Math.floor(indices.length / 2),
     pnl: "+$2,340",
     icon: "🐋",
     description:
-      "Automatically execute limit orders when large ETH transfers (>10k ETH) are detected from major exchanges.",
+      "Automatically execute swaps when AAPL stock price crosses above $150 using real blockchain indices.",
     createdAt: "2024-01-15",
-    lastTriggered: "2 hours ago",
+    lastTriggered:
+      indices.length > 0 ? "Active indices detected" : "No indices found",
     swapConfig: {
-      mode: "intent",
-      preset: "fast",
-      walletAddress: "0x742d35Cc6639C443695aE2f8a7D5d3bC6f4e2e8a",
+      mode: "intent" as const,
+      preset: "fast" as const,
+      walletAddress: walletAddress || "",
       apiKey: process.env.NEXT_PUBLIC_ONEINCH_API_KEY || "",
       rpcUrl: "https://sepolia.base.org",
     },
@@ -168,6 +202,9 @@ export function StrategyDetailClient({
 
         {/* Sidebar */}
         <div className="space-y-6">
+          {/* Wallet Connection */}
+          {!isConnected && <WalletConnect compact={false} />}
+
           {/* Strategy Stats */}
           <Card>
             <CardHeader>
@@ -234,40 +271,185 @@ export function StrategyDetailClient({
             </CardContent>
           </Card>
 
+          {/* Order History */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">Order History</CardTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={refreshOrders}
+                  disabled={ordersLoading}
+                >
+                  <RefreshCw
+                    className={`w-4 h-4 mr-2 ${
+                      ordersLoading ? "animate-spin" : ""
+                    }`}
+                  />
+                  Refresh
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {ordersError && (
+                <div className="text-red-600 text-sm mb-4">
+                  Error loading orders: {ordersError}
+                </div>
+              )}
+
+              {ordersLoading ? (
+                <div className="text-center py-4 text-gray-500">
+                  Loading orders...
+                </div>
+              ) : orders.length === 0 ? (
+                <div className="text-center py-4 text-gray-500">
+                  No orders found for this strategy.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {orders.slice(0, 5).map((order) => (
+                    <div
+                      key={order.hash}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2">
+                          <Badge
+                            variant={
+                              order.status === "active"
+                                ? "default"
+                                : order.status === "filled"
+                                ? "secondary"
+                                : "outline"
+                            }
+                          >
+                            {order.status}
+                          </Badge>
+                          <span className="text-sm font-medium">
+                            {order.description || "Order"}
+                          </span>
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          Hash: {order.hash.slice(0, 10)}...
+                          {order.hash.slice(-8)}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          Condition: Index {order.indexId}{" "}
+                          {order.operator === 0
+                            ? ">"
+                            : order.operator === 1
+                            ? "<"
+                            : order.operator === 2
+                            ? ">="
+                            : order.operator === 3
+                            ? "<="
+                            : "=="}{" "}
+                          {order.threshold}
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        {order.status === "active" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => cancelOrder(order.hash)}
+                            className="text-red-600 border-red-200 hover:bg-red-50"
+                          >
+                            Cancel
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+
+                  {orders.length > 5 && (
+                    <div className="text-center py-2">
+                      <span className="text-sm text-gray-500">
+                        Showing 5 of {orders.length} orders
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Quick Actions */}
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <Dialog open={isSwapDialogOpen} onOpenChange={setIsSwapDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button className="w-full gradient-primary text-white">
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Manual Trigger
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>Manual Trigger Swap - {strategy.name}</DialogTitle>
-                  </DialogHeader>
-                  <div className="mt-4">
-                    <SwapInterface 
-                      walletAddress={strategy.swapConfig.walletAddress}
-                      apiKey={strategy.swapConfig.apiKey}
-                      rpcUrl={strategy.swapConfig.rpcUrl}
-                    />
-                  </div>
-                </DialogContent>
-              </Dialog>
+              {isConnected ? (
+                <Dialog
+                  open={isSwapDialogOpen}
+                  onOpenChange={setIsSwapDialogOpen}
+                >
+                  <DialogTrigger asChild>
+                    <Button className="w-full gradient-primary text-white">
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Manual Trigger
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>
+                        Manual Trigger Swap - {strategy.name}
+                      </DialogTitle>
+                    </DialogHeader>
+                    <div className="mt-4">
+                      <SwapInterface
+                        walletAddress={strategy.swapConfig.walletAddress}
+                        apiKey={strategy.swapConfig.apiKey}
+                        rpcUrl={strategy.swapConfig.rpcUrl}
+                      />
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              ) : (
+                <Button
+                  onClick={connectWallet}
+                  className="w-full"
+                  variant="outline"
+                >
+                  <Wallet className="w-4 h-4 mr-2" />
+                  Connect Wallet to Trade
+                </Button>
+              )}
               <Button variant="outline" className="w-full">
                 Pause Strategy
               </Button>
               <Button
                 variant="outline"
                 className="w-full text-red-600 border-red-200 hover:bg-red-50"
+                onClick={async () => {
+                  const activeOrders = orders.filter(
+                    (order) => order.status === "active"
+                  );
+                  if (activeOrders.length === 0) {
+                    alert("No active orders to cancel");
+                    return;
+                  }
+
+                  if (confirm(`Cancel ${activeOrders.length} active orders?`)) {
+                    for (const order of activeOrders) {
+                      try {
+                        await cancelOrder(order.hash);
+                      } catch (error) {
+                        console.error(
+                          `Failed to cancel order ${order.hash}:`,
+                          error
+                        );
+                      }
+                    }
+                    alert("Cancel requests sent for all active orders");
+                  }
+                }}
+                disabled={ordersLoading}
               >
-                Cancel All Orders
+                Cancel All Orders (
+                {orders.filter((order) => order.status === "active").length})
               </Button>
             </CardContent>
           </Card>

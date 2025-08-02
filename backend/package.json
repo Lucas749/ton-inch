@@ -8,6 +8,7 @@
     "dev": "ts-node src/index.ts",
     "index-trading": "ts-node src/index-trading.ts",
     "workflow": "node web3_workflow.js",
+    "demo": "node comprehensive_demo.js",
     "deploy": "forge script script/DeployAndTest.s.sol --fork-url https://sepolia.base.org --broadcast",
     "test": "forge test --fork-url https://sepolia.base.org",
     "compile": "forge build"

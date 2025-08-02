@@ -3,13 +3,13 @@
 import { WagmiProvider } from 'wagmi';
 import { RainbowKitProvider, getDefaultConfig } from '@rainbow-me/rainbowkit';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { sepolia } from 'wagmi/chains';
+import { sepolia, baseSepolia } from 'wagmi/chains';
 import '@rainbow-me/rainbowkit/styles.css';
 
 const config = getDefaultConfig({
   appName: 'EventLimit',
   projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'eventlimit-demo',
-  chains: [sepolia],
+  chains: [baseSepolia, sepolia],
   ssr: true,
 });
 
