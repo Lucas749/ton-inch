@@ -1,17 +1,18 @@
 import { createPublicClient, createWalletClient, Hex, http } from "viem";
-import { baseSepolia } from "viem/chains";
+import { base } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
 
-// Base Sepolia configuration
-const BASE_SEPOLIA_CHAIN_ID = 84532;
-const INCH_API_BASE_URL = `https://api.1inch.dev/swap/v6.1/${BASE_SEPOLIA_CHAIN_ID}`;
-const INCH_FUSION_API_BASE_URL = `https://api.1inch.dev/fusion/v1.0/${BASE_SEPOLIA_CHAIN_ID}`;
+// Base mainnet configuration (1inch doesn't support testnets)
+const BASE_MAINNET_CHAIN_ID = 8453;
+const INCH_API_BASE_URL = `https://api.1inch.dev/swap/v6.1/${BASE_MAINNET_CHAIN_ID}`;
+const INCH_FUSION_API_BASE_URL = `https://api.1inch.dev/fusion/v1.0/${BASE_MAINNET_CHAIN_ID}`;
 
-// Common token addresses on Base Sepolia
+// Common token addresses on Base mainnet
 export const TOKENS = {
-  USDC: "0x036CbD53842c5426634e7929541eC2318f3dCF7e", // USDC on Base Sepolia
-  WETH: "0x4200000000000000000000000000000000000006", // WETH on Base Sepolia
-  ETH: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE", // Native ETH
+  USDC: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // Native USDC on Base mainnet (Circle)
+  USDBC: "0xd9aAEc86B65D86f6A7B5B1b0c42FFA531710b6CA", // Bridged USDC on Base mainnet
+  WETH: "0x4200000000000000000000000000000000000006", // WETH on Base mainnet
+  ETH: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE", // Native ETH placeholder
 };
 
 export interface SwapConfig {
@@ -166,7 +167,7 @@ export class OneInchService {
 
     // Initialize viem clients
     this.publicClient = createPublicClient({
-      chain: baseSepolia,
+      chain: base,
       transport: http(config.rpcUrl),
     });
 
@@ -174,7 +175,7 @@ export class OneInchService {
       this.account = privateKeyToAccount(config.privateKey);
       this.walletClient = createWalletClient({
         account: this.account,
-        chain: baseSepolia,
+        chain: base,
         transport: http(config.rpcUrl),
       });
     }
@@ -195,7 +196,7 @@ export class OneInchService {
     const url = new URL(proxyPath, window.location.origin);
     
     // Add chainId and other params
-    params.chainId = BASE_SEPOLIA_CHAIN_ID.toString();
+    params.chainId = BASE_MAINNET_CHAIN_ID.toString();
     url.search = new URLSearchParams(params).toString();
     return url.toString();
   }

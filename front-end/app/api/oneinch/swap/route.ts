@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   
-  const chainId = searchParams.get('chainId') || '8453'; // Default to Base
+  const chainId = searchParams.get('chainId') || '8453'; // Default to Base mainnet
   const src = searchParams.get('src');
   const dst = searchParams.get('dst');
   const amount = searchParams.get('amount');

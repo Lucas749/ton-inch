@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   
-  const chainId = searchParams.get('chainId') || '8453'; // Default to Base
+  const chainId = searchParams.get('chainId') || '8453'; // Default to Base mainnet
   
   try {
     const response = await fetch(`https://api.1inch.dev/token/v1.2/${chainId}`, {

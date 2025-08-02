@@ -7,10 +7,11 @@
  * API Documentation: https://portal.1inch.dev/documentation/apis/tokens/introduction
  */
 
-import { base } from 'viem/chains';
-
 // 1inch Token API base URL
 const TOKEN_API_BASE_URL = 'https://api.1inch.dev/token/v1.2';
+
+// Base mainnet chain ID (1inch supports mainnet, not testnet)
+const BASE_MAINNET_CHAIN_ID = 8453;
 
 // Token interfaces
 export interface Token {
@@ -94,7 +95,7 @@ class TokenService {
 
   constructor() {
     this.apiKey = process.env.NEXT_PUBLIC_ONEINCH_API_KEY || '';
-    this.chainId = base.id; // Base Sepolia
+    this.chainId = BASE_MAINNET_CHAIN_ID; // Base mainnet - 1inch doesn't support testnets
   }
 
   /**
