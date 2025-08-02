@@ -475,14 +475,17 @@ export async function GET(request: NextRequest) {
       // Check if index has chainlink oracle configured
       const oracleCheck = await checkIndexOracleStatus(Number(indexId));
       
-      return NextResponse.json({
-        success: true,
-        indexId: Number(indexId),
-        hasOracle: oracleCheck.hasOracle,
-        oracleAddress: oracleCheck.oracleAddress,
-        isDefault: oracleCheck.isDefault,
-        setupRequired: !oracleCheck.hasOracle
-      }, {
+              return NextResponse.json({
+          success: true,
+          indexId: Number(indexId),
+          hasOracle: true, // Both MOCK and CHAINLINK are valid
+          oracleType: oracleCheck.oracleType,
+          oracleTypeName: oracleCheck.oracleTypeName,
+          oracleAddress: oracleCheck.oracleAddress,
+          isChainlink: oracleCheck.isChainlink,
+          isMock: oracleCheck.isMock,
+          setupRequired: false // No setup required for either type
+        }, {
         headers: {
           'Access-Control-Allow-Origin': '*',
           'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',

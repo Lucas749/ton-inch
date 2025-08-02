@@ -1156,13 +1156,22 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
               <Card>
                 <CardHeader>
                   <CardTitle>Create Conditional Order</CardTitle>
-                  <div className="text-sm text-gray-500">
-                    {oracleStatus.loading 
-                      ? "Checking oracle configuration..." 
-                      : oracleStatus.isChainlink 
-                        ? `Set up an order that executes when ${realIndexData.name} meets your conditions`
-                        : "Chainlink oracle setup required for conditional orders"
-                    }
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-gray-500">
+                      {oracleStatus.loading 
+                        ? "Checking oracle configuration..." 
+                        : `Set up an order that executes when ${realIndexData.name} meets your conditions`
+                      }
+                    </div>
+                    {!oracleStatus.loading && !oracleStatus.error && (
+                      <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        oracleStatus.isChainlink 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-blue-100 text-blue-800'
+                      }`}>
+                        {oracleStatus.oracleTypeName} Oracle
+                      </div>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -1197,54 +1206,8 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                     </div>
                   )}
 
-                  {/* Setup Instructions - MOCK Oracle */}
-                  {!oracleStatus.loading && !oracleStatus.error && oracleStatus.isMock && (
-                    <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                      <div className="flex items-start">
-                        <div className="text-yellow-400 mr-3 mt-1">🔧</div>
-                        <div className="flex-1">
-                          <h4 className="text-sm font-medium text-yellow-800">Chainlink Oracle Setup Required</h4>
-                          <p className="text-sm text-yellow-700 mt-1">
-                            This index currently uses mock data. To enable conditional orders, you need to set up a Chainlink oracle.
-                          </p>
-                          
-                          <div className="mt-3 text-sm text-yellow-700">
-                            <h5 className="font-medium mb-2">Setup Steps:</h5>
-                            <ol className="list-decimal ml-4 space-y-1">
-                              <li>Deploy a Chainlink Functions Oracle contract</li>
-                              <li>Set the oracle address for this index</li>
-                              <li>Switch the index to use CHAINLINK oracle type</li>
-                            </ol>
-                          </div>
-
-                          <div className="mt-3 text-sm text-yellow-700">
-                            <h5 className="font-medium mb-2">Backend Commands:</h5>
-                            <div className="bg-yellow-100 p-2 rounded font-mono text-xs space-y-1">
-                              <div># 1. Deploy Chainlink oracle</div>
-                              <div>forge script script/DeployChainlinkOracle.s.sol --rpc-url $RPC_URL --broadcast</div>
-                              <div className="mt-2"># 2. Set oracle address</div>
-                              <div>node -e &quot;const oracle = require(&apos;./src/oracle-manager&apos;); oracle.setChainlinkOracleAddress(&apos;0xYOUR_ORACLE_ADDRESS&apos;, process.env.PRIVATE_KEY)&quot;</div>
-                              <div className="mt-2"># 3. Switch to Chainlink</div>
-                              <div>node -e &quot;const oracle = require(&apos;./src/oracle-manager&apos;); oracle.setIndexOracleType({`{blockchainIndexId}`}, 1, process.env.PRIVATE_KEY)&quot;</div>
-                            </div>
-                          </div>
-
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            className="mt-3"
-                            onClick={() => blockchainIndexId !== null && checkOracleStatus(blockchainIndexId)}
-                          >
-                            <RefreshCw className="h-4 w-4 mr-1" />
-                            Check Again
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Conditional Order Form - CHAINLINK Oracle */}
-                  {!oracleStatus.loading && !oracleStatus.error && oracleStatus.isChainlink && (
+                  {/* Conditional Order Form - Any Oracle Type */}
+                  {!oracleStatus.loading && !oracleStatus.error && (
                   <>
                     <div>
                       <label className="text-sm font-medium">Description</label>
