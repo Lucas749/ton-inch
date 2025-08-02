@@ -309,12 +309,27 @@ export class BlockchainIndices {
         throw new Error("Wallet not connected. Please connect your wallet first.");
       }
 
-      const tx = await this.oracle.methods
-        .updateCustomIndex(indexId, newValue)
-        .send({
-          from: this.wallet.currentAccount,
-          gas: "100000",
-        });
+      console.log(`📝 Updating Index ${indexId} to ${newValue}`);
+      
+      // Determine if it's predefined or custom index (matches backend logic)
+      let tx;
+      if (indexId <= 5) {
+        console.log('📤 Updating predefined index...');
+        tx = await this.oracle.methods
+          .updateIndex(indexId, newValue)
+          .send({
+            from: this.wallet.currentAccount,
+            gas: "100000",
+          });
+      } else {
+        console.log('📤 Updating custom index...');
+        tx = await this.oracle.methods
+          .updateCustomIndex(indexId, newValue)
+          .send({
+            from: this.wallet.currentAccount,
+            gas: "100000",
+          });
+      }
 
       console.log("✅ Index updated:", tx.transactionHash);
       

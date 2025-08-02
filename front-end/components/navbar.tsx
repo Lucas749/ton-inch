@@ -199,13 +199,7 @@ export function Navbar() {
               Dashboard
             </button>
 
-            <button
-              onClick={() => router.push("/admin")}
-              className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors flex items-center space-x-1"
-            >
-              <Settings className="w-4 h-4" />
-              <span>Admin</span>
-            </button>
+
           </div>
 
           {/* Search and Actions */}

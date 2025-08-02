@@ -35,6 +35,7 @@ import { blockchainService, CONTRACTS } from "@/lib/blockchain-service";
 import AlphaVantageService, { TimeSeriesResponse } from "@/lib/alphavantage-service";
 import { RealIndicesService } from "@/lib/real-indices-service";
 import { SwapBox } from "@/components/SwapBox";
+import { AdminBox } from "@/components/AdminBox";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -644,6 +645,15 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* Admin Box - Only for blockchain indices when connected */}
+                {blockchainIndexId !== null && (
+                  <AdminBox 
+                    indexId={blockchainIndexId}
+                    indexName={realIndexData.name}
+                    className="mt-6"
+                  />
+                )}
               </>
             ) : (
               /* Request Index Card */
