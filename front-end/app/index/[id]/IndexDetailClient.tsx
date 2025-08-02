@@ -139,8 +139,8 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
         );
         
         if (validTokens.length >= 2) {
-          setFromToken(validTokens[1]); // WETH
-          setToToken(validTokens[0]); // ETH/USDC
+          setFromToken(validTokens[0]); // ETH
+          setToToken(validTokens[1]); // WETH
         }
       }
     } catch (error) {
@@ -721,24 +721,24 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
       );
       
       if (validTokens.length >= 2) {
-        // Set tokens: WETH -> USDC
+        // Set tokens: ETH -> WETH
+        const ethToken = validTokens.find(t => t.symbol === 'ETH') || validTokens[0];
         const wethToken = validTokens.find(t => t.symbol === 'WETH') || validTokens[1];
-        const usdcToken = validTokens.find(t => t.symbol === 'USDC') || validTokens[0];
         
-        setFromToken(wethToken);
-        setToToken(usdcToken);
+        setFromToken(ethToken);
+        setToToken(wethToken);
       }
 
       setOrderForm({
-        description: `Buy ${toToken?.symbol || 'tokens'} when ${realIndexData.name} > threshold`,
-        fromAmount: "0.0001", // 0.0001 WETH - minimal amount for testing (~$0.25-0.40)
-        toAmount: "0.25", // Proportionally small USDC amount
+        description: `Buy ${toToken?.symbol || 'WETH'} when ${realIndexData.name} > threshold`,
+        fromAmount: "0.0001", // 0.0001 ETH - minimal amount for testing (~$0.25-0.40)
+        toAmount: "0.0001", // Same amount in WETH (1:1 ratio)
         operator: OPERATORS.GT,
         threshold: "18000", // Demo threshold
         expiry: "2" // 2 hours
       });
       
-      alert(`🚀 Demo order data loaded! Buy ${toToken?.symbol || 'tokens'} when ${realIndexData.name} > threshold using 0.0001 ${fromToken?.symbol || 'tokens'}`);
+      alert(`🚀 Demo order data loaded! Buy ${toToken?.symbol || 'WETH'} when ${realIndexData.name} > threshold using 0.0001 ${fromToken?.symbol || 'ETH'}`);
     } catch (error) {
       console.error('❌ Error setting demo data:', error);
       alert('Failed to load demo data');
