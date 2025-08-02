@@ -17,8 +17,7 @@ import {
   Address, 
   Sdk, 
   randBigInt, 
-  ExtensionBuilder,
-  FetchProviderConnector
+  ExtensionBuilder
 } from '@1inch/limit-order-sdk';
 import { ethers } from 'ethers';
 
@@ -85,8 +84,8 @@ export class BlockchainOrders {
       
       const sdk = new Sdk({
         authKey: apiKey,
-        networkId: CONFIG.CHAIN_ID,
-        httpConnector: new FetchProviderConnector()
+        networkId: CONFIG.CHAIN_ID
+        // httpConnector not needed in frontend environment
       });
       
       console.log('✅ 1inch SDK initialized successfully');
