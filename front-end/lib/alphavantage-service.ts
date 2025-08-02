@@ -1,12 +1,8 @@
-// Enhanced Alpha Vantage API Service with Caching and Comprehensive Endpoints
+// Enhanced Alpha Vantage API Service with Server-Side CSV Caching
 // Documentation: https://www.alphavantage.co/documentation/
-
-import AlphaVantageCacheService from './alphavantage-cache';
 
 export interface AlphaVantageConfig {
   apiKey: string;
-  enableCache?: boolean;
-  cacheDir?: string;
 }
 
 // Core Time Series Interfaces
@@ -344,31 +340,13 @@ export type OutputSize = "compact" | "full";
 export class AlphaVantageService {
   private config: AlphaVantageConfig;
   private baseUrl = "https://www.alphavantage.co/query";
-  private cache: AlphaVantageCacheService | null = null;
 
   constructor(config: AlphaVantageConfig) {
-    this.config = { enableCache: true, ...config };
-    
-    if (this.config.enableCache) {
-      this.cache = new AlphaVantageCacheService(this.config.cacheDir);
-    }
+    this.config = config;
   }
 
-  private async callAPI<T>(params: Record<string, string>, functionName?: string): Promise<T> {
-    const symbol = params.symbol || '';
-    const interval = params.interval;
-    const fn = functionName || params.function || '';
-
-    // Check cache first
-    if (this.cache && this.cache.shouldUseCache(symbol, fn, interval)) {
-      console.log(`🎯 Using cached data for ${fn} - ${symbol}${interval ? ` (${interval})` : ''}`);
-      const cachedData = await this.cache.getCachedData(symbol, fn, interval);
-      if (cachedData) {
-        return cachedData as T;
-      }
-    }
-
-    // Use our proxy endpoint to avoid CORS issues
+    private async callAPI<T>(params: Record<string, string>, functionName?: string): Promise<T> {
+    // Use our proxy endpoint that handles server-side caching and validation
     const url = new URL('/api/alphavantage', window.location.origin);
     url.searchParams.set("apikey", this.config.apiKey);
     
@@ -376,40 +354,24 @@ export class AlphaVantageService {
       url.searchParams.set(key, value);
     });
 
-    console.log(`🌐 Fetching fresh data for ${fn} - ${symbol}${interval ? ` (${interval})` : ''}`);
-
-    try {
-      const response = await fetch(url.toString());
-      
-      if (!response.ok) {
-        throw new Error(`Alpha Vantage API returned status ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      // Check for API error messages
-      if (data["Error Message"]) {
-        throw new Error(`Alpha Vantage API Error: ${data["Error Message"]}`);
-      }
-      
-      if (data["Note"]) {
-        throw new Error(`Alpha Vantage API Note: ${data["Note"]}`);
-      }
-
-      // Cache successful response
-      if (this.cache) {
-        await this.cache.cacheData(symbol, fn, interval, data);
-      }
-
-      return data as T;
-    } catch (error) {
-      // Mark failed request for retry logic
-      if (this.cache) {
-        this.cache.markFailedRequest(symbol, fn, interval);
-      }
-      throw error;
+    const response = await fetch(url.toString());
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `API request failed with status ${response.status}`);
     }
+
+    const data = await response.json();
+    
+    // Check for API error in response
+    if (data.error) {
+      throw new Error(data.error);
+    }
+
+    return data as T;
   }
+
+
 
   // ===== CORE STOCK APIS =====
 
@@ -736,23 +698,7 @@ export class AlphaVantageService {
     return this.callAPI<CommodityResponse>(params, commodity);
   }
 
-  // ===== CACHE MANAGEMENT =====
 
-  /**
-   * Get cache statistics
-   */
-  getCacheStats() {
-    return this.cache ? this.cache.getCacheStats() : null;
-  }
-
-  /**
-   * Clean up old cache entries
-   */
-  cleanupCache(): void {
-    if (this.cache) {
-      this.cache.cleanupOldCache();
-    }
-  }
 
   // ===== UTILITY METHODS =====
 

@@ -34,7 +34,7 @@ export class RealIndicesService {
   private alphaVantageService: AlphaVantageService;
   
   constructor(apiKey: string) {
-    this.alphaVantageService = new AlphaVantageService({ apiKey, enableCache: true });
+    this.alphaVantageService = new AlphaVantageService({ apiKey });
   }
 
   private formatPrice(price: number, decimals: number = 2): string {
@@ -75,12 +75,31 @@ export class RealIndicesService {
   async getStockData(symbol: string, indexConfig: any): Promise<RealIndexData> {
     try {
       const quote = await this.alphaVantageService.getQuote(symbol);
+      
+      // Validate response structure
+      if (!quote || !quote["Global Quote"] || typeof quote["Global Quote"] !== 'object') {
+        throw new Error(`Invalid quote response structure for ${symbol}`);
+      }
+      
       const globalQuote = quote["Global Quote"];
+      
+      // Validate required fields exist and are not N/A
+      const requiredFields = ["05. price", "09. change", "10. change percent", "06. volume", "07. latest trading day"] as const;
+      for (const field of requiredFields) {
+        if (!(globalQuote as any)[field] || (globalQuote as any)[field] === "" || (globalQuote as any)[field] === "N/A") {
+          throw new Error(`Missing or invalid field "${field}" in quote response for ${symbol}`);
+        }
+      }
       
       const price = parseFloat(globalQuote["05. price"]);
       const change = parseFloat(globalQuote["09. change"]);
       const changePercent = globalQuote["10. change percent"];
       const volume = globalQuote["06. volume"];
+      
+      // Validate parsed numbers
+      if (isNaN(price) || isNaN(change)) {
+        throw new Error(`Invalid numeric values in quote response for ${symbol}`);
+      }
       
       const formattedChange = this.formatChange(change, changePercent);
       const sparklineData = this.generateSparklineData(price, parseFloat(changePercent.replace('%', '')));
@@ -92,24 +111,12 @@ export class RealIndicesService {
         price,
         ...formattedChange,
         sparklineData,
-        volume24h: this.formatPrice(parseFloat(volume), 0),
+        volume24h: this.formatPrice(parseFloat(volume) || 0, 0),
         lastUpdated: globalQuote["07. latest trading day"]
       };
     } catch (error) {
       console.error(`Error fetching stock data for ${symbol}:`, error);
-      // Return fallback data
-      return {
-        ...indexConfig,
-        currentValue: 0,
-        valueLabel: "N/A",
-        price: 0,
-        change: "0.00%",
-        changeValue: "0.00",
-        isPositive: true,
-        sparklineData: [0, 0, 0, 0, 0, 0, 0, 0],
-        volume24h: "N/A",
-        lastUpdated: new Date().toISOString().split('T')[0]
-      };
+      return this.getFallbackData(indexConfig);
     }
   }
 
@@ -117,12 +124,31 @@ export class RealIndicesService {
     try {
       // For crypto, we'll use the quote endpoint as it's more reliable for current prices
       const quote = await this.alphaVantageService.getQuote(`${symbol}USD`);
+      
+      // Validate response structure
+      if (!quote || !quote["Global Quote"] || typeof quote["Global Quote"] !== 'object') {
+        throw new Error(`Invalid crypto quote response structure for ${symbol}`);
+      }
+      
       const globalQuote = quote["Global Quote"];
+      
+      // Validate required fields exist and are not N/A
+      const requiredFields = ["05. price", "09. change", "10. change percent"] as const;
+      for (const field of requiredFields) {
+        if (!(globalQuote as any)[field] || (globalQuote as any)[field] === "" || (globalQuote as any)[field] === "N/A") {
+          throw new Error(`Missing or invalid field "${field}" in crypto quote response for ${symbol}`);
+        }
+      }
       
       const price = parseFloat(globalQuote["05. price"]);
       const change = parseFloat(globalQuote["09. change"]);
       const changePercent = globalQuote["10. change percent"];
-      const volume = globalQuote["06. volume"];
+      const volume = globalQuote["06. volume"] || "0";
+      
+      // Validate parsed numbers
+      if (isNaN(price) || isNaN(change)) {
+        throw new Error(`Invalid numeric values in crypto quote response for ${symbol}`);
+      }
       
       const formattedChange = this.formatChange(change, changePercent);
       const sparklineData = this.generateSparklineData(price, parseFloat(changePercent.replace('%', '')));
@@ -134,34 +160,41 @@ export class RealIndicesService {
         price,
         ...formattedChange,
         sparklineData,
-        volume24h: this.formatPrice(parseFloat(volume), 0),
-        lastUpdated: globalQuote["07. latest trading day"]
+        volume24h: this.formatPrice(parseFloat(volume) || 0, 0),
+        lastUpdated: globalQuote["07. latest trading day"] || new Date().toISOString().split('T')[0]
       };
     } catch (error) {
       console.error(`Error fetching crypto data for ${symbol}:`, error);
-      // Return fallback data with reasonable crypto prices
-      const fallbackPrice = symbol === 'BTC' ? 43500 : symbol === 'ETH' ? 2650 : 1;
-      return {
-        ...indexConfig,
-        currentValue: Math.round(fallbackPrice * 100),
-        valueLabel: this.formatPrice(fallbackPrice),
-        price: fallbackPrice,
-        change: "+2.34%",
-        changeValue: "+500.00",
-        isPositive: true,
-        sparklineData: this.generateSparklineData(fallbackPrice, 2.34),
-        volume24h: "1.2B",
-        lastUpdated: new Date().toISOString().split('T')[0]
-      };
+      return this.getFallbackData(indexConfig);
     }
   }
 
   async getForexData(fromSymbol: string, toSymbol: string, indexConfig: any): Promise<RealIndexData> {
     try {
       const exchangeRate = await this.alphaVantageService.getForexExchangeRate(fromSymbol, toSymbol);
+      
+      // Validate response structure
+      if (!exchangeRate || !exchangeRate["Realtime Currency Exchange Rate"] || typeof exchangeRate["Realtime Currency Exchange Rate"] !== 'object') {
+        throw new Error(`Invalid forex response structure for ${fromSymbol}/${toSymbol}`);
+      }
+      
       const realtimeData = exchangeRate["Realtime Currency Exchange Rate"];
       
+      // Validate required fields exist and are not N/A
+      const requiredFields = ["5. Exchange Rate", "6. Last Refreshed"];
+      for (const field of requiredFields) {
+        if (!realtimeData[field] || realtimeData[field] === "" || realtimeData[field] === "N/A") {
+          throw new Error(`Missing or invalid field "${field}" in forex response for ${fromSymbol}/${toSymbol}`);
+        }
+      }
+      
       const price = parseFloat(realtimeData["5. Exchange Rate"]);
+      
+      // Validate parsed number
+      if (isNaN(price) || price <= 0) {
+        throw new Error(`Invalid exchange rate value in forex response for ${fromSymbol}/${toSymbol}`);
+      }
+      
       const changePercent = "0.45"; // Forex doesn't always provide change, so we'll simulate
       const change = price * (parseFloat(changePercent) / 100);
       
@@ -180,19 +213,7 @@ export class RealIndicesService {
       };
     } catch (error) {
       console.error(`Error fetching forex data for ${fromSymbol}/${toSymbol}:`, error);
-      // Return fallback EUR/USD data
-      return {
-        ...indexConfig,
-        currentValue: 10850,
-        valueLabel: "1.0850",
-        price: 1.0850,
-        change: "-0.45%",
-        changeValue: "-0.0049",
-        isPositive: false,
-        sparklineData: [1.090, 1.088, 1.085, 1.087, 1.083, 1.085, 1.082, 1.085],
-        volume24h: "2.1B",
-        lastUpdated: new Date().toISOString().split('T')[0]
-      };
+      return this.getFallbackData(indexConfig);
     }
   }
 
