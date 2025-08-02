@@ -92,6 +92,13 @@ export const POPULAR_BASE_MAINNET_TOKENS: Token[] = [
 class TokenService {
   private apiKey: string;
   private chainId: number;
+  
+  // Caching and rate limiting
+  private cache = new Map<string, { data: any; timestamp: number }>();
+  private pendingRequests = new Map<string, Promise<any>>();
+  private readonly CACHE_DURATION = 300000; // 5 minutes
+  private lastRequestTime = 0;
+  private readonly MIN_REQUEST_INTERVAL = 1100; // 1.1 seconds (slightly more than 1 RPS)
 
   constructor() {
     this.apiKey = process.env.NEXT_PUBLIC_ONEINCH_API_KEY || '';
@@ -116,12 +123,59 @@ class TokenService {
   }
 
   /**
-   * Make API call to 1inch Token API (using proxy endpoint)
+   * Call Token API with caching and rate limiting (using proxy endpoint)
    */
-  private async callTokenAPI<T>(
-    path: string,
-    params: Record<string, string> = {}
-  ): Promise<T> {
+  private async callTokenAPI<T>(path: string, params: Record<string, string> = {}): Promise<T> {
+    const cacheKey = `${path}_${JSON.stringify(params)}`;
+    
+    // Check cache first
+    const cached = this.cache.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp) < this.CACHE_DURATION) {
+      console.log(`🎯 Using cached token data for: ${path}`);
+      return cached.data;
+    }
+    
+    // Check if request is already pending (deduplication)
+    if (this.pendingRequests.has(cacheKey)) {
+      console.log(`⏳ Waiting for pending token request: ${path}`);
+      return this.pendingRequests.get(cacheKey)!;
+    }
+    
+    // Rate limiting: ensure we don't exceed 1 RPS
+    const now = Date.now();
+    const timeSinceLastRequest = now - this.lastRequestTime;
+    if (timeSinceLastRequest < this.MIN_REQUEST_INTERVAL) {
+      const delay = this.MIN_REQUEST_INTERVAL - timeSinceLastRequest;
+      console.log(`🕒 Rate limiting: waiting ${delay}ms before next request`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+    
+    const requestPromise = this.makeTokenRequest<T>(path, params);
+    this.pendingRequests.set(cacheKey, requestPromise);
+    
+    try {
+      const result = await requestPromise;
+      
+      // Cache the successful result
+      this.cache.set(cacheKey, {
+        data: result,
+        timestamp: Date.now()
+      });
+      
+      this.lastRequestTime = Date.now();
+      return result;
+    } catch (error) {
+      console.error(`❌ Token API error for ${path}:`, error);
+      throw error;
+    } finally {
+      this.pendingRequests.delete(cacheKey);
+    }
+  }
+
+  /**
+   * Make the actual HTTP request
+   */
+  private async makeTokenRequest<T>(path: string, params: Record<string, string> = {}): Promise<T> {
     const url = this.buildTokenQueryURL(path, params);
     
     const response = await fetch(url, {
@@ -275,9 +329,28 @@ class TokenService {
   }
 
   /**
-   * Get popular tokens for quick selection
+   * Get popular tokens for quick selection (with fallback for rate limits)
    */
-  getPopularTokens(): Token[] {
+  async getPopularTokens(): Promise<Token[]> {
+    try {
+      // Try to get fresh tokens from API (cached for 5 minutes)
+      const tokenList = await this.getTokens();
+      if (tokenList && tokenList.tokens && tokenList.tokens.length > 0) {
+        // Return first 10 tokens as "popular"
+        return tokenList.tokens.slice(0, 10);
+      }
+    } catch (error) {
+      console.warn('⚠️ Failed to fetch popular tokens from API, using fallback:', error);
+    }
+    
+    // Fallback to hardcoded popular tokens
+    return POPULAR_BASE_MAINNET_TOKENS;
+  }
+
+  /**
+   * Get popular tokens synchronously (immediate fallback)
+   */
+  getPopularTokensSync(): Token[] {
     return POPULAR_BASE_MAINNET_TOKENS;
   }
 

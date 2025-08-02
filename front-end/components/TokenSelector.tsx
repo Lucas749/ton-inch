@@ -65,12 +65,26 @@ export function TokenSelector({
   useEffect(() => {
     const loadPopularTokens = async () => {
       try {
-        const popular = tokenService.getPopularTokens();
-        const filtered = popular.filter(token => 
+        // Use sync version first for immediate loading
+        const popularSync = tokenService.getPopularTokensSync();
+        const filteredSync = popularSync.filter(token => 
           !excludeTokens.includes(token.address.toLowerCase())
         );
-        setPopularTokens(filtered);
-        setSearchResults(filtered);
+        setPopularTokens(filteredSync);
+        setSearchResults(filteredSync);
+        
+        // Try to get fresh data from API (cached for 5 minutes)
+        try {
+          const popularAsync = await tokenService.getPopularTokens();
+          const filteredAsync = popularAsync.filter(token => 
+            !excludeTokens.includes(token.address.toLowerCase())
+          );
+          setPopularTokens(filteredAsync);
+          setSearchResults(filteredAsync);
+        } catch (asyncErr) {
+          console.warn('Failed to fetch fresh popular tokens, using fallback:', asyncErr);
+          // Keep the sync version if async fails (rate limited)
+        }
       } catch (err) {
         console.error('Error loading popular tokens:', err);
         setError('Failed to load popular tokens');
