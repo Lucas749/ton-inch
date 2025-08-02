@@ -93,14 +93,6 @@ export default function Home() {
           <div className="max-w-7xl mx-auto">
             {/* Main Content */}
             <div className="text-center mb-16">
-              {/* Badge */}
-              <div className="inline-flex items-center px-6 py-3 rounded-full bg-gradient-to-r from-blue-500/10 to-purple-500/10 backdrop-blur border border-blue-500/20 text-blue-300 text-sm font-medium mb-8 hover:scale-105 transition-transform duration-300">
-                <Zap className="w-5 h-5 mr-3 text-yellow-400" />
-                <span className="bg-gradient-to-r from-blue-300 to-purple-300 bg-clip-text text-transparent font-semibold">
-                  Next-Generation Conditional Trading Platform
-                </span>
-              </div>
-
               {/* Main Headline */}
               <h1 className="text-5xl md:text-7xl lg:text-8xl font-black mb-8 leading-tight">
                 <span className="text-white">Trade When</span>
@@ -118,156 +110,76 @@ export default function Home() {
                 <span className="text-blue-400 font-semibold">real-world data triggers.</span>{' '}
                 Set intelligent conditions, optimize timing, and never miss the perfect trade again.
               </p>
-
-              {/* CTA Buttons */}
-              <div className="flex flex-col sm:flex-row gap-6 justify-center mb-16">
-                <button className="group relative px-10 py-5 text-lg font-bold text-white overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 transform hover:scale-105 transition-all duration-300 shadow-2xl shadow-blue-500/25">
-                  <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-xl"></div>
-                  <div className="relative flex items-center justify-center">
-                    Start Trading Revolution
-                    <ArrowRight className="w-6 h-6 ml-3 group-hover:translate-x-1 transition-transform duration-300" />
-                  </div>
-                </button>
-                
-                <button className="group px-10 py-5 text-lg font-bold text-white border-2 border-gray-600 hover:border-blue-400 rounded-2xl backdrop-blur hover:bg-white/5 transform hover:scale-105 transition-all duration-300">
-                  <div className="flex items-center justify-center">
-                    <Globe className="w-6 h-6 mr-3 group-hover:rotate-12 transition-transform duration-300" />
-                    Watch Live Demo
-                  </div>
-                </button>
-              </div>
             </div>
 
-            {/* Interactive Process Flow */}
-            <div className="max-w-6xl mx-auto">
-              <div className="text-center mb-12">
-                <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">How It Works</h2>
-                <p className="text-gray-400 text-lg">Four steps to autonomous trading mastery</p>
-              </div>
-
-              <div className="grid md:grid-cols-4 gap-8">
-                {[
-                  {
-                    step: "01",
-                    title: "Set Conditions",
-                    desc: "Choose from 50+ real-world data sources including VIX, inflation rates, social sentiment, and custom metrics",
-                    icon: Target,
-                    color: "from-blue-500 to-cyan-500",
-                    bgColor: "from-blue-500/20 to-cyan-500/20"
-                  },
-                  {
-                    step: "02", 
-                    title: "Configure Strategy",
-                    desc: "Define precise trading parameters with advanced position sizing, slippage protection, and multi-token swaps",
-                    icon: Layers,
-                    color: "from-purple-500 to-pink-500",
-                    bgColor: "from-purple-500/20 to-pink-500/20"
-                  },
-                  {
-                    step: "03",
-                    title: "Smart Monitoring", 
-                    desc: "Enterprise-grade oracle network monitors conditions across multiple data sources with 99.9% uptime",
-                    icon: ShieldCheck,
-                    color: "from-green-500 to-emerald-500",
-                    bgColor: "from-green-500/20 to-emerald-500/20"
-                  },
-                  {
-                    step: "04",
-                    title: "Auto Execute",
-                    desc: "Lightning-fast execution via 1inch aggregator ensures optimal pricing and minimal slippage",
-                    icon: Zap,
-                    color: "from-orange-500 to-red-500", 
-                    bgColor: "from-orange-500/20 to-red-500/20"
-                  }
-                ].map((item, index) => (
-                  <div key={index} className="group relative">
-                    {/* Connection Line */}
-                    {index < 3 && (
-                      <div className="hidden md:block absolute top-16 -right-4 w-8 h-0.5 bg-gradient-to-r from-gray-600 to-transparent z-0"></div>
-                    )}
-                    
-                    {/* Card */}
-                    <div className="relative bg-gradient-to-br from-gray-900/50 to-gray-800/50 backdrop-blur border border-gray-700/50 rounded-3xl p-8 hover:border-gray-600 transform hover:scale-105 hover:-translate-y-2 transition-all duration-500 group-hover:shadow-2xl group-hover:shadow-blue-500/10">
-                      {/* Step Number */}
-                      <div className="absolute -top-4 -left-4 w-12 h-12 bg-gradient-to-r from-gray-800 to-gray-700 border-2 border-gray-600 rounded-2xl flex items-center justify-center text-sm font-bold text-white shadow-lg">
-                        {item.step}
-                      </div>
-                      
-                      {/* Icon */}
-                      <div className={`w-20 h-20 bg-gradient-to-br ${item.bgColor} rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 shadow-lg`}>
-                        <item.icon className={`w-10 h-10 bg-gradient-to-r ${item.color} bg-clip-text text-transparent`} style={{filter: 'brightness(0) saturate(100%) invert(1)'}} />
-                      </div>
-
-                      {/* Content */}
-                      <h3 className="text-xl font-bold text-white mb-4 group-hover:text-blue-300 transition-colors duration-300">
-                        {item.title}
-                      </h3>
-                      <p className="text-gray-400 leading-relaxed group-hover:text-gray-300 transition-colors duration-300">
-                        {item.desc}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Live Trading Example */}
+            {/* Animated Live Trading Example */}
             <div className="max-w-4xl mx-auto mt-20">
-              <div className="relative bg-gradient-to-br from-gray-900/80 to-gray-800/80 backdrop-blur border border-gray-700/50 rounded-3xl p-8 overflow-hidden">
-                {/* Background Effect */}
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 to-purple-600/5"></div>
+              <div className="relative bg-gradient-to-br from-gray-900/80 to-gray-800/80 backdrop-blur border border-gray-700/50 rounded-3xl p-8 overflow-hidden group hover:border-blue-500/30 transition-all duration-500">
+                {/* Animated Background Effects */}
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 to-purple-600/5 group-hover:from-blue-600/10 group-hover:to-purple-600/10 transition-all duration-500"></div>
+                <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-full blur-3xl animate-pulse"></div>
+                <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
                 
                 <div className="relative">
                   <div className="text-center mb-8">
-                    <div className="inline-flex items-center px-4 py-2 rounded-full bg-green-500/20 border border-green-500/30 text-green-300 text-sm font-medium mb-4">
+                    <div className="inline-flex items-center px-4 py-2 rounded-full bg-green-500/20 border border-green-500/30 text-green-300 text-sm font-medium mb-4 hover:scale-105 transition-transform duration-300">
                       <div className="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></div>
                       Live Trading Example
                     </div>
-                    <h3 className="text-2xl font-bold text-white mb-2">VIX Volatility Strategy</h3>
-                    <p className="text-gray-400">Monitoring market fear index in real-time</p>
+                    <h3 className="text-2xl font-bold text-white mb-2 group-hover:text-blue-300 transition-colors duration-300">VIX Volatility Strategy</h3>
+                    <p className="text-gray-400 group-hover:text-gray-300 transition-colors duration-300">Monitoring market fear index in real-time</p>
                   </div>
 
-                  {/* Trading Interface Mockup */}
-                  <div className="bg-black/50 rounded-2xl p-6 border border-gray-700/50">
+                  {/* Animated Trading Interface Mockup */}
+                  <div className="bg-black/50 rounded-2xl p-6 border border-gray-700/50 hover:border-gray-600/50 transition-all duration-300 hover:shadow-2xl hover:shadow-blue-500/10">
                     <div className="flex items-center justify-between mb-6">
                       <div className="flex items-center space-x-4">
-                        <div className="w-12 h-12 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-xl flex items-center justify-center">
-                          <span className="text-2xl">⚡</span>
+                        <div className="w-12 h-12 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300 hover:rotate-12">
+                          <span className="text-2xl animate-pulse">⚡</span>
                         </div>
                         <div>
-                          <div className="text-white font-semibold text-lg">Market Fear Strategy</div>
-                          <div className="text-gray-400 text-sm">Automated volatility hedge</div>
+                          <div className="text-white font-semibold text-lg group-hover:text-blue-300 transition-colors duration-300">Market Fear Strategy</div>
+                          <div className="text-gray-400 text-sm group-hover:text-gray-300 transition-colors duration-300">Automated volatility hedge</div>
                         </div>
                       </div>
                       <div className="flex items-center space-x-3">
-                        <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-                        <span className="text-green-300 font-medium">Active</span>
+                        <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse hover:scale-125 transition-transform duration-300"></div>
+                        <span className="text-green-300 font-medium hover:text-green-200 transition-colors duration-300">Active</span>
                       </div>
                     </div>
 
                     <div className="grid md:grid-cols-2 gap-6">
                       <div className="space-y-4">
-                        <div className="bg-gray-800/50 rounded-xl p-4">
+                        <div className="bg-gray-800/50 rounded-xl p-4 hover:bg-gray-800/70 transition-all duration-300 transform hover:scale-105 hover:-translate-y-1">
                           <div className="text-gray-400 text-sm mb-1">Condition</div>
-                          <div className="text-white font-mono">IF VIX Index > 25.0</div>
-                          <div className="text-blue-300 text-sm mt-1">Current: 22.57 ⬇</div>
+                          <div className="text-white font-mono group-hover:text-blue-300 transition-colors duration-300">IF VIX Index > 25.0</div>
+                          <div className="text-blue-300 text-sm mt-1 flex items-center">
+                            <span className="animate-pulse">Current: 22.57</span>
+                            <span className="ml-2 animate-bounce">⬇</span>
+                          </div>
                         </div>
-                        <div className="bg-gray-800/50 rounded-xl p-4">
+                        <div className="bg-gray-800/50 rounded-xl p-4 hover:bg-gray-800/70 transition-all duration-300 transform hover:scale-105 hover:-translate-y-1">
                           <div className="text-gray-400 text-sm mb-1">Position Size</div>
-                          <div className="text-white">0.5 ETH → USDC</div>
-                          <div className="text-gray-400 text-sm mt-1">~$1,247.50</div>
+                          <div className="text-white group-hover:text-purple-300 transition-colors duration-300">0.5 ETH → USDC</div>
+                          <div className="text-gray-400 text-sm mt-1 group-hover:text-gray-300 transition-colors duration-300">~$1,247.50</div>
                         </div>
                       </div>
                       <div className="space-y-4">
-                        <div className="bg-gray-800/50 rounded-xl p-4">
+                        <div className="bg-gray-800/50 rounded-xl p-4 hover:bg-gray-800/70 transition-all duration-300 transform hover:scale-105 hover:-translate-y-1">
                           <div className="text-gray-400 text-sm mb-1">Expected Execution</div>
-                          <div className="text-yellow-300">Standby Mode</div>
-                          <div className="text-gray-400 text-sm mt-1">Waiting for trigger</div>
+                          <div className="text-yellow-300 group-hover:text-yellow-200 transition-colors duration-300 flex items-center">
+                            <span className="animate-pulse">Standby Mode</span>
+                            <div className="ml-2 w-2 h-2 bg-yellow-400 rounded-full animate-ping"></div>
+                          </div>
+                          <div className="text-gray-400 text-sm mt-1 group-hover:text-gray-300 transition-colors duration-300">Waiting for trigger</div>
                         </div>
-                        <div className="bg-gray-800/50 rounded-xl p-4">
+                        <div className="bg-gray-800/50 rounded-xl p-4 hover:bg-gray-800/70 transition-all duration-300 transform hover:scale-105 hover:-translate-y-1">
                           <div className="text-gray-400 text-sm mb-1">Profit Target</div>
-                          <div className="text-green-400">+12.5% when VIX spikes</div>
-                          <div className="text-gray-400 text-sm mt-1">Historical avg</div>
+                          <div className="text-green-400 group-hover:text-green-300 transition-colors duration-300 flex items-center">
+                            <span>+12.5% when VIX spikes</span>
+                            <span className="ml-2 animate-bounce">📈</span>
+                          </div>
+                          <div className="text-gray-400 text-sm mt-1 group-hover:text-gray-300 transition-colors duration-300">Historical avg</div>
                         </div>
                       </div>
                     </div>

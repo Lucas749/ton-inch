@@ -513,15 +513,8 @@ export function IndicesExplorer({ excludeSymbols = [] }: IndicesExplorerProps) {
       )}
 
       {/* Main Indices Table - Cookie.fun style */}
-      {!isLoading && (filteredContractIndices.length > 0 || filteredIndices.length > 0) && (
+      {!isLoading && filteredIndices.length > 0 && (
         <div className="space-y-6">
-          {/* Table Header */}
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-gray-900">Additional Markets</h2>
-            <div className="text-sm text-gray-500">
-              {filteredContractIndices.length + filteredIndices.length} indices
-            </div>
-          </div>
 
           {/* Cookie.fun style table */}
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
@@ -540,89 +533,7 @@ export function IndicesExplorer({ excludeSymbols = [] }: IndicesExplorerProps) {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {/* Available Contract Indices */}
-                  {filteredContractIndices.map((index, idx) => (
-                    <tr 
-                      key={index.id} 
-                      className="hover:bg-gray-50 cursor-pointer transition-colors"
-                      onClick={() => {
-                        const extendedIndex = index as ExtendedRealIndexData;
-                        if (extendedIndex.onChain && extendedIndex.blockchainId !== undefined) {
-                          router.push(`/index/blockchain_${extendedIndex.blockchainId}`);
-                        } else {
-                          handleViewIndex(index);
-                        }
-                      }}
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {idx + 1}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className={`w-8 h-8 rounded-full ${index.color} flex items-center justify-center text-white text-sm font-bold mr-3`}>
-                            {index.avatar}
-                          </div>
-                          <div>
-                            <div className="text-sm font-medium text-gray-900 flex items-center">
-                              {index.name}
-                              {(index as ExtendedRealIndexData).blockchainId && isConnected && isIndexOwned((index as ExtendedRealIndexData).blockchainId!) && (
-                                <Badge variant="default" className="text-xs bg-orange-500 hover:bg-orange-600 ml-2">
-                                  👑
-                                </Badge>
-                              )}
-                              <Badge variant="secondary" className="text-xs ml-2">
-                                Available
-                              </Badge>
-                            </div>
-                            <div className="text-sm text-gray-500">{index.symbol}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-gray-900">
-                        {index.valueLabel}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                        <span className={`font-medium ${index.isPositive ? 'text-green-600' : 'text-red-600'}`}>
-                          {index.change}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-500">
-                        {index.mindshare}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-500">
-                        {index.volume24h || 'N/A'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <div className="w-20 h-8 flex items-center justify-end">
-                          <Sparkline 
-                            data={index.sparklineData} 
-                            isPositive={index.isPositive}
-                            width={60}
-                            height={20}
-                          />
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="px-3 py-1 text-xs"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const extendedIndex = index as ExtendedRealIndexData;
-                            if (extendedIndex.onChain && extendedIndex.blockchainId !== undefined) {
-                              router.push(`/index/blockchain_${extendedIndex.blockchainId}`);
-                            } else {
-                              handleViewIndex(index);
-                            }
-                          }}
-                        >
-                          Trade
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                  
+
                   {/* Market Indices */}
                   {filteredIndices.map((index, idx) => (
                     <tr 
@@ -631,7 +542,7 @@ export function IndicesExplorer({ excludeSymbols = [] }: IndicesExplorerProps) {
                       onClick={() => handleViewIndex(index)}
                     >
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {filteredContractIndices.length + idx + 1}
+                        {idx + 1}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
@@ -706,7 +617,7 @@ export function IndicesExplorer({ excludeSymbols = [] }: IndicesExplorerProps) {
 
 
       {/* No Results */}
-      {!isLoading && filteredIndices.length === 0 && filteredContractIndices.length === 0 && (
+      {!isLoading && filteredIndices.length === 0 && (
         <Card>
           <CardContent className="text-center py-12">
             <Search className="w-12 h-12 text-gray-400 mx-auto mb-4" />
