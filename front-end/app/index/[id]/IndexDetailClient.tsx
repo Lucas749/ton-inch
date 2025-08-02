@@ -552,119 +552,110 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
 
           {/* Right Column - Trading & Social Feed */}
           <div className="space-y-6">
-            {isAvailableOnBlockchain ? (
-              <>
-                {/* Quick Swap Box */}
-                <SwapBox 
-                  walletAddress={walletAddress || undefined}
-                  apiKey={process.env.NEXT_PUBLIC_ONEINCH_API_KEY}
-                  rpcUrl={process.env.NEXT_PUBLIC_ALCHEMY_API_KEY
-                    ? `https://base-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`
-                    : "https://mainnet.base.org"
-                  }
-                  indexName={realIndexData.name}
-                />
+            {/* Conditional Order Creation Box - Only when available on blockchain */}
+            {isAvailableOnBlockchain && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Create Conditional Order</CardTitle>
+                  <div className="text-sm text-gray-500">
+                    Set up an order that executes when {realIndexData.name} meets your conditions
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium">Description</label>
+                    <Input
+                      placeholder={`Buy when ${realIndexData.name} hits target`}
+                      value={orderForm.description}
+                      onChange={(e) => setOrderForm(prev => ({ ...prev, description: e.target.value }))}
+                    />
+                  </div>
 
-                {/* Order Creation Box */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Create Conditional Order</CardTitle>
-                    <div className="text-sm text-gray-500">
-                      Set up an order that executes when {realIndexData.name} meets your conditions
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-sm font-medium">Description</label>
+                      <label className="text-sm font-medium">From Amount</label>
                       <Input
-                        placeholder={`Buy when ${realIndexData.name} hits target`}
-                        value={orderForm.description}
-                        onChange={(e) => setOrderForm(prev => ({ ...prev, description: e.target.value }))}
+                        placeholder="0.1"
+                        value={orderForm.fromAmount}
+                        onChange={(e) => setOrderForm(prev => ({ ...prev, fromAmount: e.target.value }))}
                       />
                     </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-sm font-medium">From Amount</label>
-                        <Input
-                          placeholder="0.1"
-                          value={orderForm.fromAmount}
-                          onChange={(e) => setOrderForm(prev => ({ ...prev, fromAmount: e.target.value }))}
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium">To Amount</label>
-                        <Input
-                          placeholder="0.0001"
-                          value={orderForm.toAmount}
-                          onChange={(e) => setOrderForm(prev => ({ ...prev, toAmount: e.target.value }))}
-                        />
-                      </div>
+                    <div>
+                      <label className="text-sm font-medium">To Amount</label>
+                      <Input
+                        placeholder="0.0001"
+                        value={orderForm.toAmount}
+                        onChange={(e) => setOrderForm(prev => ({ ...prev, toAmount: e.target.value }))}
+                      />
                     </div>
+                  </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-sm font-medium">Condition</label>
-                        <Select value={orderForm.operator.toString()} onValueChange={(value) => setOrderForm(prev => ({ ...prev, operator: parseInt(value) }))}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value={OPERATORS.GT.toString()}>Greater than (&gt;)</SelectItem>
-                            <SelectItem value={OPERATORS.LT.toString()}>Less than (&lt;)</SelectItem>
-                            <SelectItem value={OPERATORS.GTE.toString()}>Greater or equal (≥)</SelectItem>
-                            <SelectItem value={OPERATORS.LTE.toString()}>Less or equal (≤)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium">Threshold</label>
-                        <Input
-                          placeholder="18000"
-                          value={orderForm.threshold}
-                          onChange={(e) => setOrderForm(prev => ({ ...prev, threshold: e.target.value }))}
-                        />
-                      </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-sm font-medium">Condition</label>
+                      <Select value={orderForm.operator.toString()} onValueChange={(value) => setOrderForm(prev => ({ ...prev, operator: parseInt(value) }))}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={OPERATORS.GT.toString()}>Greater than (&gt;)</SelectItem>
+                          <SelectItem value={OPERATORS.LT.toString()}>Less than (&lt;)</SelectItem>
+                          <SelectItem value={OPERATORS.GTE.toString()}>Greater or equal (≥)</SelectItem>
+                          <SelectItem value={OPERATORS.LTE.toString()}>Less or equal (≤)</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-
-                    <div className="flex space-x-3">
-                      <Button 
-                        onClick={handleCreateOrder}
-                        disabled={!isConnected || isCreatingOrder || !orderForm.threshold || !orderForm.fromAmount}
-                        className="flex-1"
-                      >
-                        {isCreatingOrder ? "Creating Order..." : "Create Order"}
-                      </Button>
-                      <Button
-                        onClick={fillDemoOrderData}
-                        variant="outline"
-                        disabled={!isConnected}
-                      >
-                        Fill Demo
-                      </Button>
+                    <div>
+                      <label className="text-sm font-medium">Threshold</label>
+                      <Input
+                        placeholder="18000"
+                        value={orderForm.threshold}
+                        onChange={(e) => setOrderForm(prev => ({ ...prev, threshold: e.target.value }))}
+                      />
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
 
-                {/* Admin Box - Only for blockchain indices when connected */}
-                {blockchainIndexId !== null && (
-                  <AdminBox 
-                    indexId={blockchainIndexId}
-                    indexName={realIndexData.name}
-                    className="mt-6"
-                  />
-                )}
-              </>
-            ) : (
-              /* Request Index Card */
+                  <div className="flex space-x-3">
+                    <Button 
+                      onClick={handleCreateOrder}
+                      disabled={!isConnected || isCreatingOrder || !orderForm.threshold || !orderForm.fromAmount}
+                      className="flex-1"
+                    >
+                      {isCreatingOrder ? "Creating Order..." : "Create Order"}
+                    </Button>
+                    <Button
+                      onClick={fillDemoOrderData}
+                      variant="outline"
+                      disabled={!isConnected}
+                    >
+                      Fill Demo
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Quick Swap Box - Available for all indices */}
+            <SwapBox 
+              walletAddress={walletAddress || undefined}
+              apiKey={process.env.NEXT_PUBLIC_ONEINCH_API_KEY}
+              rpcUrl={process.env.NEXT_PUBLIC_ALCHEMY_API_KEY
+                ? `https://base-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`
+                : "https://mainnet.base.org"
+              }
+              indexName={realIndexData.name}
+            />
+
+            {/* Request Index Card - Only when NOT available on blockchain */}
+            {!isAvailableOnBlockchain && (
               <Card className="border-orange-200 bg-orange-50">
                 <CardContent className="p-6 text-center">
                   <div className="w-16 h-16 mx-auto mb-4 bg-orange-100 rounded-full flex items-center justify-center">
                     <Plus className="w-8 h-8 text-orange-600" />
                   </div>
-                  <h3 className="text-lg font-semibold text-orange-900 mb-2">Index Not Available</h3>
+                  <h3 className="text-lg font-semibold text-orange-900 mb-2">Limited Functionality</h3>
                   <p className="text-orange-700 mb-4">
-                    This index is not yet available for on-chain trading. Request it to be added to the platform.
+                    This index is not yet available for conditional orders. Request it to be added for full trading functionality.
                   </p>
                   <Button 
                     onClick={handleRequestIndex}
@@ -675,6 +666,15 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                   </Button>
                 </CardContent>
               </Card>
+            )}
+
+            {/* Admin Box - Only for blockchain indices when connected */}
+            {isAvailableOnBlockchain && blockchainIndexId !== null && (
+              <AdminBox 
+                indexId={blockchainIndexId}
+                indexName={realIndexData.name}
+                className="mt-0"
+              />
             )}
             
             <Card>

@@ -44,6 +44,7 @@ export interface UseBlockchainReturn {
 
   // Utils
   clearError: () => void;
+  isOwner: boolean;
 }
 
 export function useBlockchain(): UseBlockchainReturn {
@@ -55,6 +56,7 @@ export function useBlockchain(): UseBlockchainReturn {
   const [networkName, setNetworkName] = useState<string | null>(null);
   const [ethBalance, setEthBalance] = useState<string | null>(null);
   const [indices, setIndices] = useState<CustomIndex[]>([]);
+  const [isOwner, setIsOwner] = useState<boolean>(false);
 
   // Clear error helper
   const clearError = useCallback(() => {
@@ -154,6 +156,17 @@ export function useBlockchain(): UseBlockchainReturn {
     []
   );
 
+  // Check if user is contract owner
+  const checkOwnership = useCallback(async () => {
+    try {
+      const ownerStatus = await blockchainService.isContractOwner();
+      setIsOwner(ownerStatus);
+    } catch (err) {
+      console.error("❌ Failed to check ownership:", err);
+      setIsOwner(false);
+    }
+  }, []);
+
   // Refresh indices with debounce to prevent multiple rapid calls
   const refreshIndices = useCallback(async () => {
     try {
@@ -161,11 +174,14 @@ export function useBlockchain(): UseBlockchainReturn {
       blockchainService.clearIndicesCache();
       const allIndices = await blockchainService.getAllIndices();
       setIndices(allIndices);
+      
+      // Also check ownership when refreshing
+      await checkOwnership();
     } catch (err) {
       console.error("❌ Failed to refresh indices:", err);
       // Don't set error state for background refresh failures
     }
-  }, []);
+  }, [checkOwnership]);
 
   // Validate order condition
   const validateCondition = useCallback(
@@ -287,6 +303,7 @@ export function useBlockchain(): UseBlockchainReturn {
           setWalletAddress(null);
           setEthBalance(null);
           setIndices([]);
+          setIsOwner(false);
         }
       } catch (err) {
         console.error("Error handling network change:", err);
@@ -314,8 +331,9 @@ export function useBlockchain(): UseBlockchainReturn {
     getTokenBalance,
     switchToBaseMainnet,
 
-    // Utils
+      // Utils
     clearError,
+    isOwner,
   };
 }
 

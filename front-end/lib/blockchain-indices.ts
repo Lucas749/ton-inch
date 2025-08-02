@@ -301,6 +301,23 @@ export class BlockchainIndices {
   }
 
   /**
+   * Check if the current user is the contract owner
+   */
+  async isOwner(): Promise<boolean> {
+    try {
+      if (!this.wallet.isWalletConnected() || !this.wallet.currentAccount) {
+        return false;
+      }
+
+      const ownerAddress = await this.oracle.methods.owner().call();
+      return this.wallet.currentAccount.toLowerCase() === ownerAddress.toLowerCase();
+    } catch (error) {
+      console.error("❌ Error checking ownership:", error);
+      return false;
+    }
+  }
+
+  /**
    * Update an existing index value
    */
   async updateIndex(indexId: number, newValue: number): Promise<boolean> {

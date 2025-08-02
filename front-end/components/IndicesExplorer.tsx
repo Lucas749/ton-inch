@@ -37,7 +37,7 @@ export function IndicesExplorer() {
   const [error, setError] = useState<string | null>(null);
   
   const router = useRouter();
-  const { isConnected, indices: blockchainIndices } = useBlockchain();
+  const { isConnected, indices: blockchainIndices, isOwner } = useBlockchain();
 
   // Load real data from Alpha Vantage
   const loadIndicesData = async (isRefresh = false) => {

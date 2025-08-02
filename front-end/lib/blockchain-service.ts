@@ -155,6 +155,10 @@ export class BlockchainService {
     this.indices.clearCache();
   }
 
+  async isContractOwner(): Promise<boolean> {
+    return this.indices.isOwner();
+  }
+
   // === ORDER OPERATIONS ===
 
   async createOrder(params: OrderParams): Promise<Order | null> {

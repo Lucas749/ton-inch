@@ -43,7 +43,7 @@ export default function Dashboard() {
     }
   };
   
-  const { isConnected, indices: blockchainIndices, refreshIndices } = useBlockchain();
+  const { isConnected, indices: blockchainIndices, refreshIndices, isOwner } = useBlockchain();
   const { orders } = useOrders();
   const router = useRouter();
 
@@ -423,7 +423,14 @@ export default function Dashboard() {
                         <CardHeader>
                           <div className="flex justify-between items-start">
                             <div>
-                              <CardTitle className="text-lg">{index.name || `Index ${index.id}`}</CardTitle>
+                              <div className="flex items-center space-x-2">
+                                <CardTitle className="text-lg">{index.name || `Index ${index.id}`}</CardTitle>
+                                {isOwner && (
+                                  <Badge variant="default" className="text-xs bg-orange-500 hover:bg-orange-600">
+                                    👑 Owner
+                                  </Badge>
+                                )}
+                              </div>
                               <CardDescription className="mt-1">
                                 {index.description || "Custom index"}
                               </CardDescription>
