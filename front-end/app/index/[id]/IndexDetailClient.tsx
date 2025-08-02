@@ -145,6 +145,15 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
   });
   
   const { isConnected, walletAddress, indices: blockchainIndices, ethBalance, getTokenBalance, connectWallet } = useBlockchain();
+
+  // Auto-populate order description with index name when component loads
+  useEffect(() => {
+    if (realIndexData?.name && !orderForm.description) {
+      // Use just the index name (e.g., "Bitcoin" becomes "bitcoin")
+      const indexName = realIndexData.name.toLowerCase().replace(/\s+/g, '');
+      setOrderForm(prev => ({ ...prev, description: indexName }));
+    }
+  }, [realIndexData?.name, orderForm.description]);
   
   // Token balances state
   const [tokenBalances, setTokenBalances] = useState<Record<string, string>>({});

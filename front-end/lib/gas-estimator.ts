@@ -14,23 +14,23 @@ const BASE_CONFIG = {
   CHAIN_ID: 8453,
   RPC_URL: 'https://base.llamarpc.com',
   MAX_GAS_PRICE_GWEI: 0.1, // 0.1 gwei cap for Base network
-  SAFETY_MARGIN: 1.2, // 20% safety margin for gas estimates
+  SAFETY_MARGIN: 1.1, // 10% safety margin for gas estimates (reduced for Base network)
   
   // Contract addresses
   LIMIT_ORDER_PROTOCOL: '0x111111125421cA6dc452d289314280a0f8842A65',
   INDEX_ORACLE_ADDRESS: '0x8a585F9B2359Ef093E8a2f5432F387960e953BD2',
 };
 
-// Gas limit estimates for common operations
+// Gas limit estimates for common operations (optimized for Base network)
 const GAS_ESTIMATES = {
-  ERC20_APPROVE: 60000,
-  ERC20_TRANSFER: 65000,
-  ORDER_CREATION: 150000,
-  ORDER_CANCELLATION: 100000,
-  ORACLE_UPDATE: 100000,
-  ORACLE_CREATE_INDEX: 200000,
-  SWAP_TRANSACTION: 300000,
-  COMPLEX_TRANSACTION: 500000,
+  ERC20_APPROVE: 60000,          // Conservative estimate for ERC20 approval
+  ERC20_TRANSFER: 65000,         // Standard ERC20 transfer
+  ORDER_CREATION: 90000,         // 1inch limit order creation (reduced from 150k)
+  ORDER_CANCELLATION: 65000,     // 1inch limit order cancellation (reduced from 100k)
+  ORACLE_UPDATE: 100000,         // Oracle index update
+  ORACLE_CREATE_INDEX: 200000,   // Create new oracle index
+  SWAP_TRANSACTION: 300000,      // Complex swap transaction
+  COMPLEX_TRANSACTION: 500000,   // Very complex operations
 };
 
 export interface GasEstimate {
