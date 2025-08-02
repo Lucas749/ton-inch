@@ -1636,27 +1636,7 @@ This matches the backend test-index-order-creator.js values exactly!`);
               indexName={realIndexData.name}
             />
 
-            {/* Oracle Connection Card - For indices 4+ */}
-            {blockchainIndexId !== null && blockchainIndexId > 3 && (
-              <Card className="border-blue-200 bg-blue-50">
-                <CardContent className="p-6 text-center">
-                  <div className="w-16 h-16 mx-auto mb-4 bg-blue-100 rounded-full flex items-center justify-center">
-                    <Activity className="w-8 h-8 text-blue-600" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-blue-900 mb-2">Oracle Connection Required</h3>
-                  <p className="text-blue-700 mb-4">
-                    This index requires an oracle connection to enable conditional orders. Please connect or configure an oracle for this index.
-                  </p>
-                  <Button 
-                    onClick={handleRequestIndex}
-                    disabled={isRequestingIndex}
-                    className="bg-blue-600 hover:bg-blue-700"
-                  >
-                    {isRequestingIndex ? "Connecting..." : "Connect Oracle"}
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
+
 
             {/* Request Index Card - Only when NOT available on blockchain */}
             {!isAvailableOnBlockchain && (
