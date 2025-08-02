@@ -172,9 +172,15 @@ export function useBlockchain(): UseBlockchainReturn {
   // Refresh indices with debounce to prevent multiple rapid calls
   const refreshIndices = useCallback(async () => {
     try {
+      console.log('🔄 useBlockchain: Refreshing indices...');
+      console.log('🔍 useBlockchain: Wallet connected:', isConnected);
+      console.log('🔍 useBlockchain: Wallet address:', walletAddress);
+      
       // Clear cache first to force fresh data
       blockchainService.clearIndicesCache();
       const allIndices = await blockchainService.getAllIndices();
+      
+      console.log('🔍 useBlockchain: Loaded indices from service:', allIndices);
       setIndices(allIndices);
       
       // Also check ownership when refreshing
@@ -183,7 +189,7 @@ export function useBlockchain(): UseBlockchainReturn {
       console.error("❌ Failed to refresh indices:", err);
       // Don't set error state for background refresh failures
     }
-  }, [checkOwnership]);
+  }, [checkOwnership, isConnected, walletAddress]);
 
   // Validate order condition
   const validateCondition = useCallback(
@@ -252,14 +258,20 @@ export function useBlockchain(): UseBlockchainReturn {
 
   // Sync wagmi wallet state with blockchain service and load indices
   useEffect(() => {
+    console.log('🔄 useBlockchain useEffect triggered');
+    console.log('🔍 isConnected:', isConnected);
+    console.log('🔍 walletAddress:', walletAddress);
+    
     // Sync wallet state with blockchain service
     blockchainService.wallet.syncExternalWallet(walletAddress);
     
     if (isConnected && walletAddress) {
+      console.log('✅ Wallet connected, refreshing indices...');
       refreshIndices().catch((err) => {
         console.warn("Warning: Failed to refresh indices after wallet connection:", err);
       });
     } else {
+      console.log('❌ Wallet not connected, resetting indices...');
       // Reset indices when wallet disconnects
       setIndices([]);
       setIsOwner(false);

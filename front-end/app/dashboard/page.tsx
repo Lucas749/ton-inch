@@ -44,6 +44,9 @@ export default function Dashboard() {
 
   // Load all cached orders on page load
   useEffect(() => {
+    console.log('🔍 Dashboard useEffect - Connection status:', isConnected);
+    console.log('🔍 Dashboard useEffect - Blockchain indices:', blockchainIndices);
+    
     if (!isConnected) {
       setIndices([]);
       setAllOrders([]);
@@ -61,6 +64,7 @@ export default function Dashboard() {
       orderCount: 0
     }));
 
+    console.log('🔍 Dashboard - Setting indices:', indicesWithOrders);
     setIndices(indicesWithOrders);
     
     // Load all cached orders immediately on page load
@@ -108,9 +112,13 @@ export default function Dashboard() {
     setIsLoading(true);
     try {
       console.log('📋 Loading all cached orders for dashboard...');
+      console.log('🔍 Wallet address:', walletAddress);
+      console.log('🔍 Connected status:', isConnected);
       
       // Get all cached orders directly from cache
       const allCachedOrders = await blockchainService.getAllCachedOrders();
+      console.log('🔍 Raw cached orders from service:', allCachedOrders);
+      
       setAllOrders(allCachedOrders);
       
       // Categorize orders into three sections
