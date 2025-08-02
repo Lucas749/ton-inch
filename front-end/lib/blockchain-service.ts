@@ -20,6 +20,7 @@ import type {
 } from "./blockchain-types";
 
 export class BlockchainService {
+  private static instance: BlockchainService | null = null;
   private web3: Web3;
   
   // Specialized services
@@ -28,10 +29,10 @@ export class BlockchainService {
   public indices: BlockchainIndices;
   public orders: BlockchainOrders;
 
-  constructor() {
+  private constructor() {
     // Initialize Web3 with Alchemy or fallback to Base Sepolia
     const rpcUrl = getRpcUrl();
-    console.log(`🌐 Initializing Web3 with RPC: ${getRpcDescription(rpcUrl)}`);
+    console.log(`🌐 Initializing Web3 with RPC: ${getRpcDescription(rpcUrl)} (Singleton)`);
     this.web3 = new Web3(rpcUrl);
     
     // Initialize specialized services
@@ -48,6 +49,18 @@ export class BlockchainService {
       this.indices.reinitialize();
       this.orders.reinitialize();
     });
+  }
+
+  public static getInstance(): BlockchainService {
+    if (!BlockchainService.instance) {
+      BlockchainService.instance = new BlockchainService();
+    }
+    return BlockchainService.instance;
+  }
+
+  // Method to reset singleton for testing purposes
+  public static resetInstance(): void {
+    BlockchainService.instance = null;
   }
 
   // === WALLET OPERATIONS ===
@@ -184,7 +197,7 @@ export class BlockchainService {
 }
 
 // Singleton instance
-export const blockchainService = new BlockchainService();
+export const blockchainService = BlockchainService.getInstance();
 
 // Export constants and types for backward compatibility
 export { OPERATORS, CONTRACTS } from "./blockchain-constants";

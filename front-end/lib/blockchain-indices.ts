@@ -47,13 +47,13 @@ export class BlockchainIndices {
       // Check cache first
       const now = Date.now();
       if (this.indicesCache && (now - this.cacheTimestamp) < this.CACHE_DURATION) {
-        console.log('📊 Using cached indices data');
+        console.log(`📊 Using cached indices data (${this.indicesCache.length} indices, cached ${Math.round((now - this.cacheTimestamp) / 1000)}s ago)`);
         return this.indicesCache;
       }
 
       // If there's already a pending request, return it to avoid duplicate calls
       if (this.pendingRequest) {
-        console.log('📊 Waiting for existing indices request...');
+        console.log('📊 Waiting for existing indices request... (preventing duplicate call)');
         return this.pendingRequest;
       }
 
