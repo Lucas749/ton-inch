@@ -19,11 +19,11 @@ const CONFIG = {
     CHAIN_ID: parseInt(process.env.CHAIN_ID) || 8453,
     RPC_URL: process.env.RPC_URL || 'https://base.llamarpc.com',
     CONTRACTS: {
-        INDEX_ORACLE_ADDRESS: process.env.INDEX_ORACLE_ADDRESS || '0x55aAfa1D3de3D05536C96Ee9F1b965D6cE04a4c1'
+        INDEX_ORACLE_ADDRESS: process.env.INDEX_ORACLE_ADDRESS || '0x8a585F9B2359Ef093E8a2f5432F387960e953BD2'
     }
 };
 
-// Contract ABI for MockIndexOracle
+// Contract ABI for HybridIndexOracle (previously MockIndexOracle)
 const MOCK_INDEX_ORACLE_ABI = [
     // Read Functions
     "function getIndexValue(uint8 indexType) external view returns (uint256 value, uint256 timestamp)",
@@ -32,8 +32,8 @@ const MOCK_INDEX_ORACLE_ABI = [
     "function isValidIndex(uint256 indexId) external view returns (bool)",
     "function getNextCustomIndexId() external view returns (uint256)",
     "function getAllCustomIndices() external view returns (uint256[] memory indexIds, uint256[] memory values, uint256[] memory timestamps, bool[] memory activeStates)",
-    "function indexData(uint8) external view returns (uint256 value, uint256 timestamp, string memory sourceUrl, bool isActive)",
-    "function customIndexData(uint256) external view returns (uint256 value, uint256 timestamp, string memory sourceUrl, bool isActive)",
+    "function indexData(uint8) external view returns (uint256 value, uint256 timestamp, string memory sourceUrl, bool isActive, uint8 oracleType)",
+    "function customIndexData(uint256) external view returns (uint256 value, uint256 timestamp, string memory sourceUrl, bool isActive, uint8 oracleType)",
     "function owner() external view returns (address)",
     
     // Write Functions (onlyOwner)
@@ -41,10 +41,25 @@ const MOCK_INDEX_ORACLE_ABI = [
     "function updateIndices(uint8[] calldata indexTypes, uint256[] calldata newValues) external",
     "function setIndexActive(uint8 indexType, bool isActive) external",
     "function simulatePriceMovement(uint8 indexType, uint256 percentChange, bool isIncrease) external",
-    "function createCustomIndex(uint256 initialValue, string calldata sourceUrl) external returns (uint256 indexId)",
+
+    "function createCustomIndex(uint256 initialValue, string calldata sourceUrl, uint8 oracleType, address chainlinkOracleAddress) external returns (uint256 indexId)",
     "function updateCustomIndex(uint256 indexId, uint256 newValue) external",
     "function setCustomIndexActive(uint256 indexId, bool isActive) external",
     "function transferOwnership(address newOwner) external",
+    
+    // Hybrid Oracle Functions
+    "function setChainlinkOracle(address _chainlinkOracleAddress) external",
+    "function setIndexChainlinkOracle(uint256 indexId, address _chainlinkOracleAddress) external",
+    "function batchSetIndexChainlinkOracles(uint256[] calldata indexIds, address[] calldata chainlinkOracleAddresses) external",
+    "function getIndexChainlinkOracle(uint256 indexId) external view returns (address oracleAddress)",
+    "function getMultipleIndexChainlinkOracles(uint256[] calldata indexIds) external view returns (address[] memory oracleAddresses, bool[] memory isSpecific)",
+    "function setIndexOracleType(uint256 indexId, uint8 oracleType) external",
+    "function setCustomIndexOracleType(uint256 indexId, uint8 oracleType) external",
+    "function batchSetOracleType(uint256[] calldata indexIds, uint8[] calldata oracleTypes) external",
+    "function getIndexOracleType(uint256 indexId) external view returns (uint8 oracleType)",
+    "function getHybridOracleStatus() external view returns (address chainlinkAddress, bool isChainlinkConfigured, uint256 mockIndicesCount, uint256 chainlinkIndicesCount)",
+    "function defaultChainlinkOracleAddress() external view returns (address)",
+    "function indexChainlinkOracles(uint256) external view returns (address)",
     
     // Events
     "event IndexUpdated(uint8 indexed indexType, uint256 value, uint256 timestamp, string sourceUrl)",
@@ -78,6 +93,17 @@ const INDEX_SYMBOLS = {
     3: 'VIX',
     4: 'UNEMP',
     5: 'TSLA'
+};
+
+// Oracle type mappings
+const ORACLE_TYPES = {
+    MOCK: 0,
+    CHAINLINK: 1
+};
+
+const ORACLE_TYPE_NAMES = {
+    0: 'Mock Oracle',
+    1: 'Chainlink Functions'
 };
 
 const INDEX_UNITS = {
@@ -370,53 +396,29 @@ async function getOracleStatus() {
 // ===================================================================
 
 /**
- * Create a new custom index
+ * Create a new custom index (simple version - defaults to MOCK oracle)
+ * @param {number} initialValue - Initial value for the index
+ * @param {string} sourceUrl - URL where this index data comes from  
+ * @param {string} privateKey - Private key for transaction signing
+ * @returns {Promise<Object>} Result object with success status and index details
  */
 async function createNewIndex(initialValue, sourceUrl, privateKey) {
-    console.log('🆕 Creating New Custom Index');
-    console.log('============================');
+    console.log('🆕 Creating New Custom Index (Simple Version)');
+    console.log('==============================================');
     
     if (!privateKey) {
         throw new Error('Private key required for write operations');
     }
     
-    try {
-        const { contract, wallet } = await initializeOracle(privateKey);
-        
-        console.log(`💰 Initial Value: ${initialValue}`);
-        console.log(`🔗 Source URL: ${sourceUrl}`);
-        console.log(`👤 Creator: ${wallet.address}`);
-        
-        // Call createCustomIndex
-        console.log('📤 Submitting transaction...');
-        const tx = await contract.createCustomIndex(initialValue, sourceUrl);
-        
-        console.log(`⏳ Transaction Hash: ${tx.hash}`);
-        console.log('⏳ Waiting for confirmation...');
-        
-        const receipt = await tx.wait();
-        
-        // Parse the event to get the new index ID
-        const event = receipt.events?.find(e => e.event === 'CustomIndexCreated');
-        const newIndexId = event ? event.args.indexId.toNumber() : null;
-        
-        console.log(`✅ Custom index created successfully!`);
-        console.log(`🆔 New Index ID: ${newIndexId}`);
-        console.log(`⛽ Gas Used: ${receipt.gasUsed}`);
-        console.log(`💰 Transaction Fee: ${ethers.utils.formatEther(receipt.gasUsed.mul(tx.gasPrice))} ETH\n`);
-        
-        return {
-            success: true,
-            indexId: newIndexId,
-            transactionHash: tx.hash,
-            gasUsed: receipt.gasUsed.toString(),
-            blockNumber: receipt.blockNumber
-        };
-        
-    } catch (error) {
-        console.error('❌ Failed to create custom index:', error.message);
-        return { success: false, error: error.message };
-    }
+    // Use the enhanced function with MOCK oracle as default
+    return await createNewIndexWithChainlinkOracle(
+        `Custom Index`, // Default name
+        initialValue,
+        sourceUrl,
+        ORACLE_TYPES.MOCK,  // Default to MOCK oracle
+        null,               // No specific Chainlink oracle
+        privateKey
+    );
 }
 
 /**
@@ -455,7 +457,7 @@ async function updateIndexValue(indexId, newValue, privateKey) {
         console.log(`✅ Index ${indexId} updated successfully!`);
         console.log(`💰 New Value: ${newValue}`);
         console.log(`⛽ Gas Used: ${receipt.gasUsed}`);
-        console.log(`💰 Transaction Fee: ${ethers.utils.formatEther(receipt.gasUsed.mul(tx.gasPrice))} ETH\n`);
+
         
         return {
             success: true,
@@ -504,7 +506,7 @@ async function simulatePriceMovement(indexId, percentChange, isIncrease, private
         
         console.log(`✅ Price movement simulated successfully!`);
         console.log(`⛽ Gas Used: ${receipt.gasUsed}`);
-        console.log(`💰 Transaction Fee: ${ethers.utils.formatEther(receipt.gasUsed.mul(tx.gasPrice))} ETH\n`);
+
         
         return {
             success: true,
@@ -558,7 +560,7 @@ async function setIndexStatus(indexId, isActive, privateKey) {
         console.log(`✅ Index ${indexId} status updated!`);
         console.log(`📊 Status: ${isActive ? 'ACTIVE' : 'INACTIVE'}`);
         console.log(`⛽ Gas Used: ${receipt.gasUsed}`);
-        console.log(`💰 Transaction Fee: ${ethers.utils.formatEther(receipt.gasUsed.mul(tx.gasPrice))} ETH\n`);
+
         
         return {
             success: true,
@@ -632,6 +634,493 @@ function displayAllIndices(indices) {
 }
 
 // ===================================================================
+// HYBRID ORACLE FUNCTIONS
+// ===================================================================
+
+/**
+ * Set the default Chainlink oracle address (fallback for all indices)
+ */
+async function setChainlinkOracleAddress(chainlinkOracleAddress, privateKey) {
+    console.log('🔗 Setting Default Chainlink Oracle Address');
+    console.log('===========================================');
+    
+    if (!privateKey) {
+        throw new Error('Private key required for write operations');
+    }
+    
+    try {
+        const { contract, wallet } = await initializeOracle(privateKey);
+        
+        console.log(`🔗 Setting Default Chainlink Oracle to: ${chainlinkOracleAddress}`);
+        
+        const tx = await contract.setChainlinkOracle(chainlinkOracleAddress);
+        console.log(`⏳ Transaction Hash: ${tx.hash}`);
+        console.log('⏳ Waiting for confirmation...');
+        
+        const receipt = await tx.wait();
+        
+        console.log(`✅ Default Chainlink oracle address updated successfully!`);
+        console.log(`⛽ Gas Used: ${receipt.gasUsed}`);
+
+        
+        return {
+            success: true,
+            chainlinkOracleAddress: chainlinkOracleAddress,
+            transactionHash: tx.hash,
+            gasUsed: receipt.gasUsed.toString(),
+            blockNumber: receipt.blockNumber
+        };
+        
+    } catch (error) {
+        console.error('❌ Failed to set default Chainlink oracle:', error.message);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Set specific Chainlink oracle address for an index
+ */
+async function setIndexChainlinkOracleAddress(indexId, chainlinkOracleAddress, privateKey) {
+    console.log(`🔗 Setting Chainlink Oracle for Index ${indexId}`);
+    console.log('===============================================');
+    
+    if (!privateKey) {
+        throw new Error('Private key required for write operations');
+    }
+    
+    try {
+        const { contract, wallet } = await initializeOracle(privateKey);
+        
+        console.log(`🆔 Index ID: ${indexId}`);
+        console.log(`🔗 Chainlink Oracle: ${chainlinkOracleAddress}`);
+        
+        const tx = await contract.setIndexChainlinkOracle(indexId, chainlinkOracleAddress);
+        console.log(`⏳ Transaction Hash: ${tx.hash}`);
+        console.log('⏳ Waiting for confirmation...');
+        
+        const receipt = await tx.wait();
+        
+        console.log(`✅ Index ${indexId} Chainlink oracle set successfully!`);
+        console.log(`⛽ Gas Used: ${receipt.gasUsed}`);
+
+        
+        return {
+            success: true,
+            indexId: indexId,
+            chainlinkOracleAddress: chainlinkOracleAddress,
+            transactionHash: tx.hash,
+            gasUsed: receipt.gasUsed.toString(),
+            blockNumber: receipt.blockNumber
+        };
+        
+    } catch (error) {
+        console.error(`❌ Failed to set Chainlink oracle for index ${indexId}:`, error.message);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Batch set Chainlink oracle addresses for multiple indices
+ */
+async function batchSetIndexChainlinkOracles(indexIds, chainlinkOracleAddresses, privateKey) {
+    console.log('🔗 Batch Setting Index Chainlink Oracles');
+    console.log('=========================================');
+    
+    if (!privateKey) {
+        throw new Error('Private key required for write operations');
+    }
+    
+    if (indexIds.length !== chainlinkOracleAddresses.length) {
+        throw new Error('Index IDs and oracle addresses arrays must have the same length');
+    }
+    
+    try {
+        const { contract, wallet } = await initializeOracle(privateKey);
+        
+        console.log(`📊 Setting Chainlink oracles for ${indexIds.length} indices`);
+        indexIds.forEach((id, i) => {
+            console.log(`   Index ${id}: ${chainlinkOracleAddresses[i]}`);
+        });
+        
+        const tx = await contract.batchSetIndexChainlinkOracles(indexIds, chainlinkOracleAddresses);
+        console.log(`⏳ Transaction Hash: ${tx.hash}`);
+        console.log('⏳ Waiting for confirmation...');
+        
+        const receipt = await tx.wait();
+        
+        console.log(`✅ Batch Chainlink oracle addresses set successfully!`);
+        console.log(`⛽ Gas Used: ${receipt.gasUsed}`);
+
+        
+        return {
+            success: true,
+            indexIds: indexIds,
+            chainlinkOracleAddresses: chainlinkOracleAddresses,
+            transactionHash: tx.hash,
+            gasUsed: receipt.gasUsed.toString(),
+            blockNumber: receipt.blockNumber
+        };
+        
+    } catch (error) {
+        console.error('❌ Failed to batch set Chainlink oracles:', error.message);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Get Chainlink oracle address for a specific index
+ */
+async function getIndexChainlinkOracleAddress(indexId) {
+    try {
+        const { contract } = await initializeOracle();
+        
+        const oracleAddress = await contract.getIndexChainlinkOracle(indexId);
+        
+        return {
+            success: true,
+            indexId: indexId,
+            oracleAddress: oracleAddress,
+            isDefault: oracleAddress === await contract.defaultChainlinkOracleAddress()
+        };
+        
+    } catch (error) {
+        console.error(`❌ Failed to get Chainlink oracle for index ${indexId}:`, error.message);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Get all per-index Chainlink oracle addresses
+ */
+async function getAllIndexChainlinkOracles() {
+    console.log('🔍 Getting All Index Chainlink Oracles');
+    console.log('======================================');
+    
+    try {
+        const { contract } = await initializeOracle();
+        
+        // Get all indices (0-5 predefined, plus custom ones)
+        const totalIndices = await contract.getNextCustomIndexId();
+        const indexIds = Array.from({length: totalIndices.toNumber()}, (_, i) => i);
+        
+        const [oracleAddresses, isSpecific] = await contract.getMultipleIndexChainlinkOracles(indexIds);
+        const defaultAddress = await contract.defaultChainlinkOracleAddress();
+        
+        const result = indexIds.map((id, i) => ({
+            indexId: id,
+            indexName: INDEX_NAMES[id] || `Custom Index ${id}`,
+            oracleAddress: oracleAddresses[i],
+            isSpecific: isSpecific[i],
+            isDefault: !isSpecific[i],
+            hasOracle: oracleAddresses[i] !== '0x0000000000000000000000000000000000000000'
+        }));
+        
+        console.log(`✅ Retrieved oracle addresses for ${result.length} indices`);
+        console.log(`🔗 Default Oracle: ${defaultAddress}`);
+        
+        const specificCount = result.filter(r => r.isSpecific).length;
+        const defaultCount = result.filter(r => r.isDefault && r.hasOracle).length;
+        
+        console.log(`📊 ${specificCount} indices with specific oracles`);
+        console.log(`📊 ${defaultCount} indices using default oracle\n`);
+        
+        return {
+            success: true,
+            defaultOracleAddress: defaultAddress,
+            indices: result,
+            summary: {
+                total: result.length,
+                specificOracles: specificCount,
+                usingDefault: defaultCount,
+                noOracle: result.filter(r => !r.hasOracle).length
+            }
+        };
+        
+    } catch (error) {
+        console.error('❌ Failed to get all Chainlink oracles:', error.message);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Set oracle type for an index
+ */
+async function setIndexOracleType(indexId, oracleType, privateKey) {
+    console.log(`🔄 Setting Oracle Type for Index ${indexId}`);
+    console.log('==========================================');
+    
+    if (!privateKey) {
+        throw new Error('Private key required for write operations');
+    }
+    
+    try {
+        const { contract, wallet } = await initializeOracle(privateKey);
+        
+        const oracleTypeName = ORACLE_TYPE_NAMES[oracleType] || `Type ${oracleType}`;
+        console.log(`🆔 Index ID: ${indexId}`);
+        console.log(`🔧 Oracle Type: ${oracleTypeName}`);
+        
+        let tx;
+        if (indexId <= 5) {
+            tx = await contract.setIndexOracleType(indexId, oracleType);
+        } else {
+            tx = await contract.setCustomIndexOracleType(indexId, oracleType);
+        }
+        
+        console.log(`⏳ Transaction Hash: ${tx.hash}`);
+        console.log('⏳ Waiting for confirmation...');
+        
+        const receipt = await tx.wait();
+        
+        console.log(`✅ Oracle type updated successfully!`);
+        console.log(`⛽ Gas Used: ${receipt.gasUsed}`);
+
+        
+        return {
+            success: true,
+            indexId: indexId,
+            oracleType: oracleType,
+            oracleTypeName: oracleTypeName,
+            transactionHash: tx.hash,
+            gasUsed: receipt.gasUsed.toString(),
+            blockNumber: receipt.blockNumber
+        };
+        
+    } catch (error) {
+        console.error(`❌ Failed to set oracle type for index ${indexId}:`, error.message);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Batch set oracle types for multiple indices
+ */
+async function batchSetOracleTypes(indexIds, oracleTypes, privateKey) {
+    console.log('🔄 Batch Setting Oracle Types');
+    console.log('=============================');
+    
+    if (!privateKey) {
+        throw new Error('Private key required for write operations');
+    }
+    
+    if (indexIds.length !== oracleTypes.length) {
+        throw new Error('Index IDs and oracle types arrays must have the same length');
+    }
+    
+    try {
+        const { contract, wallet } = await initializeOracle(privateKey);
+        
+        console.log(`📊 Setting oracle types for ${indexIds.length} indices`);
+        indexIds.forEach((id, i) => {
+            const typeName = ORACLE_TYPE_NAMES[oracleTypes[i]] || `Type ${oracleTypes[i]}`;
+            console.log(`   Index ${id}: ${typeName}`);
+        });
+        
+        const tx = await contract.batchSetOracleType(indexIds, oracleTypes);
+        console.log(`⏳ Transaction Hash: ${tx.hash}`);
+        console.log('⏳ Waiting for confirmation...');
+        
+        const receipt = await tx.wait();
+        
+        console.log(`✅ Oracle types updated successfully!`);
+        console.log(`⛽ Gas Used: ${receipt.gasUsed}`);
+
+        
+        return {
+            success: true,
+            indexIds: indexIds,
+            oracleTypes: oracleTypes,
+            transactionHash: tx.hash,
+            gasUsed: receipt.gasUsed.toString(),
+            blockNumber: receipt.blockNumber
+        };
+        
+    } catch (error) {
+        console.error('❌ Failed to batch set oracle types:', error.message);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Get hybrid oracle status
+ */
+async function getHybridOracleStatus() {
+    console.log('🔍 Getting Hybrid Oracle Status');
+    console.log('===============================');
+    
+    try {
+        const { contract } = await initializeOracle();
+        
+        const [chainlinkAddress, isChainlinkConfigured, mockCount, chainlinkCount] = 
+            await contract.getHybridOracleStatus();
+        
+        console.log(`🔗 Chainlink Oracle Address: ${chainlinkAddress}`);
+        console.log(`✅ Chainlink Configured: ${isChainlinkConfigured ? 'Yes' : 'No'}`);
+        console.log(`📊 Mock Oracle Indices: ${mockCount}`);
+        console.log(`🔗 Chainlink Indices: ${chainlinkCount}`);
+        console.log(`📈 Total Indices: ${mockCount.add(chainlinkCount)}\n`);
+        
+        return {
+            success: true,
+            chainlinkOracleAddress: chainlinkAddress,
+            isChainlinkConfigured: isChainlinkConfigured,
+            mockIndicesCount: mockCount.toNumber(),
+            chainlinkIndicesCount: chainlinkCount.toNumber(),
+            totalIndices: mockCount.add(chainlinkCount).toNumber()
+        };
+        
+    } catch (error) {
+        console.error('❌ Failed to get hybrid oracle status:', error.message);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Create a new custom index with oracle type selection
+ */
+async function createNewIndexWithOracleType(name, initialValue, sourceUrl, oracleType, privateKey) {
+    console.log('🆕 Creating New Index with Oracle Type');
+    console.log('======================================');
+    
+    if (!privateKey) {
+        throw new Error('Private key required for write operations');
+    }
+    
+    try {
+        const { contract, wallet } = await initializeOracle(privateKey);
+        
+        const oracleTypeName = ORACLE_TYPE_NAMES[oracleType] || `Type ${oracleType}`;
+        console.log(`📋 Index Name: ${name}`);
+        console.log(`💰 Initial Value: ${initialValue}`);
+        console.log(`🔗 Source URL: ${sourceUrl}`);
+        console.log(`🔧 Oracle Type: ${oracleTypeName}`);
+        
+        const tx = await contract['createCustomIndex(uint256,string,uint8,address)'](initialValue, sourceUrl, oracleType, '0x0000000000000000000000000000000000000000');
+        console.log(`⏳ Transaction Hash: ${tx.hash}`);
+        console.log('⏳ Waiting for confirmation...');
+        
+        const receipt = await tx.wait();
+        
+        // Parse event to get index ID
+        const event = receipt.events?.find(e => e.event === 'CustomIndexCreated');
+        const indexId = event ? event.args.indexId.toNumber() : null;
+        
+        console.log(`✅ Index created successfully!`);
+        console.log(`🆔 New Index ID: ${indexId}`);
+        console.log(`⛽ Gas Used: ${receipt.gasUsed}`);
+
+        
+        return {
+            success: true,
+            indexId: indexId,
+            name: name,
+            initialValue: initialValue,
+            sourceUrl: sourceUrl,
+            oracleType: oracleType,
+            oracleTypeName: oracleTypeName,
+            transactionHash: tx.hash,
+            gasUsed: receipt.gasUsed.toString(),
+            blockNumber: receipt.blockNumber
+        };
+        
+    } catch (error) {
+        console.error('❌ Failed to create index with oracle type:', error.message);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Create a new custom index with oracle type and specific Chainlink oracle address
+ */
+async function createNewIndexWithChainlinkOracle(name, initialValue, sourceUrl, oracleType, chainlinkOracleAddress, privateKey) {
+    console.log('🆕 Creating New Index with Specific Chainlink Oracle');
+    console.log('===================================================');
+    
+    if (!privateKey) {
+        throw new Error('Private key required for write operations');
+    }
+    
+    // Use null address if not provided
+    const oracleAddress = chainlinkOracleAddress || '0x0000000000000000000000000000000000000000';
+    
+    try {
+        const { contract, wallet } = await initializeOracle(privateKey);
+        
+        const oracleTypeName = ORACLE_TYPE_NAMES[oracleType] || `Type ${oracleType}`;
+        console.log(`📋 Index Name: ${name}`);
+        console.log(`💰 Initial Value: ${initialValue}`);
+        console.log(`🔗 Source URL: ${sourceUrl}`);
+        console.log(`🔧 Oracle Type: ${oracleTypeName}`);
+        console.log(`🏭 Chainlink Oracle: ${oracleAddress === '0x0000000000000000000000000000000000000000' ? 'None (will use default)' : oracleAddress}`);
+        
+        const tx = await contract['createCustomIndex(uint256,string,uint8,address)'](
+            initialValue, 
+            sourceUrl, 
+            oracleType,
+            oracleAddress
+        );
+        console.log(`⏳ Transaction Hash: ${tx.hash}`);
+        console.log('⏳ Waiting for confirmation...');
+        
+        const receipt = await tx.wait();
+        
+        // Parse event to get index ID
+        const event = receipt.events?.find(e => e.event === 'CustomIndexCreated');
+        const indexId = event ? event.args.indexId.toNumber() : null;
+        
+        console.log(`✅ Index created successfully!`);
+        console.log(`🆔 New Index ID: ${indexId}`);
+        if (oracleAddress !== '0x0000000000000000000000000000000000000000') {
+            console.log(`🔗 Specific Chainlink Oracle: ${oracleAddress}`);
+        }
+        console.log(`⛽ Gas Used: ${receipt.gasUsed}`);
+
+        
+        return {
+            success: true,
+            indexId: indexId,
+            name: name,
+            initialValue: initialValue,
+            sourceUrl: sourceUrl,
+            oracleType: oracleType,
+            oracleTypeName: oracleTypeName,
+            chainlinkOracleAddress: oracleAddress,
+            hasSpecificOracle: oracleAddress !== '0x0000000000000000000000000000000000000000',
+            transactionHash: tx.hash,
+            gasUsed: receipt.gasUsed.toString(),
+            blockNumber: receipt.blockNumber
+        };
+        
+    } catch (error) {
+        console.error('❌ Failed to create index with Chainlink oracle:', error.message);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Get oracle type for a specific index
+ */
+async function getIndexOracleType(indexId) {
+    try {
+        const { contract } = await initializeOracle();
+        
+        const oracleType = await contract.getIndexOracleType(indexId);
+        const oracleTypeName = ORACLE_TYPE_NAMES[oracleType] || `Type ${oracleType}`;
+        
+        return {
+            success: true,
+            indexId: indexId,
+            oracleType: oracleType,
+            oracleTypeName: oracleTypeName
+        };
+        
+    } catch (error) {
+        console.error(`❌ Failed to get oracle type for index ${indexId}:`, error.message);
+        return { success: false, error: error.message };
+    }
+}
+
+// ===================================================================
 // EXPORTS
 // ===================================================================
 
@@ -652,6 +1141,19 @@ module.exports = {
     simulatePriceMovement,
     setIndexStatus,
     
+    // Hybrid Oracle Functions
+    setChainlinkOracleAddress,
+    setIndexChainlinkOracleAddress,
+    batchSetIndexChainlinkOracles,
+    getIndexChainlinkOracleAddress,
+    getAllIndexChainlinkOracles,
+    setIndexOracleType,
+    batchSetOracleTypes,
+    getHybridOracleStatus,
+    createNewIndexWithOracleType,
+    createNewIndexWithChainlinkOracle,
+    getIndexOracleType,
+    
     // Utilities
     formatIndexValue,
     displayIndex,
@@ -661,7 +1163,9 @@ module.exports = {
     INDEX_TYPES,
     INDEX_NAMES,
     INDEX_SYMBOLS,
-    INDEX_UNITS
+    INDEX_UNITS,
+    ORACLE_TYPES,
+    ORACLE_TYPE_NAMES
 };
 
 // ===================================================================
