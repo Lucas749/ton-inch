@@ -369,7 +369,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
         maxApproval
       ).send({
         from: walletAddress,
-        gas: 100000
+        gas: 30000 // Ultra-low gas limit optimized for Base network L2 efficiency
       });
       
       console.log('✅ Token approval successful:', tx.transactionHash);
