@@ -379,8 +379,8 @@ export function IndicesExplorer() {
                         {index.name.charAt(0)}
                       </div>
                       <div>
-                        <div className="font-semibold text-gray-900">{index.name}</div>
-                        <div className="text-sm text-gray-500">ID: {index.id}</div>
+                                              <div className="font-semibold text-gray-900">{index.name || 'Unknown Index'}</div>
+                      <div className="text-sm text-gray-500">ID: {index.id}</div>
                       </div>
                     </div>
                     <Badge variant="secondary" className="bg-blue-100 text-blue-800">
