@@ -196,6 +196,69 @@ function getTokenInfo(tokenInput: string) {
 }
 
 /**
+ * Ensure token approval for 1inch Limit Order Protocol
+ */
+async function ensureTokenApproval(wallet: Wallet, token: any, amount: any) {
+  try {
+    // Skip approval for native ETH
+    if (token.address.toLowerCase() === '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee') {
+      console.log('📋 Native ETH - no approval needed');
+      return;
+    }
+    
+    // Setup provider
+    const provider = new ethers.providers.JsonRpcProvider(CONFIG.RPC_URL);
+    const connectedWallet = wallet.connect(provider);
+    
+    // ERC20 ABI for allowance and approve
+    const erc20Abi = [
+      'function allowance(address owner, address spender) view returns (uint256)',
+      'function approve(address spender, uint256 amount) returns (bool)',
+      'function balanceOf(address account) view returns (uint256)'
+    ];
+    
+    const tokenContract = new ethers.Contract(token.address, erc20Abi, connectedWallet);
+    
+    // Check current allowance
+    const currentAllowance = await tokenContract.allowance(wallet.address, CONFIG.LIMIT_ORDER_PROTOCOL);
+    console.log(`📋 Current allowance: ${ethers.utils.formatUnits(currentAllowance, token.decimals)} ${token.symbol}`);
+    console.log(`📋 Required amount: ${ethers.utils.formatUnits(amount, token.decimals)} ${token.symbol}`);
+    
+    // If allowance is sufficient, return
+    if (currentAllowance.gte(amount)) {
+      console.log('✅ Sufficient allowance already exists');
+      return;
+    }
+    
+    // Need to approve more tokens
+    console.log('⚠️ Insufficient allowance - approving tokens...');
+    
+    // Approve a larger amount to avoid frequent approvals (approve 10x the required amount)
+    const approvalAmount = amount.mul(10);
+    
+    const approveTx = await tokenContract.approve(CONFIG.LIMIT_ORDER_PROTOCOL, approvalAmount, {
+      gasLimit: 100000, // Standard gas limit for ERC20 approve
+    });
+    
+    console.log(`📝 Approval transaction sent: ${approveTx.hash}`);
+    console.log('⏳ Waiting for approval confirmation...');
+    
+    const receipt = await approveTx.wait(1); // Wait for 1 confirmation
+    
+    if (receipt.status === 1) {
+      console.log('✅ Token approval successful!');
+      console.log(`✅ Approved ${ethers.utils.formatUnits(approvalAmount, token.decimals)} ${token.symbol} for 1inch`);
+    } else {
+      throw new Error('Token approval transaction failed');
+    }
+    
+  } catch (error: any) {
+    console.error('❌ Token approval error:', error);
+    throw new Error(`Token approval failed: ${error.message}`);
+  }
+}
+
+/**
  * Create index predicate for 1inch
  */
 function createIndexPredicate(condition: any) {
@@ -288,6 +351,14 @@ async function createIndexBasedOrderStandalone(params: any) {
     const fromToken = getTokenInfo(params.fromToken);
     const toToken = getTokenInfo(params.toToken);
     
+    // Validate that tokens are not native ETH (1inch limit orders require ERC-20 tokens)
+    if (fromToken.address.toLowerCase() === '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee') {
+      throw new Error('Cannot use native ETH for limit orders. Please use WETH instead.');
+    }
+    if (toToken.address.toLowerCase() === '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee') {
+      throw new Error('Cannot use native ETH for limit orders. Please use WETH instead.');
+    }
+    
     // Parse amounts
     const makingAmount = ethers.utils.parseUnits(params.amount, fromToken.decimals);
     const takingAmount = ethers.utils.parseUnits(params.expectedAmount, toToken.decimals);
@@ -342,6 +413,10 @@ async function createIndexBasedOrderStandalone(params: any) {
       typedData.message
     );
     console.log('✅ Order signed');
+    
+    // Check and handle token approval before submitting
+    console.log('🔍 Checking token allowance...');
+    await ensureTokenApproval(wallet, fromToken, makingAmount);
     
     // Submit order
     console.log('📤 Submitting to 1inch...');
@@ -638,9 +713,57 @@ export async function POST(request: NextRequest) {
         }, { status: 500 });
       }
 
+    } else if (action === 'approve-token') {
+      const { 
+        tokenAddress,
+        amount,
+        privateKey
+      } = body;
+
+      if (!tokenAddress || !amount || !privateKey) {
+        return NextResponse.json({ 
+          error: 'Missing required parameters: tokenAddress, amount, privateKey' 
+        }, { status: 400 });
+      }
+
+      try {
+        console.log('🔐 Approving token:', tokenAddress, 'Amount:', amount);
+
+        // Setup wallet and provider
+        const wallet = new Wallet(privateKey);
+        const provider = new ethers.providers.JsonRpcProvider(CONFIG.RPC_URL);
+        const connectedWallet = wallet.connect(provider);
+        
+        // Get token info
+        const tokenInfo = getTokenInfo(tokenAddress);
+        const approvalAmount = ethers.utils.parseUnits(amount.toString(), tokenInfo.decimals);
+        
+        // Approve token
+        await ensureTokenApproval(connectedWallet, tokenInfo, approvalAmount);
+        
+        return NextResponse.json({
+          success: true,
+          message: `Successfully approved ${amount} ${tokenInfo.symbol} for 1inch`
+        }, {
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          },
+        });
+
+      } catch (approvalError: any) {
+        console.error('❌ Token approval error:', approvalError);
+        return NextResponse.json({
+          error: 'Failed to approve token',
+          message: approvalError.message || 'Token approval error',
+          details: approvalError.toString()
+        }, { status: 500 });
+      }
+
     } else {
       return NextResponse.json({ 
-        error: 'Invalid action. Use "cancel-order" or "create-order"' 
+        error: 'Invalid action. Use "cancel-order", "create-order", or "approve-token"' 
       }, { status: 400 });
     }
 
