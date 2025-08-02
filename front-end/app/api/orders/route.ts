@@ -10,7 +10,7 @@ import path from 'path';
 
 // 1inch SDK imports for standalone order creation
 import { LimitOrder, MakerTraits, Address, Sdk, randBigInt, FetchProviderConnector, ExtensionBuilder } from '@1inch/limit-order-sdk';
-import { Wallet, ethers } from 'ethers';
+import { ethers } from 'ethers';
 
 // Gas estimation utility
 import { 
@@ -27,6 +27,18 @@ export const dynamic = 'force-dynamic';
 // ===================================================================
 // EMBEDDED BACKEND LOGIC FOR STANDALONE DEPLOYMENT
 // ===================================================================
+
+// Token structure type
+interface TokenInfo {
+  address: string;
+  decimals: number;
+  symbol: string;
+}
+
+// Minimal wallet interface for balance checking
+interface WalletLike {
+  address: string;
+}
 
 // Configuration matching backend
 const CONFIG = {
@@ -192,10 +204,11 @@ function getTokenInfo(tokenInput: string) {
     const address = tokenInput.toLowerCase();
     
     // Search through all tokens to find matching address
-    for (const [symbol, tokenInfo] of Object.entries(CONFIG.TOKENS as any)) {
-      if (tokenInfo.address.toLowerCase() === address) {
-        console.log(`🔍 Found token by address: ${address} → ${symbol} (${tokenInfo.decimals} decimals)`);
-        return tokenInfo;
+    for (const [symbol, tokenInfo] of Object.entries(CONFIG.TOKENS)) {
+      const token = tokenInfo as TokenInfo;
+      if (token.address.toLowerCase() === address) {
+        console.log(`🔍 Found token by address: ${address} → ${symbol} (${token.decimals} decimals)`);
+        return token;
       }
     }
     
@@ -209,7 +222,7 @@ function getTokenInfo(tokenInput: string) {
   }
   
   // Look up by symbol
-  const token = (CONFIG.TOKENS as any)[tokenInput.toUpperCase()];
+  const token = (CONFIG.TOKENS as any)[tokenInput.toUpperCase()] as TokenInfo;
   if (!token) {
     throw new Error(`Unknown token: ${tokenInput}. Available: ${Object.keys(CONFIG.TOKENS).join(', ')}`);
   }
@@ -220,7 +233,7 @@ function getTokenInfo(tokenInput: string) {
 /**
  * Check wallet balances and estimate gas costs using comprehensive gas estimator
  */
-async function checkWalletBalancesAndGas(wallet: Wallet, token: any, amount: any) {
+async function checkWalletBalancesAndGas(wallet: WalletLike, token: any, amount: any) {
   console.log('💰 Comprehensive balance and gas check...');
   
   try {
@@ -298,75 +311,7 @@ async function checkWalletBalancesAndGas(wallet: Wallet, token: any, amount: any
   }
 }
 
-/**
- * Ensure token approval for 1inch Limit Order Protocol
- */
-async function ensureTokenApproval(wallet: Wallet, token: any, amount: any) {
-  try {
-    // Skip approval for native ETH
-    if (token.address.toLowerCase() === '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee') {
-      console.log('📋 Native ETH - no approval needed');
-      return;
-    }
-    
-    // Setup provider
-    const provider = new ethers.providers.JsonRpcProvider(CONFIG.RPC_URL);
-    const connectedWallet = wallet.connect(provider);
-    
-    // ERC20 ABI for allowance and approve
-    const erc20Abi = [
-      'function allowance(address owner, address spender) view returns (uint256)',
-      'function approve(address spender, uint256 amount) returns (bool)',
-      'function balanceOf(address account) view returns (uint256)'
-    ];
-    
-    const tokenContract = new ethers.Contract(token.address, erc20Abi, connectedWallet);
-    
-    // Check current allowance
-    const currentAllowance = await tokenContract.allowance(wallet.address, CONFIG.LIMIT_ORDER_PROTOCOL);
-    console.log(`📋 Current allowance: ${ethers.utils.formatUnits(currentAllowance, token.decimals)} ${token.symbol}`);
-    console.log(`📋 Required amount: ${ethers.utils.formatUnits(amount, token.decimals)} ${token.symbol}`);
-    
-    // If allowance is sufficient, return
-    if (currentAllowance.gte(amount)) {
-      console.log('✅ Sufficient allowance already exists');
-      return;
-    }
-    
-    // Need to approve more tokens
-    console.log('⚠️ Insufficient allowance - attempting token approval...');
-    console.log(`ℹ️  Note: This requires ETH for gas fees in wallet: ${wallet.address}`);
-    
-    // Approve exact amount needed to reduce gas costs
-    const approveTx = await tokenContract.approve(CONFIG.LIMIT_ORDER_PROTOCOL, amount, {
-      gasLimit: 25000, // MetaMask-aggressive gas limit for Base L2
-    });
-    
-    console.log(`📝 Approval transaction sent: ${approveTx.hash}`);
-    console.log('⏳ Waiting for approval confirmation...');
-    
-    const receipt = await approveTx.wait(1); // Wait for 1 confirmation
-    
-    if (receipt.status === 1) {
-      console.log('✅ Token approval successful!');
-      console.log(`✅ Approved ${ethers.utils.formatUnits(amount, token.decimals)} ${token.symbol} for 1inch`);
-    } else {
-      throw new Error('Token approval transaction failed');
-    }
-    
-  } catch (error: any) {
-    console.error('❌ Token approval error:', error);
-    
-    // Provide helpful error messages
-    if (error.message.includes('insufficient funds') || error.message.includes('failed to send tx')) {
-      throw new Error(`Token approval failed due to insufficient ETH for gas fees. Please ensure wallet ${wallet.address} has enough ETH for transaction fees.`);
-    } else if (error.code === 'INSUFFICIENT_FUNDS') {
-      throw new Error(`Insufficient ETH for gas fees in wallet: ${wallet.address}`);
-    } else {
-      throw new Error(`Token approval failed: ${error.message}`);
-    }
-  }
-}
+
 
 /**
  * Create index predicate for 1inch
@@ -374,7 +319,8 @@ async function ensureTokenApproval(wallet: Wallet, token: any, amount: any) {
 function createIndexPredicate(condition: any) {
   const indexKey = Object.keys(INDICES).find(key => (INDICES as any)[key].id === condition.indexId);
   console.log(`   Index: ${indexKey ? (INDICES as any)[indexKey]?.name : 'Unknown'}`);
-  console.log(`   Operator: ${(OPERATORS as any)[Object.keys(OPERATORS).find(key => (OPERATORS as any)[key].value === condition.operator)]?.name}`);
+  const operatorKey = Object.keys(OPERATORS).find(key => (OPERATORS as any)[key].value === condition.operator);
+  console.log(`   Operator: ${operatorKey ? (OPERATORS as any)[operatorKey]?.name : 'Unknown'}`);
   console.log(`   Threshold: ${condition.threshold}`);
   
   // Oracle call encoding
@@ -509,7 +455,7 @@ async function createIndexBasedOrderStandalone(params: any) {
     // Setup timing
     const expirationHours = params.expirationHours || 24;
     const expiration = BigInt(Math.floor(Date.now() / 1000) + (expirationHours * 3600));
-    const UINT_40_MAX = (1n << 40n) - 1n;
+    const UINT_40_MAX = (BigInt(1) << BigInt(40)) - BigInt(1);
     
     // Create MakerTraits
     const makerTraits = MakerTraits.default()
@@ -521,17 +467,27 @@ async function createIndexBasedOrderStandalone(params: any) {
     
     console.log('🔧 Creating order...');
     
-    // Create order (let SDK handle salt)
-    const order = await sdk.createOrder({
+    // Create order using LimitOrder constructor - convert BigNumber to bigint
+    const salt = randBigInt((BigInt(1) << BigInt(256)) - BigInt(1));
+    const limitOrderParams = {
       makerAsset: new Address(fromToken.address),
       takerAsset: new Address(toToken.address),
-      makingAmount: makingAmount,
-      takingAmount: takingAmount,
-      maker: new Address(userWalletAddress), // Use actual user wallet
-      extension: extension.encode()
-    }, makerTraits);
+      makingAmount: BigInt(makingAmount.toString()),
+      takingAmount: BigInt(takingAmount.toString()),
+      maker: new Address(userWalletAddress),
+      salt: salt,
+      receiver: new Address(userWalletAddress)
+    };
+
+    // Add extension to order parameters if available
+    if (extension) {
+      (limitOrderParams as any).extension = extension;
+      console.log('✅ Added extension to LimitOrder parameters');
+    }
+
+    const order = new LimitOrder(limitOrderParams, makerTraits);
     
-    console.log(`✅ Order created: ${order.getOrderHash()}`);
+    console.log(`✅ Order created: ${order.getOrderHash(CONFIG.CHAIN_ID)}`);
     
     // Get typed data for client-side signing (user will sign with MetaMask)
     console.log('📝 Preparing order for client-side signing...');
@@ -560,7 +516,6 @@ async function createIndexBasedOrderStandalone(params: any) {
         console.log('📝 Order will be created but CANNOT be submitted without funding');
       } else {
         // Note: Token approval now handled client-side through user's wallet (MetaMask)
-      // await ensureTokenApproval(wallet, fromToken, makingAmount);
         approvalSuccessful = true;
         console.log('✅ Token approval completed successfully');
       }
@@ -591,7 +546,7 @@ async function createIndexBasedOrderStandalone(params: any) {
     // Return comprehensive result
     const result = {
       success: true, // Order creation successful
-      orderHash: order.getOrderHash(),
+      orderHash: order.getOrderHash(CONFIG.CHAIN_ID),
       order: {
         fromToken: fromToken.symbol,
         toToken: toToken.symbol,
@@ -601,10 +556,10 @@ async function createIndexBasedOrderStandalone(params: any) {
         expiration: new Date(Number(expiration) * 1000).toISOString()
       },
       condition: {
-        index: (INDICES as any)[Object.keys(INDICES).find(key => (INDICES as any)[key].id === params.condition.indexId)],
+        index: (INDICES as any)[Object.keys(INDICES).find(key => (INDICES as any)[key].id === params.condition.indexId) || ''],
         operator: params.condition.operator,
         threshold: params.condition.threshold,
-        currentValue: (INDICES as any)[Object.keys(INDICES).find(key => (INDICES as any)[key].id === params.condition.indexId)]?.currentValue
+        currentValue: (INDICES as any)[Object.keys(INDICES).find(key => (INDICES as any)[key].id === params.condition.indexId) || '']?.currentValue
       },
       submission: {
         submitted: false, // Will be handled client-side
@@ -634,7 +589,7 @@ async function createIndexBasedOrderStandalone(params: any) {
         } : null
       },
       technical: {
-        orderHash: order.getOrderHash(),
+        orderHash: order.getOrderHash(CONFIG.CHAIN_ID),
         salt: order.salt.toString(),
         typedData: typedData, // Return typed data for client-side signing
         signature: null, // Will be signed client-side
@@ -646,7 +601,8 @@ async function createIndexBasedOrderStandalone(params: any) {
     console.log('===========================');
     console.log(`Status: ${result.success ? 'SUCCESS' : 'CREATED (submission failed)'}`);
     console.log(`Hash: ${result.orderHash}`);
-    console.log(`Condition: ${result.condition.index?.name} ${(OPERATORS as any)[Object.keys(OPERATORS).find(key => (OPERATORS as any)[key].value === params.condition.operator)]?.symbol} ${params.condition.threshold / 100}`);
+    const operatorKey = Object.keys(OPERATORS).find(key => (OPERATORS as any)[key].value === params.condition.operator);
+    console.log(`Condition: ${result.condition.index?.name} ${operatorKey ? (OPERATORS as any)[operatorKey]?.symbol : 'Unknown'} ${params.condition.threshold / 100}`);
     
     if (!result.success && submitError) {
       console.log('\n💡 TO ENABLE ORDER SUBMISSION:');
@@ -889,16 +845,17 @@ export async function POST(request: NextRequest) {
         });
 
         if (result.success) {
-          console.log('✅ Order created successfully:', result.orderHash);
+          const successResult = result as any; // Cast to access success properties
+          console.log('✅ Order created successfully:', successResult.orderHash);
           
           return NextResponse.json({
             success: true,
-            orderHash: result.orderHash,
-            order: result.order,
-            condition: result.condition,
-            submission: result.submission,
-            technical: result.technical,
-            message: `Order ${result.orderHash} created successfully!`
+            orderHash: successResult.orderHash,
+            order: successResult.order,
+            condition: successResult.condition,
+            submission: successResult.submission,
+            technical: successResult.technical,
+            message: `Order ${successResult.orderHash} created successfully!`
           }, {
             headers: {
               'Access-Control-Allow-Origin': '*',
@@ -907,7 +864,8 @@ export async function POST(request: NextRequest) {
             },
           });
         } else {
-          throw new Error(result.error || 'Failed to create order');
+          const errorResult = result as any; // Cast to access error properties
+          throw new Error(errorResult.error || 'Failed to create order');
         }
 
       } catch (backendError: any) {
@@ -920,57 +878,9 @@ export async function POST(request: NextRequest) {
         }, { status: 500 });
       }
 
-    } else if (action === 'approve-token') {
-      const { 
-        tokenAddress,
-        amount,
-        privateKey
-      } = body;
-
-      if (!tokenAddress || !amount || !privateKey) {
-        return NextResponse.json({ 
-          error: 'Missing required parameters: tokenAddress, amount, privateKey' 
-        }, { status: 400 });
-      }
-
-      try {
-        console.log('🔐 Approving token:', tokenAddress, 'Amount:', amount);
-
-        // Setup wallet and provider
-        const wallet = new Wallet(privateKey);
-        const provider = new ethers.providers.JsonRpcProvider(CONFIG.RPC_URL);
-        const connectedWallet = wallet.connect(provider);
-        
-        // Get token info
-        const tokenInfo = getTokenInfo(tokenAddress);
-        const approvalAmount = ethers.utils.parseUnits(amount.toString(), tokenInfo.decimals);
-        
-        // Approve token
-        await ensureTokenApproval(connectedWallet, tokenInfo, approvalAmount);
-        
-        return NextResponse.json({
-          success: true,
-          message: `Successfully approved ${amount} ${tokenInfo.symbol} for 1inch`
-        }, {
-          headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-          },
-        });
-
-      } catch (approvalError: any) {
-        console.error('❌ Token approval error:', approvalError);
-        return NextResponse.json({
-          error: 'Failed to approve token',
-          message: approvalError.message || 'Token approval error',
-          details: approvalError.toString()
-        }, { status: 500 });
-      }
-
     } else {
       return NextResponse.json({ 
-        error: 'Invalid action. Use "cancel-order", "create-order", or "approve-token"' 
+        error: 'Invalid action. Use "cancel-order" or "create-order"' 
       }, { status: 400 });
     }
 
