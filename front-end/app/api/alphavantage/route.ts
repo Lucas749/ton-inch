@@ -4,8 +4,8 @@ import { ServerCSVCacheService } from '@/lib/server-csv-cache';
 // Mark this route as dynamic to avoid static generation issues
 export const dynamic = 'force-dynamic';
 
-// Initialize the cache service
-const cacheService = new ServerCSVCacheService();
+// Initialize the cache service with a proper cache directory for Next.js
+const cacheService = new ServerCSVCacheService(process.cwd() + '/front-end/cache');
 
 // Validation function to check if AlphaVantage response is valid
 function validateResponseData(data: any, functionName: string): void {
@@ -157,13 +157,16 @@ export async function GET(request: NextRequest) {
   }
 
   // Check if we should use cached data
-  // Create cache key that includes all relevant parameters
-  const cacheSymbol = symbol || from_currency || 'unknown';
-  const cacheKey = [cacheSymbol, function_, interval, market, from_currency, to_currency].filter(Boolean).join('_');
+  // Create a unique cache symbol that includes all relevant parameters for proper caching
+  const cacheSymbol = symbol || from_currency || market || 'unknown';
+  const extendedInterval = interval ? 
+    `${interval}_${market || ''}_${from_currency || ''}_${to_currency || ''}`.replace(/_+$/, '') : 
+    `${market || ''}_${from_currency || ''}_${to_currency || ''}`.replace(/^_+|_+$/g, '') || undefined;
   
-  if (cacheService.shouldUseCache(cacheKey, function_, interval || undefined)) {
-    const cachedData = cacheService.getCachedData(cacheKey, function_, interval || undefined);
+  if (cacheService.shouldUseCache(cacheSymbol, function_, extendedInterval)) {
+    const cachedData = cacheService.getCachedData(cacheSymbol, function_, extendedInterval);
     if (cachedData) {
+      console.log(`🎯 Cache HIT for ${function_} - ${cacheSymbol}${extendedInterval ? ` (${extendedInterval})` : ''}`);
       return NextResponse.json(cachedData, {
         headers: {
           'X-Cache-Status': 'HIT',
@@ -193,7 +196,7 @@ export async function GET(request: NextRequest) {
     if (from_currency) alphaVantageUrl.searchParams.set('from_currency', from_currency);
     if (to_currency) alphaVantageUrl.searchParams.set('to_currency', to_currency);
 
-    console.log('🌐 Fetching fresh AlphaVantage data:', function_, symbol || '', interval || '');
+    console.log(`🌐 Fetching fresh AlphaVantage data: ${function_} - ${cacheSymbol}${extendedInterval ? ` (${extendedInterval})` : ''} - Cache MISS`);
 
     const response = await fetch(alphaVantageUrl.toString(), {
       method: 'GET',
@@ -221,8 +224,9 @@ export async function GET(request: NextRequest) {
     validateResponseData(data, function_);
 
     // Cache the successful response
-    if (cacheKey && cacheKey !== 'unknown') {
-      cacheService.cacheData(cacheKey, function_, interval || undefined, data);
+    if (cacheSymbol && cacheSymbol !== 'unknown') {
+      cacheService.cacheData(cacheSymbol, function_, extendedInterval, data);
+      console.log(`💾 Cache MISS - Cached fresh data for ${function_} - ${cacheSymbol}${extendedInterval ? ` (${extendedInterval})` : ''}`);
     }
     
     return NextResponse.json(data, {
@@ -237,14 +241,38 @@ export async function GET(request: NextRequest) {
     console.error('Alpha Vantage API proxy error:', error);
     
     // Mark failed request for retry logic
-    if (cacheKey && cacheKey !== 'unknown') {
-      cacheService.markFailedRequest(cacheKey, function_, interval || undefined);
+    if (cacheSymbol && cacheSymbol !== 'unknown') {
+      cacheService.markFailedRequest(cacheSymbol, function_, extendedInterval);
     }
     
     return NextResponse.json(
       { error: 'Failed to fetch from Alpha Vantage API', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { action } = body;
+
+    if (action === 'cache-stats') {
+      const stats = cacheService.getCacheStats();
+      return NextResponse.json({
+        ...stats,
+        message: `Cache contains ${stats.totalEntries} entries (${stats.successfulEntries} successful, ${stats.failedEntries} failed)`
+      });
+    }
+
+    if (action === 'cache-cleanup') {
+      cacheService.cleanupOldCache();
+      return NextResponse.json({ message: 'Cache cleanup completed' });
+    }
+
+    return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
+  } catch (error) {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
 }
 
