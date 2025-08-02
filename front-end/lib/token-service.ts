@@ -100,9 +100,9 @@ class TokenService {
   private lastRequestTime = 0;
   private readonly MIN_REQUEST_INTERVAL = 1100; // 1.1 seconds (slightly more than 1 RPS)
 
-  constructor() {
+  constructor(chainId?: number) {
     this.apiKey = process.env.NEXT_PUBLIC_ONEINCH_API_KEY || '';
-    this.chainId = BASE_MAINNET_CHAIN_ID; // Base mainnet - 1inch doesn't support testnets
+    this.chainId = chainId || BASE_MAINNET_CHAIN_ID; // Use provided chainId or default to Base mainnet
   }
 
   /**
@@ -434,8 +434,11 @@ class TokenService {
   }
 }
 
-// Export singleton instance
+// Export singleton instance (defaults to Base mainnet)
 export const tokenService = new TokenService();
+
+// Export factory function for dynamic chain support
+export const createTokenService = (chainId: number) => new TokenService(chainId);
 
 // Export utility functions
 export const formatTokenAmount = (amount: string | number, decimals: number): string => {
