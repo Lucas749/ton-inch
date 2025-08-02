@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@1inch/limit-order-sdk": "^4.9.5-rc.0",
+    "@1inch/limit-order-sdk": "^5.0.3",
     "@hookform/resolvers": "^3.9.0",
     "@next/swc-wasm-nodejs": "13.5.1",
     "@radix-ui/react-accordion": "^1.2.0",
