@@ -35,7 +35,7 @@ const categories = ["All", "Stocks", "Crypto", "Commodities", "Forex", "ETFs", "
  * Create proper Alpha Vantage URL based on index type
  */
 function createAlphaVantageUrl(index: RealIndexData): string {
-  const apiKey = process.env.NEXT_PUBLIC_ALPHAVANTAGE;
+  const apiKey = process.env.NEXT_PUBLIC_ALPHAVANTAGE || '123';
   
   // Handle different index categories with their respective Alpha Vantage functions
   switch (index.category) {
@@ -167,32 +167,66 @@ export function IndicesExplorer() {
       }
     });
     
-    // Also include blockchain indices without Alpha Vantage mapping
+    // Include all blockchain indices with enhanced market data
+    // For indices without Alpha Vantage matches, create standalone entries
     blockchainIndices.forEach(blockchainIndex => {
       if (!blockchainIndex.alphaVantageSymbol) {
+        // No Alpha Vantage symbol, create standalone entry
         integratedIndices.push({
           id: `blockchain_${blockchainIndex.id}`,
           name: blockchainIndex.name || `Index ${blockchainIndex.id}`,
           symbol: blockchainIndex.symbol || `IDX${blockchainIndex.id}`,
-          handle: `@index${blockchainIndex.id}`,
+          handle: `@${(blockchainIndex.symbol || `index${blockchainIndex.id}`).toLowerCase()}`,
           description: blockchainIndex.description || `Custom blockchain index #${blockchainIndex.id}`,
           category: blockchainIndex.category || "Custom",
           provider: "Blockchain",
-          avatar: "🔗",
-          color: "bg-blue-500",
+          avatar: blockchainIndex.avatar || "🔗",
+          color: blockchainIndex.color || "bg-blue-500",
           currentValue: blockchainIndex.value,
           valueLabel: `${(blockchainIndex.value / 100).toFixed(2)}`,
           price: blockchainIndex.value / 100,
           change: "0.00%",
           changeValue: "0.00",
           isPositive: true,
-          mindshare: "N/A",
+          mindshare: "Available",
           sparklineData: [0, 0, 0, 0, 0, 0, 0, 0],
           lastUpdated: new Date(blockchainIndex.timestamp * 1000).toISOString().split('T')[0],
           blockchainId: blockchainIndex.id,
           blockchainValue: blockchainIndex.value,
           onChain: true
         });
+      } else {
+        // Has Alpha Vantage symbol but no market data match, create enhanced entry
+        const existingMarketData = indices.find(index => 
+          index.symbol === blockchainIndex.alphaVantageSymbol
+        );
+        
+        if (!existingMarketData) {
+          // Create market-style entry for blockchain index with Alpha Vantage data
+          integratedIndices.push({
+            id: `blockchain_${blockchainIndex.id}`,
+            name: blockchainIndex.name || blockchainIndex.alphaVantageSymbol,
+            symbol: blockchainIndex.alphaVantageSymbol,
+            handle: `@${blockchainIndex.alphaVantageSymbol.toLowerCase()}`,
+            description: blockchainIndex.description || `${blockchainIndex.alphaVantageSymbol} tracked on blockchain`,
+            category: blockchainIndex.category || "Custom",
+            provider: "Alpha Vantage + Blockchain",
+            avatar: blockchainIndex.avatar || "🔗",
+            color: blockchainIndex.color || "bg-blue-500",
+            currentValue: blockchainIndex.value,
+            valueLabel: `${(blockchainIndex.value / 100).toFixed(2)}`,
+            price: blockchainIndex.value / 100,
+            change: "0.00%",
+            changeValue: "0.00",
+            isPositive: true,
+            mindshare: "On-Chain",
+            sparklineData: [0, 0, 0, 0, 0, 0, 0, 0],
+            lastUpdated: new Date(blockchainIndex.timestamp * 1000).toISOString().split('T')[0],
+            blockchainId: blockchainIndex.id,
+            blockchainValue: blockchainIndex.value,
+            onChain: true
+          });
+        }
       }
     });
     

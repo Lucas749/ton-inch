@@ -173,18 +173,34 @@ export class BlockchainIndices {
                 const functionParam = url.searchParams.get('function');
                 const symbolParam = url.searchParams.get('symbol');
                 
-                if (functionParam && functionParam !== 'GLOBAL_QUOTE') {
-                  // For commodities like CORN, WHEAT, etc.
-                  name = functionParam.charAt(0).toUpperCase() + functionParam.slice(1).toLowerCase();
-                  description = `${name} price tracked via Alpha Vantage`;
-                } else if (symbolParam) {
-                  // For stocks like AAPL, TSLA, etc.
-                  name = symbolParam.toUpperCase();
-                  description = `${name} stock price tracked via Alpha Vantage`;
+                if (functionParam === 'EARNINGS_ESTIMATES' && symbolParam) {
+                  // Earnings estimates for specific symbols
+                  name = `${symbolParam.toUpperCase()} EPS`;
+                  description = `${symbolParam.toUpperCase()} earnings estimates tracked via Alpha Vantage`;
                 } else if (functionParam === 'GLOBAL_QUOTE' && symbolParam) {
                   // Standard stock quote
                   name = symbolParam.toUpperCase();
-                  description = `${name} stock tracked via Alpha Vantage`;
+                  description = `${symbolParam.toUpperCase()} stock price tracked via Alpha Vantage`;
+                } else if (functionParam === 'DIGITAL_CURRENCY_DAILY' && symbolParam) {
+                  // Crypto currencies
+                  name = `${symbolParam.toUpperCase()}`;
+                  description = `${symbolParam.toUpperCase()} cryptocurrency tracked via Alpha Vantage`;
+                } else if (functionParam && ['CORN', 'WHEAT', 'WTI', 'BRENT', 'NATURAL_GAS', 'COPPER', 'ALUMINUM', 'ZINC', 'NICKEL', 'GOLD', 'SILVER'].includes(functionParam)) {
+                  // Commodities
+                  name = functionParam.charAt(0).toUpperCase() + functionParam.slice(1).toLowerCase().replace('_', ' ');
+                  description = `${name} commodity price tracked via Alpha Vantage`;
+                } else if (functionParam && symbolParam) {
+                  // Other functions with symbols (forex, etc.)
+                  name = symbolParam.toUpperCase();
+                  description = `${symbolParam.toUpperCase()} tracked via Alpha Vantage (${functionParam})`;
+                } else if (symbolParam) {
+                  // Just symbol without specific function
+                  name = symbolParam.toUpperCase();
+                  description = `${symbolParam.toUpperCase()} tracked via Alpha Vantage`;
+                } else if (functionParam) {
+                  // Just function without symbol
+                  name = functionParam.charAt(0).toUpperCase() + functionParam.slice(1).toLowerCase().replace('_', ' ');
+                  description = `${name} tracked via Alpha Vantage`;
                 } else {
                   // Fallback to parsing the URL hostname or path
                   name = url.hostname.includes('alphavantage') ? 'Alpha Vantage Index' : `Custom Index ${id}`;
@@ -197,6 +213,52 @@ export class BlockchainIndices {
             }
           }
           
+          // Extract additional market data from Alpha Vantage URL
+          let alphaVantageSymbol = null;
+          let category = 'Custom';
+          let avatar = '🔗';
+          let color = 'bg-blue-500';
+          
+          if (indexDetails && indexDetails.length >= 3) {
+            const sourceUrl = indexDetails[2];
+            if (sourceUrl && sourceUrl.trim()) {
+              try {
+                const url = new URL(sourceUrl);
+                const functionParam = url.searchParams.get('function');
+                const symbolParam = url.searchParams.get('symbol');
+                
+                if (symbolParam) {
+                  alphaVantageSymbol = symbolParam.toUpperCase();
+                }
+                
+                // Set category and avatar based on Alpha Vantage function
+                if (functionParam === 'EARNINGS_ESTIMATES') {
+                  category = 'Stocks';
+                  avatar = '📊';
+                  color = 'bg-green-500';
+                } else if (functionParam === 'GLOBAL_QUOTE') {
+                  category = 'Stocks';
+                  avatar = '📈';
+                  color = 'bg-green-500';
+                } else if (functionParam === 'DIGITAL_CURRENCY_DAILY') {
+                  category = 'Crypto';
+                  avatar = '₿';
+                  color = 'bg-orange-500';
+                } else if (functionParam && ['CORN', 'WHEAT', 'WTI', 'BRENT', 'NATURAL_GAS', 'COPPER', 'ALUMINUM', 'ZINC', 'NICKEL', 'GOLD', 'SILVER'].includes(functionParam)) {
+                  category = 'Commodities';
+                  avatar = '🌾';
+                  color = 'bg-yellow-500';
+                } else if (functionParam && functionParam.includes('FX')) {
+                  category = 'Forex';
+                  avatar = '💱';
+                  color = 'bg-purple-500';
+                }
+              } catch (urlError) {
+                console.warn(`Could not parse sourceUrl for market data for index ${id}:`, urlError);
+              }
+            }
+          }
+
           indices.push({
             id,
             name,
@@ -205,7 +267,12 @@ export class BlockchainIndices {
             timestamp,
             active,
             creator: CONTRACTS.IndexOracle,
-            createdAt: timestamp
+            createdAt: timestamp,
+            alphaVantageSymbol,
+            category,
+            avatar,
+            color,
+            symbol: alphaVantageSymbol || `IDX${id}`
           });
           
           console.log(`✅ Loaded custom ${name}: ${value} basis points (active: ${active})`);
