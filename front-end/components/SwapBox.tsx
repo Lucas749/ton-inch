@@ -24,6 +24,7 @@ import {
 } from "@/lib/1inch-service";
 import { TokenSelector } from "@/components/TokenSelector";
 import { Token, tokenService } from "@/lib/token-service";
+import { useBlockchain } from "@/hooks/useBlockchain";
 
 interface SwapBoxProps {
   walletAddress?: string;
@@ -53,6 +54,9 @@ export function SwapBox({
   const [error, setError] = useState<string>("");
   const [success, setSuccess] = useState<string>("");
   const [txHash, setTxHash] = useState<string>("");
+  
+  // Get blockchain data for real balances
+  const { ethBalance, getTokenBalance } = useBlockchain();
 
   const oneInchService =
     apiKey && rpcUrl && walletAddress
@@ -237,6 +241,23 @@ export function SwapBox({
       return;
     }
 
+    // Check if user has enough balance for ETH swaps
+    if (fromToken.symbol === 'ETH' && ethBalance) {
+      const userBalance = parseFloat(ethBalance);
+      const swapAmount = parseFloat(fromAmount);
+      
+      if (swapAmount > userBalance) {
+        setError(`Insufficient balance. You have ${userBalance.toFixed(4)} ETH but trying to swap ${swapAmount} ETH`);
+        return;
+      }
+      
+      // Add a small buffer for gas fees
+      if (swapAmount > userBalance - 0.001) {
+        setError(`Insufficient balance for gas fees. Leave at least 0.001 ETH for transaction fees`);
+        return;
+      }
+    }
+
     setIsSwapping(true);
     setError("");
     setSuccess("");
@@ -384,7 +405,10 @@ export function SwapBox({
             <span className="text-sm font-medium text-gray-700">From</span>
             {fromToken && (
               <span className="text-xs text-gray-500">
-                Balance: 0.00 {fromToken.symbol}
+                Balance: {fromToken.symbol === 'ETH' 
+                  ? (ethBalance ? parseFloat(ethBalance).toFixed(4) : '0.00')
+                  : '0.00'
+                } {fromToken.symbol}
               </span>
             )}
           </div>
@@ -423,7 +447,10 @@ export function SwapBox({
             <span className="text-sm font-medium text-gray-700">To</span>
             {toToken && (
               <span className="text-xs text-gray-500">
-                Balance: 0.00 {toToken.symbol}
+                Balance: {toToken.symbol === 'ETH' 
+                  ? (ethBalance ? parseFloat(ethBalance).toFixed(4) : '0.00')
+                  : '0.00'
+                } {toToken.symbol}
               </span>
             )}
           </div>
