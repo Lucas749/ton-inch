@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // Build the 1inch quote API URL
-    const quoteUrl = new URL(`https://api.1inch.dev/swap/v6.0/${chainId}/quote`);
+    const quoteUrl = new URL(`https://api.1inch.dev/swap/v6.1/${chainId}/quote`);
     
     quoteUrl.searchParams.set('src', src);
     quoteUrl.searchParams.set('dst', dst);

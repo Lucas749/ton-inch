@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // Build the 1inch swap API URL
-    const swapUrl = new URL(`https://api.1inch.dev/swap/v6.0/${chainId}/swap`);
+    const swapUrl = new URL(`https://api.1inch.dev/swap/v6.1/${chainId}/swap`);
     
     swapUrl.searchParams.set('src', src);
     swapUrl.searchParams.set('dst', dst);

@@ -231,6 +231,13 @@ export class OneInchService {
   ): Promise<T> {
     const url = this.buildQueryURL(endpointPath, queryParams);
 
+    console.log("🌐 OneInchService API call:", {
+      endpoint: endpointPath,
+      url,
+      params: queryParams,
+      walletAddress: this.config.walletAddress
+    });
+
     const response = await fetch(url, {
       method: "GET",
       headers: {
@@ -241,6 +248,12 @@ export class OneInchService {
 
     if (!response.ok) {
       const body = await response.text();
+      console.error("❌ API Error Details:", {
+        status: response.status,
+        body,
+        url,
+        params: queryParams
+      });
       throw new Error(`1inch API proxy returned status ${response.status}: ${body}`);
     }
 

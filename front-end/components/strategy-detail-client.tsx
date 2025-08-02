@@ -104,7 +104,7 @@ export function StrategyDetailClient({
       preset: "fast" as const,
       walletAddress: walletAddress || "",
       apiKey: process.env.NEXT_PUBLIC_ONEINCH_API_KEY || "",
-      rpcUrl: "https://sepolia.base.org",
+      rpcUrl: "https://mainnet.base.org", // Use Base mainnet instead of sepolia
     },
   };
 
