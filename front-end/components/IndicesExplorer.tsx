@@ -509,7 +509,7 @@ export function IndicesExplorer() {
       {!isLoading && filteredContractIndices.length > 0 && (
         <div className="space-y-4">
           <div className="text-center">
-            <h3 className="text-2xl font-bold text-blue-900 mb-2">⚡ Available</h3>
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">⚡ Available</h3>
             <p className="text-md text-gray-600 max-w-2xl mx-auto">
               These indices are available on the blockchain. Click any card to view details and create conditional orders.
             </p>
@@ -519,7 +519,7 @@ export function IndicesExplorer() {
           {filteredContractIndices.map((index) => (
             <Card 
               key={index.id} 
-              className="hover:shadow-lg transition-all duration-200 cursor-pointer border border-blue-200 bg-blue-50 rounded-xl"
+              className="hover:shadow-lg transition-all duration-200 cursor-pointer"
               onClick={() => {
                 const extendedIndex = index as ExtendedRealIndexData;
                 if (extendedIndex.onChain && extendedIndex.blockchainId !== undefined) {
@@ -540,7 +540,7 @@ export function IndicesExplorer() {
                       <div className="flex items-center space-x-2">
                         <div className="font-semibold text-gray-900">{index.name}</div>
                         {/* Available badge */}
-                        <div className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        <div className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
                           Available
                         </div>
                         {/* Owner badge */}
