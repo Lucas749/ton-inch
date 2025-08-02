@@ -194,10 +194,8 @@ export class BlockchainIndices {
           }
           
           // Extract additional market data from Alpha Vantage URL - simplified
-          let alphaVantageSymbol = null;
+          let alphaVantageSymbol: string | undefined = undefined;
           let category = 'Custom';
-          let avatar = '🔗';
-          let color = 'bg-blue-500';
           
           if (indexDetails && (indexDetails.length >= 3 || indexDetails.__length__ >= 3 || indexDetails[2] !== undefined)) {
             const sourceUrl = indexDetails[2];
@@ -219,16 +217,10 @@ export class BlockchainIndices {
                   // Has symbol - likely a stock, crypto, or specific asset
                   if (functionParam && functionParam.toLowerCase().includes('earnings')) {
                     category = 'Stocks';
-                    avatar = '📊';
-                    color = 'bg-green-500';
                   } else if (functionParam && functionParam.toLowerCase().includes('digital')) {
                     category = 'Crypto';
-                    avatar = '₿';
-                    color = 'bg-orange-500';
                   } else {
                     category = 'Stocks';
-                    avatar = '📈';
-                    color = 'bg-green-500';
                   }
                 } else if (functionParam) {
                   const func = functionParam.toLowerCase();
@@ -236,16 +228,10 @@ export class BlockchainIndices {
                   const commodities = ['corn', 'wheat', 'wti', 'brent', 'gold', 'silver', 'copper', 'oil', 'gas'];
                   if (commodities.some(c => func.includes(c))) {
                     category = 'Commodities';
-                    avatar = '🌾';
-                    color = 'bg-yellow-500';
                   } else if (func.includes('fx') || func.includes('currency')) {
                     category = 'Forex';
-                    avatar = '💱';
-                    color = 'bg-purple-500';
                   } else {
                     category = 'Economics';
-                    avatar = '📊';
-                    color = 'bg-red-500';
                   }
                 }
                 
@@ -269,10 +255,7 @@ export class BlockchainIndices {
             createdAt: timestamp,
             alphaVantageSymbol,
             category,
-            avatar,
-            color,
-            symbol: alphaVantageSymbol || `IDX${id}`,
-            sourceUrl: sourceUrl
+            symbol: alphaVantageSymbol || `IDX${id}`
           });
           
           // Add delay between requests
@@ -462,6 +445,157 @@ export class BlockchainIndices {
       return true;
     } catch (error) {
       console.error("❌ Error updating index:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Set index status (active/inactive) using connected wallet
+   */
+  async setIndexStatus(indexId: number, isActive: boolean): Promise<boolean> {
+    try {
+      if (!this.wallet.isWalletConnected() || !this.wallet.currentAccount) {
+        throw new Error("Wallet not connected. Please connect your wallet first.");
+      }
+
+      console.log(`⚙️ Setting Index ${indexId} Status to ${isActive ? 'ACTIVE' : 'INACTIVE'}`);
+      
+      // Determine if it's predefined or custom index (matches backend logic)
+      let tx;
+      if (indexId <= 5) {
+        console.log('📤 Updating predefined index status...');
+        
+        // Estimate gas first to catch any issues early
+        const gasEstimate = await this.oracle.methods
+          .setIndexActive(indexId, isActive)
+          .estimateGas({ from: this.wallet.currentAccount });
+        
+        console.log(`⛽ Estimated gas: ${gasEstimate}`);
+        
+        tx = await this.oracle.methods
+          .setIndexActive(indexId, isActive)
+          .send({
+            from: this.wallet.currentAccount,
+            gas: Math.floor(gasEstimate * 1.2), // Add 20% buffer
+          });
+      } else {
+        console.log('📤 Updating custom index status...');
+        
+        // Estimate gas first to catch any issues early
+        const gasEstimate = await this.oracle.methods
+          .setCustomIndexActive(indexId, isActive)
+          .estimateGas({ from: this.wallet.currentAccount });
+        
+        console.log(`⛽ Estimated gas: ${gasEstimate}`);
+        
+        tx = await this.oracle.methods
+          .setCustomIndexActive(indexId, isActive)
+          .send({
+            from: this.wallet.currentAccount,
+            gas: Math.floor(gasEstimate * 1.2), // Add 20% buffer
+          });
+      }
+
+      console.log(`✅ Index ${indexId} status updated to ${isActive ? 'ACTIVE' : 'INACTIVE'}:`, tx.transactionHash);
+      
+      // Clear cache so next fetch gets fresh data
+      this.clearCache();
+      
+      return true;
+    } catch (error) {
+      console.error("❌ Error setting index status:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Set oracle type for an index using connected wallet
+   */
+  async setIndexOracleType(indexId: number, oracleType: number): Promise<{ oracleType: number; oracleTypeName: string }> {
+    try {
+      if (!this.wallet.isWalletConnected() || !this.wallet.currentAccount) {
+        throw new Error("Wallet not connected. Please connect your wallet first.");
+      }
+
+      const oracleTypeNames = {
+        0: 'Mock Oracle',
+        1: 'Chainlink Functions'
+      };
+      const oracleTypeName = oracleTypeNames[oracleType as keyof typeof oracleTypeNames] || `Type ${oracleType}`;
+
+      console.log(`🔄 Setting Oracle Type for Index ${indexId} to ${oracleTypeName}`);
+      
+      // Determine if it's predefined or custom index (matches backend logic)
+      let tx;
+      if (indexId <= 5) {
+        console.log('📤 Updating predefined index oracle type...');
+        
+        // Estimate gas first to catch any issues early
+        const gasEstimate = await this.oracle.methods
+          .setIndexOracleType(indexId, oracleType)
+          .estimateGas({ from: this.wallet.currentAccount });
+        
+        console.log(`⛽ Estimated gas: ${gasEstimate}`);
+        
+        tx = await this.oracle.methods
+          .setIndexOracleType(indexId, oracleType)
+          .send({
+            from: this.wallet.currentAccount,
+            gas: Math.floor(gasEstimate * 1.2), // Add 20% buffer
+          });
+      } else {
+        console.log('📤 Updating custom index oracle type...');
+        
+        // Estimate gas first to catch any issues early
+        const gasEstimate = await this.oracle.methods
+          .setCustomIndexOracleType(indexId, oracleType)
+          .estimateGas({ from: this.wallet.currentAccount });
+        
+        console.log(`⛽ Estimated gas: ${gasEstimate}`);
+        
+        tx = await this.oracle.methods
+          .setCustomIndexOracleType(indexId, oracleType)
+          .send({
+            from: this.wallet.currentAccount,
+            gas: Math.floor(gasEstimate * 1.2), // Add 20% buffer
+          });
+      }
+
+      console.log(`✅ Oracle type updated to ${oracleTypeName}:`, tx.transactionHash);
+      
+      // Clear cache so next fetch gets fresh data
+      this.clearCache();
+      
+      return { oracleType, oracleTypeName };
+    } catch (error) {
+      console.error("❌ Error setting oracle type:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get oracle type for an index
+   */
+  async getIndexOracleType(indexId: number): Promise<{ oracleType: number; oracleTypeName: string }> {
+    try {
+      console.log(`🔍 Getting Oracle Type for Index ${indexId}`);
+      
+      const oracleType = await this.oracle.methods.getIndexOracleType(indexId).call();
+      
+      const oracleTypeNames = {
+        0: 'Mock Oracle',
+        1: 'Chainlink Functions'
+      };
+      const oracleTypeName = oracleTypeNames[Number(oracleType) as keyof typeof oracleTypeNames] || `Type ${oracleType}`;
+
+      console.log(`✅ Index ${indexId} uses ${oracleTypeName}`);
+
+      return { 
+        oracleType: Number(oracleType), 
+        oracleTypeName 
+      };
+    } catch (error) {
+      console.error("❌ Error getting oracle type:", error);
       throw error;
     }
   }
@@ -673,7 +807,7 @@ export class BlockchainIndices {
       console.log("✅ Index created successfully:", tx.transactionHash);
 
       // Parse the events to get the new index ID
-      let indexId = null;
+      let indexId: number | undefined = undefined;
       if (tx.events && tx.events.CustomIndexCreated) {
         indexId = parseInt(tx.events.CustomIndexCreated.returnValues.indexId);
       }

@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { 
   RefreshCw, 
   AlertCircle, 
@@ -15,7 +17,10 @@ import {
   TrendingUp,
   TrendingDown,
   BarChart3,
-  Zap
+  Zap,
+  Shield,
+  ToggleLeft,
+  ToggleRight
 } from "lucide-react";
 import { useBlockchain } from "@/hooks/useBlockchain";
 import { blockchainService } from "@/lib/blockchain-service";
@@ -35,6 +40,14 @@ export function AdminBox({ indexId, indexName, className = "" }: AdminBoxProps) 
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isSimulating, setIsSimulating] = useState(false);
+  
+  // Oracle management state
+  const [oracleType, setOracleType] = useState<number>(0);
+  const [oracleTypeName, setOracleTypeName] = useState<string>("Mock Oracle");
+  const [isActive, setIsActive] = useState<boolean>(true);
+  const [isSettingStatus, setIsSettingStatus] = useState(false);
+  const [isSettingOracleType, setIsSettingOracleType] = useState(false);
+  const [isLoadingOracleInfo, setIsLoadingOracleInfo] = useState(false);
 
   const { isConnected, walletAddress, refreshIndices } = useBlockchain();
 
@@ -55,6 +68,30 @@ export function AdminBox({ indexId, indexName, className = "" }: AdminBoxProps) 
       setError(`Failed to load current value: ${err.message}`);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Load oracle information
+  const loadOracleInfo = async () => {
+    if (!isConnected) return;
+    
+    try {
+      setIsLoadingOracleInfo(true);
+      setError(null);
+      
+      const oracleInfo = await blockchainService.getIndexOracleType(indexId);
+      setOracleType(oracleInfo.oracleType);
+      setOracleTypeName(oracleInfo.oracleTypeName);
+      
+      // Note: For active status, we would need to add this to the API
+      // For now, we'll assume indices are active by default
+      setIsActive(true);
+      
+    } catch (err: any) {
+      console.warn(`Could not load oracle info for index ${indexId}:`, err.message);
+      // Don't show error for oracle info as it's not critical
+    } finally {
+      setIsLoadingOracleInfo(false);
     }
   };
 
@@ -86,6 +123,53 @@ export function AdminBox({ indexId, indexName, className = "" }: AdminBoxProps) 
       setError(`Failed to update index: ${err.message}`);
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  // Set index status (active/inactive)
+  const setIndexStatus = async (newStatus: boolean) => {
+    try {
+      setIsSettingStatus(true);
+      setError(null);
+      setSuccessMessage(null);
+      
+      await blockchainService.setIndexStatus(indexId, newStatus);
+      
+      setIsActive(newStatus);
+      setSuccessMessage(`Index ${indexName} ${newStatus ? 'activated' : 'deactivated'} successfully!`);
+      
+      // Refresh indices to show updated status everywhere
+      await refreshIndices();
+      
+    } catch (err: any) {
+      setError(`Failed to ${newStatus ? 'activate' : 'deactivate'} index: ${err.message}`);
+    } finally {
+      setIsSettingStatus(false);
+    }
+  };
+
+  // Set oracle type
+  const setOracleTypeHandler = async (newOracleType: string) => {
+    const oracleTypeNum = parseInt(newOracleType);
+    
+    try {
+      setIsSettingOracleType(true);
+      setError(null);
+      setSuccessMessage(null);
+      
+      const result = await blockchainService.setIndexOracleType(indexId, oracleTypeNum);
+      
+      setOracleType(oracleTypeNum);
+      setOracleTypeName(result.oracleTypeName);
+      setSuccessMessage(`Oracle type switched to ${result.oracleTypeName}!`);
+      
+      // Refresh indices to show updated oracle type everywhere
+      await refreshIndices();
+      
+    } catch (err: any) {
+      setError(`Failed to set oracle type: ${err.message}`);
+    } finally {
+      setIsSettingOracleType(false);
     }
   };
 
@@ -129,6 +213,7 @@ export function AdminBox({ indexId, indexName, className = "" }: AdminBoxProps) 
   useEffect(() => {
     if (isConnected) {
       loadIndexValue();
+      loadOracleInfo();
     }
   }, [isConnected, indexId]);
 
@@ -163,11 +248,11 @@ export function AdminBox({ indexId, indexName, className = "" }: AdminBoxProps) 
           </Badge>
         </CardTitle>
         <CardDescription>
-          Update oracle values for {indexName} (Index #{indexId})
+          Manage oracle and update values for {indexName} (Index #{indexId})
         </CardDescription>
       </CardHeader>
       
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-6">
         {/* Current Value Display */}
         <div className="flex items-center justify-between p-3 bg-white rounded-lg border">
           <div className="flex items-center space-x-2">
@@ -178,6 +263,72 @@ export function AdminBox({ indexId, indexName, className = "" }: AdminBoxProps) 
             <div className="font-mono text-lg font-bold">{currentValue.toLocaleString()}</div>
             <div className="text-xs text-gray-500">
               {lastUpdated || "Never updated"}
+            </div>
+          </div>
+        </div>
+
+        {/* Oracle Management Section */}
+        <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <div className="flex items-center space-x-2 mb-3">
+            <Shield className="w-4 h-4 text-blue-600" />
+            <span className="font-medium text-blue-900">Oracle Management</span>
+            {isLoadingOracleInfo && <RefreshCw className="w-3 h-3 animate-spin text-blue-600" />}
+          </div>
+          
+          {/* Oracle Type Selection */}
+          <div className="space-y-2">
+            <Label htmlFor={`oracle-type-${indexId}`}>Oracle Type</Label>
+            <div className="flex items-center space-x-3">
+              <Select 
+                value={oracleType.toString()} 
+                onValueChange={setOracleTypeHandler}
+                disabled={isSettingOracleType}
+              >
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="Select oracle type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">🏭 Mock Oracle</SelectItem>
+                  <SelectItem value="1">🔗 Chainlink Functions</SelectItem>
+                </SelectContent>
+              </Select>
+              {isSettingOracleType && (
+                <RefreshCw className="w-4 h-4 animate-spin text-blue-600" />
+              )}
+            </div>
+            <div className="text-sm text-gray-600">
+              Current: <span className="font-medium">{oracleTypeName}</span>
+            </div>
+          </div>
+
+          {/* Index Status Toggle */}
+          <div className="space-y-2">
+            <Label htmlFor={`index-status-${indexId}`}>Index Status</Label>
+            <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id={`index-status-${indexId}`}
+                  checked={isActive}
+                  onCheckedChange={setIndexStatus}
+                  disabled={isSettingStatus}
+                />
+                <span className="text-sm font-medium">
+                  {isActive ? (
+                    <span className="text-green-700 flex items-center">
+                      <ToggleRight className="w-4 h-4 mr-1" />
+                      Active
+                    </span>
+                  ) : (
+                    <span className="text-red-700 flex items-center">
+                      <ToggleLeft className="w-4 h-4 mr-1" />
+                      Inactive
+                    </span>
+                  )}
+                </span>
+              </div>
+              {isSettingStatus && (
+                <RefreshCw className="w-4 h-4 animate-spin text-blue-600" />
+              )}
             </div>
           </div>
         </div>
@@ -218,13 +369,16 @@ export function AdminBox({ indexId, indexName, className = "" }: AdminBoxProps) 
 
           <div className="flex justify-between items-center">
             <Button
-              onClick={loadIndexValue}
-              disabled={isLoading}
+              onClick={() => {
+                loadIndexValue();
+                loadOracleInfo();
+              }}
+              disabled={isLoading || isLoadingOracleInfo}
               variant="outline"
               size="sm"
             >
-              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh
+              <RefreshCw className={`w-4 h-4 mr-2 ${(isLoading || isLoadingOracleInfo) ? 'animate-spin' : ''}`} />
+              Refresh All
             </Button>
           </div>
         </div>
