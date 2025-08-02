@@ -794,55 +794,64 @@ export async function POST(request: NextRequest) {
     console.log('📋 ORDERS API POST:', { action, orderHash, privateKey: privateKey ? '***PROVIDED***' : 'MISSING', apiKey: apiKey ? '***PROVIDED***' : 'MISSING' });
 
     if (action === 'cancel-order') {
-      if (!orderHash || !privateKey || !apiKey) {
+      const { orderHash, walletAddress } = body;
+      
+      if (!orderHash || !walletAddress) {
         return NextResponse.json({ 
-          error: 'Missing required parameters: orderHash, privateKey, apiKey' 
+          error: 'Missing required parameters: orderHash, walletAddress' 
         }, { status: 400 });
       }
 
       try {
-        // Import the backend order cancellation
-        const backendPath = path.join(process.cwd(), '../backend/src/order-cancellation.js');
-        const orderCancellation = require(backendPath);
+        console.log('🚫 Preparing order cancellation for user wallet:', walletAddress);
+        console.log('📋 Order Hash:', orderHash);
 
-        console.log('🚫 Cancelling order:', orderHash);
-
-        // Cancel the order using the backend order cancellation
-        const result = await orderCancellation.cancelLimitOrder(
+        // For now, return cancellation data for client-side execution
+        // Client will use their wallet (MetaMask) to sign and submit the cancellation
+        const cancellationData = {
           orderHash,
-          privateKey,
-          apiKey
-        );
+          walletAddress,
+          limitOrderProtocol: CONFIG.LIMIT_ORDER_PROTOCOL,
+          chainId: CONFIG.CHAIN_ID,
+          // Client will need to:
+          // 1. Get order details from 1inch API
+          // 2. Verify they are the maker
+          // 3. Call cancelOrder on the limit order protocol contract
+          instructions: {
+            step1: 'Verify order ownership',
+            step2: 'Sign cancellation transaction with MetaMask',
+            step3: 'Submit to Base network',
+            contractAddress: CONFIG.LIMIT_ORDER_PROTOCOL,
+            methodName: 'cancelOrder'
+          }
+        };
 
-        if (result.success) {
-          console.log('✅ Order cancelled successfully:', result.transactionHash);
-          
-          return NextResponse.json({
-            success: true,
-            transactionHash: result.transactionHash,
-            blockNumber: result.blockNumber,
-            gasUsed: result.gasUsed,
-            orderHash: result.orderHash,
-            status: result.status,
-            message: `Order ${orderHash} cancelled successfully!`
-          }, {
-            headers: {
-              'Access-Control-Allow-Origin': '*',
-              'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-              'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-            },
-          });
-        } else {
-          throw new Error(result.error || 'Failed to cancel order');
-        }
-
-      } catch (backendError: any) {
-        console.error('❌ Backend order cancellation error:', backendError);
         return NextResponse.json({
-          error: 'Failed to cancel order',
-          message: backendError.message || 'Backend order cancellation error',
-          details: backendError.toString(),
-          code: backendError.code || 'UNKNOWN_ERROR'
+          success: true,
+          message: 'Order cancellation prepared - user needs to sign with wallet',
+          cancellationData,
+          orderHash,
+          walletAddress,
+          // Return the data needed for client-side cancellation
+          nextSteps: [
+            'Get order details from 1inch API',
+            'Verify wallet is order maker', 
+            'Sign cancellation transaction with MetaMask',
+            'Submit to Base network'
+          ]
+        }, {
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          },
+        });
+
+      } catch (error: any) {
+        console.error('❌ Order cancellation preparation error:', error);
+        return NextResponse.json({
+          error: 'Failed to prepare order cancellation',
+          message: error.message || 'Order cancellation preparation error'
         }, { status: 500 });
       }
 
