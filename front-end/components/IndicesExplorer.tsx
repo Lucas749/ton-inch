@@ -424,7 +424,15 @@ export function IndicesExplorer() {
                       {index.avatar}
                     </div>
                     <div>
-                      <div className="font-semibold text-gray-900">{index.name}</div>
+                      <div className="flex items-center space-x-2">
+                        <div className="font-semibold text-gray-900">{index.name}</div>
+                        {/* Show owner badge for custom blockchain indices */}
+                        {index.name.startsWith('Custom Index') && isConnected && (
+                          <Badge variant="default" className="text-xs bg-orange-500 hover:bg-orange-600">
+                            👑 Owner
+                          </Badge>
+                        )}
+                      </div>
                       <div className="text-sm text-gray-500">{index.handle}</div>
                     </div>
                   </div>
