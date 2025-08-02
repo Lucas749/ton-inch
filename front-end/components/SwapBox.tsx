@@ -235,9 +235,12 @@ export function SwapBox({
         return;
       }
       
-      // Add a small buffer for gas fees
-      if (swapAmount > userBalance - 0.001) {
-        setError(`Insufficient balance for gas fees. Leave at least 0.001 ETH for transaction fees`);
+      // Add a flexible buffer for gas fees - smaller for small transactions
+      const gasBuffer = Math.max(0.0002, Math.min(0.001, swapAmount * 0.1)); // Min 0.0002 ETH, max 0.001 ETH, or 10% of swap amount
+      const gasBufferDisplay = gasBuffer.toFixed(4);
+      
+      if (swapAmount > userBalance - gasBuffer) {
+        setError(`Insufficient balance for gas fees. Leave at least ${gasBufferDisplay} ETH for transaction fees`);
         return;
       }
     }
