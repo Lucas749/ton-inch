@@ -27,6 +27,7 @@ node test-index-order-creator.js   # Test order creation
 | `src/oracle-manager.js` | **Oracle Interface** - Query & update index data | `const result = await getAllIndices()` |
 | `src/order-manager.js` | **Order Retrieval** - Get active/historical orders | `const orders = await getAllActiveOrdersForMaker(address, apiKey)` |
 | `src/index-order-creator.js` | **Order Creation** - Create conditional limit orders | `const order = await createIndexBasedOrder({...})` |
+| `src/order-cancellation.js` | **Order Cancellation** - Cancel limit orders by hash | `const result = await cancelLimitOrder(hash, privateKey, apiKey)` |
 | `src/config.ts` | **Configuration** - Network settings, tokens, contracts | Imported by other files |
 
 ### 🧪 Test & Demo Files
@@ -37,6 +38,7 @@ node test-index-order-creator.js   # Test order creation
 | `test-oracle-manager.js` | **Complete Oracle Testing** | Full test suite: read all indices, create custom index, update values, simulate price movements, manage status |
 | `test-order-manager.js` | **Order Testing** | Retrieve your active & historical orders |
 | `test-index-order-creator.js` | **Order Creation Testing** | Create conditional orders with different indices |
+| `test-order-cancellation.js` | **Order Cancellation Testing** | Test order cancellation functionality, check cancellable orders, batch cancellation |
 
 ### 🔧 Smart Contracts
 
@@ -102,7 +104,47 @@ const orders = await getAllActiveOrdersForMaker(
 console.log(`You have ${orders.activeOrders.length} active orders`);
 ```
 
-### 4. Manage Oracle Data
+### 4. Cancel Orders
+```javascript
+const { cancelLimitOrder } = require('./src/order-cancellation');
+
+// Cancel single order
+const result = await cancelLimitOrder(
+    '0x1234567890abcdef...',         // Order hash
+    process.env.PRIVATE_KEY,         // Your private key  
+    process.env.ONEINCH_API_KEY      // API key
+);
+
+if (result.success) {
+    console.log(`✅ Order cancelled: ${result.transactionHash}`);
+} else {
+    console.log(`❌ Cancellation failed: ${result.error}`);
+}
+
+// Check if order can be cancelled first
+const canCancel = await canCancelOrder(
+    orderHash, 
+    walletAddress, 
+    apiKey
+);
+
+if (canCancel.canCancel) {
+    // Proceed with cancellation
+} else {
+    console.log(`Cannot cancel: ${canCancel.reason}`);
+}
+```
+
+### 5. CLI Order Cancellation
+```bash
+# Cancel specific order by hash
+node src/order-cancellation.js 0x1234567890abcdef...
+
+# Test cancellation functionality
+node test-order-cancellation.js
+```
+
+### 6. Manage Oracle Data
 ```javascript
 const oracleManager = require('./src/oracle-manager');
 
@@ -173,11 +215,29 @@ const useIndexData = () => {
 ```javascript
 const express = require('express');
 const { createIndexBasedOrder } = require('./src/index-order-creator');
+const { cancelLimitOrder } = require('./src/order-cancellation');
 
+// Create order
 app.post('/api/orders', async (req, res) => {
   try {
     const order = await createIndexBasedOrder(req.body);
     res.json(order);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Cancel order
+app.delete('/api/orders/:orderHash', async (req, res) => {
+  try {
+    const { orderHash } = req.params;
+    const { privateKey } = req.body;
+    const result = await cancelLimitOrder(
+      orderHash, 
+      privateKey, 
+      process.env.ONEINCH_API_KEY
+    );
+    res.json(result);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -191,6 +251,7 @@ app.post('/api/orders', async (req, res) => {
 node test-oracle-manager.js      # Complete oracle test suite (see below)
 node test-order-manager.js       # Test order retrieval  
 node test-index-order-creator.js # Test order creation
+node test-order-cancellation.js  # Test order cancellation
 ```
 
 #### 🧪 What `test-oracle-manager.js` Tests
@@ -233,6 +294,7 @@ This comprehensive test demonstrates **all oracle functionality**:
 2. **Order Creator** builds 1inch limit orders with index conditions
 3. **1inch Protocol** executes orders when conditions are met
 4. **Order Manager** tracks and retrieves order status
+5. **Order Cancellation** allows users to cancel orders before execution
 
 ## ⚠️ Safety Notes
 
