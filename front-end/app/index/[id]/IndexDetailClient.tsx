@@ -1386,63 +1386,19 @@ This matches the backend test-index-order-creator.js values exactly!`);
 
           {/* Right Column - Trading & Social Feed */}
           <div className="space-y-6">
-            {/* Conditional Order Creation Box - Only when available on blockchain */}
-            {isAvailableOnBlockchain && (
+            {/* Conditional Order Creation Box - Only for indices 0-3 */}
+            {blockchainIndexId !== null && blockchainIndexId <= 3 && (
               <Card>
                 <CardHeader>
                   <CardTitle>Create Conditional Order</CardTitle>
                   <div className="flex items-center justify-between">
                     <div className="text-sm text-gray-500">
-                      {oracleStatus.loading 
-                        ? "Checking oracle configuration..." 
-                        : `Set up an order that executes when ${realIndexData.name} meets your conditions`
-                      }
+                      Set up an order that executes when {realIndexData.name} meets your conditions
                     </div>
-                    {!oracleStatus.loading && !oracleStatus.error && (
-                      <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        oracleStatus.isChainlink 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-blue-100 text-blue-800'
-                      }`}>
-                        {oracleStatus.oracleTypeName} Oracle
-                      </div>
-                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  
-                  {/* Loading State */}
-                  {oracleStatus.loading && (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                      <span className="text-sm text-gray-500">Checking oracle status...</span>
-                    </div>
-                  )}
-
-                  {/* Error State */}
-                  {oracleStatus.error && (
-                    <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                      <div className="flex items-start">
-                        <div className="text-red-400 mr-3 mt-1">⚠️</div>
-                        <div>
-                          <h4 className="text-sm font-medium text-red-800">Oracle Check Failed</h4>
-                          <p className="text-sm text-red-600 mt-1">{oracleStatus.error}</p>
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            className="mt-2"
-                            onClick={() => blockchainIndexId !== null && checkOracleStatus(blockchainIndexId)}
-                          >
-                            <RefreshCw className="h-4 w-4 mr-1" />
-                            Retry
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Conditional Order Form - Any Oracle Type */}
-                  {!oracleStatus.loading && !oracleStatus.error && (
+                  {/* Conditional Order Form - Simplified */}
                   <>
                     <div>
                       <label className="text-sm font-medium">Description</label>
@@ -1641,6 +1597,28 @@ This matches the backend test-index-order-creator.js values exactly!`);
               indexName={realIndexData.name}
             />
 
+            {/* Oracle Connection Card - For indices 4+ */}
+            {blockchainIndexId !== null && blockchainIndexId > 3 && (
+              <Card className="border-blue-200 bg-blue-50">
+                <CardContent className="p-6 text-center">
+                  <div className="w-16 h-16 mx-auto mb-4 bg-blue-100 rounded-full flex items-center justify-center">
+                    <Activity className="w-8 h-8 text-blue-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-blue-900 mb-2">Oracle Connection Required</h3>
+                  <p className="text-blue-700 mb-4">
+                    This index requires an oracle connection to enable conditional orders. Please connect or configure an oracle for this index.
+                  </p>
+                  <Button 
+                    onClick={handleRequestIndex}
+                    disabled={isRequestingIndex}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    {isRequestingIndex ? "Connecting..." : "Connect Oracle"}
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Request Index Card - Only when NOT available on blockchain */}
             {!isAvailableOnBlockchain && (
               <Card className="border-orange-200 bg-orange-50">
@@ -1663,8 +1641,8 @@ This matches the backend test-index-order-creator.js values exactly!`);
               </Card>
             )}
 
-            {/* Admin Box - Only for blockchain indices when connected */}
-            {isAvailableOnBlockchain && blockchainIndexId !== null && (
+            {/* Admin Box - Only for indices 0-3 when connected */}
+            {blockchainIndexId !== null && blockchainIndexId <= 3 && (
               <AdminBox 
                 indexId={blockchainIndexId}
                 indexName={realIndexData.name}
