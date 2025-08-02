@@ -85,6 +85,9 @@ export async function POST(request: NextRequest) {
           try {
             const decodedLogs = receipt.logs.map(log => {
               try {
+                if (!log.data || !log.topics || log.topics.length === 0) {
+                  return null;
+                }
                 return web3.eth.abi.decodeLog(
                   [
                     { type: 'uint256', name: 'indexId', indexed: true },
@@ -92,16 +95,16 @@ export async function POST(request: NextRequest) {
                     { type: 'uint256', name: 'timestamp' },
                     { type: 'string', name: 'sourceUrl' }
                   ],
-                  log.data,
-                  log.topics.slice(1)
+                  log.data.toString(),
+                  log.topics.slice(1).map(topic => topic.toString())
                 );
               } catch {
                 return null;
               }
             }).filter(Boolean);
             
-            if (decodedLogs.length > 0 && decodedLogs[0].indexId) {
-              indexId = parseInt(decodedLogs[0].indexId);
+            if (decodedLogs.length > 0 && decodedLogs[0] && (decodedLogs[0] as any).indexId) {
+              indexId = parseInt((decodedLogs[0] as any).indexId);
             }
           } catch (error) {
             console.warn('Could not parse event logs for index ID:', error);
