@@ -58,11 +58,20 @@ export interface TokenDetails extends Token {
   synth?: boolean;
 }
 
-// Popular tokens for Base Sepolia (testnet)
+// Popular tokens for Base mainnet (updated for ETH/WETH defaults)
 export const POPULAR_BASE_MAINNET_TOKENS: Token[] = [
   {
+    address: '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE',
+    chainId: BASE_MAINNET_CHAIN_ID,
+    name: 'Ether',
+    symbol: 'ETH',
+    decimals: 18,
+    logoURI: 'https://tokens.1inch.io/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee.png',
+    tags: ['tokens', 'native']
+  },
+  {
     address: '0x4200000000000000000000000000000000000006',
-    chainId: 84532,
+    chainId: BASE_MAINNET_CHAIN_ID,
     name: 'Wrapped Ether',
     symbol: 'WETH',
     decimals: 18,
@@ -70,22 +79,13 @@ export const POPULAR_BASE_MAINNET_TOKENS: Token[] = [
     tags: ['tokens']
   },
   {
-    address: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
-    chainId: 84532,
+    address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+    chainId: BASE_MAINNET_CHAIN_ID,
     name: 'USD Coin',
     symbol: 'USDC',
     decimals: 6,
     logoURI: 'https://tokens.1inch.io/0xa0b86a33e6f8c2b9c9c2b4d0e0b4e4b4e4b4e4b4.png',
     tags: ['tokens', 'stablecoin']
-  },
-  {
-    address: '0x2026c63430A1B526638bEF55Fea7174220cD3965',
-    chainId: 84532,
-    name: 'Test USDC',
-    symbol: 'TestUSDC',
-    decimals: 6,
-    logoURI: 'https://tokens.1inch.io/0xa0b86a33e6f8c2b9c9c2b4d0e0b4e4b4e4b4e4b4.png',
-    tags: ['tokens', 'test']
   }
 ];
 
