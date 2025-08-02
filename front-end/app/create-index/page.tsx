@@ -55,7 +55,7 @@ export default function CreateIndex() {
     expiry: "24" // hours
   });
 
-  const { isConnected, indices: blockchainIndices, refreshIndices } = useBlockchain();
+  const { isConnected, walletAddress, indices: blockchainIndices, refreshIndices } = useBlockchain();
   const { createOrder, isLoading: isCreatingOrder } = useOrders();
 
   // Convert blockchain indices to IndexWithOrders format
