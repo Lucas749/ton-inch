@@ -14,52 +14,40 @@ export default function Home() {
   const router = useRouter();
   const { indices: blockchainIndices } = useBlockchain();
 
-  // Get blockchain indices 0-4 for featured section
+  // Get blockchain indices 0-4 for featured section with appropriate icons
   const featuredBlockchainIndices = blockchainIndices.slice(0, 5);
-
-  // Custom indices data (renamed from Market Events)
-  const customIndices = [
-    {
-      id: 1,
-      title: "Tech Innovation Index",
-      time: "Live",
-      status: "active",
-      category: "Custom",
-      icon: "🚀",
-      participants: ["AI", "Cloud", "Semis"],
-      performance: "+15.2%"
-    },
-    {
-      id: 2,
-      title: "ESG Leaders Basket",
-      time: "Live", 
-      status: "active",
-      category: "Custom",
-      icon: "🌱",
-      participants: ["TSLA", "MSFT", "NVDA"],
-      performance: "+8.7%"
-    },
-    {
-      id: 3,
-      title: "Dividend Aristocrats",
-      time: "Live",
-      status: "active", 
-      category: "Custom",
-      icon: "💎",
-      participants: ["KO", "JNJ", "PG"],
-      performance: "+4.1%"
-    },
-    {
-      id: 4,
-      title: "Volatility Hedge",
-      time: "Live",
-      status: "active",
-      category: "Custom", 
-      icon: "🛡️",
-      participants: ["VIX", "GOLD", "TLT"],
-      performance: "-2.3%"
+  
+  // Icon mapping for blockchain indices based on what they represent
+  const getIconForIndex = (index: any) => {
+    const iconMap: { [key: number]: string } = {
+      0: "📈", // Inflation Rate
+      1: "🐦", // Elon Followers (Twitter)
+      2: "₿",  // BTC Price
+      3: "⚡", // VIX Index (Volatility)
+      4: "👥", // Unemployment
+      5: "🚗"  // Tesla Stock
+    };
+    
+    // Use category-based fallbacks for unknown indices
+    if (iconMap[index.id]) {
+      return iconMap[index.id];
     }
-  ];
+    
+    // Category-based icon fallbacks
+    switch (index.category?.toLowerCase()) {
+      case 'crypto': return "🪙";
+      case 'stocks': return "📊";
+      case 'economics': return "🏛️";
+      case 'intelligence': return "🧠";
+      case 'indices': return "📈";
+      case 'commodities': return "🥇";
+      case 'forex': return "💱";
+      default: return "🔵";
+    }
+  };
+
+  // All blockchain indices for custom section (instead of mock data)
+  const customBlockchainIndices = blockchainIndices;
 
   // Top AlphaVantage categories
   const topStocks = [
@@ -106,18 +94,18 @@ export default function Home() {
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white text-lg font-bold">
-                        📊
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xl">
+                        {getIconForIndex(index)}
                       </div>
                       <div>
                         <div className="font-semibold text-gray-900">{index.name || `Index ${index.id}`}</div>
-                        <div className="text-sm text-gray-500">#{index.id}</div>
+                        <div className="text-sm text-gray-500">{index.symbol || `#${index.id}`}</div>
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center justify-between text-xs text-gray-500">
                     <span>Value: {(index.value / 100).toFixed(2)}</span>
-                    <Badge variant="secondary" className="text-xs">Blockchain</Badge>
+                    <Badge variant="secondary" className="text-xs">{index.category || 'Index'}</Badge>
                   </div>
                 </CardContent>
               </Card>
@@ -129,7 +117,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Custom Indices Section - Renamed from Market Events */}
+        {/* Custom Indices Section - All Blockchain Indices */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold text-gray-900 flex items-center">
@@ -142,36 +130,50 @@ export default function Home() {
           </div>
           
           <div className="flex space-x-4 overflow-x-auto pb-4">
-            {customIndices.map((index) => (
-              <Card key={index.id} className="min-w-[280px] hover:shadow-md transition-all duration-200 cursor-pointer border border-gray-200">
+            {customBlockchainIndices.length > 0 ? customBlockchainIndices.map((index) => (
+              <Card 
+                key={index.id} 
+                className="min-w-[280px] hover:shadow-md transition-all duration-200 cursor-pointer border border-gray-200"
+                onClick={() => router.push(`/index/blockchain_${index.id}`)}
+              >
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center space-x-2">
-                      <span className="text-lg">{index.icon}</span>
+                      <span className="text-lg">{getIconForIndex(index)}</span>
                       <div>
-                        <div className="font-medium text-gray-900 text-sm">{index.title}</div>
-                        <div className="text-xs text-gray-500">{index.time}</div>
+                        <div className="font-medium text-gray-900 text-sm">{index.name || `Index ${index.id}`}</div>
+                        <div className="text-xs text-gray-500">#{index.id} • {index.symbol || 'IDX'}</div>
                       </div>
                     </div>
-                    <div className={`text-xs font-medium px-2 py-1 rounded ${
-                      index.performance.startsWith('+') ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'
-                    }`}>
-                      {index.performance}
+                    <div className="text-xs font-medium px-2 py-1 rounded text-blue-600 bg-blue-50">
+                      {(index.value / 100).toFixed(2)}
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-500">{index.category}</span>
+                    <span className="text-xs text-gray-500">{index.category || 'Custom'}</span>
                     <div className="flex space-x-1">
-                      {index.participants.slice(0, 3).map((participant, idx) => (
-                        <Badge key={idx} variant="outline" className="text-xs px-1 py-0">
-                          {participant}
+                      <Badge variant="outline" className="text-xs px-2 py-0">
+                        Live
+                      </Badge>
+                      {index.active && (
+                        <Badge variant="secondary" className="text-xs px-2 py-0 bg-green-100 text-green-800">
+                          Active
                         </Badge>
-                      ))}
+                      )}
                     </div>
                   </div>
                 </CardContent>
               </Card>
-            ))}
+            )) : (
+              <Card className="min-w-[280px] border border-gray-200">
+                <CardContent className="p-4 text-center">
+                  <div className="text-gray-500">
+                    <div className="text-lg mb-2">🔗</div>
+                    <div className="text-sm">Connect wallet to view custom indices</div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
 
