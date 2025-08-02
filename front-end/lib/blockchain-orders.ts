@@ -189,20 +189,10 @@ export class BlockchainOrders {
         transactionHash: result.orderHash
       };
 
-      // Add to in-memory cache instead of clearing it
-      console.log('💾 Adding order to in-memory cache for index', params.indexId);
-      const cached = this.orderCache.get(params.indexId);
-      if (cached) {
-        cached.orders.unshift(newOrder); // Add to beginning
-        cached.timestamp = Date.now(); // Update timestamp
-      } else {
-        this.orderCache.set(params.indexId, {
-          orders: [newOrder],
-          timestamp: Date.now()
-        });
-      }
+      // Skip in-memory cache - use persistent storage only
+      console.log('💾 Skipping in-memory cache, saving directly to persistent storage only');
 
-      // Also save to persistent localStorage cache
+      // Save to persistent localStorage cache
       try {
         console.log('💾 Saving order to persistent localStorage cache');
         
@@ -256,7 +246,7 @@ export class BlockchainOrders {
         console.log('✅ Saved new order to persistent localStorage cache');
         
       } catch (cacheError) {
-        console.error('⚠️ Failed to save order to persistent cache, but in-memory cache updated:', cacheError);
+        console.error('⚠️ Failed to save order to persistent cache:', cacheError);
         // Don't fail the whole operation if persistent cache save fails
       }
 
@@ -521,30 +511,27 @@ export class BlockchainOrders {
   }
 
   /**
-   * Get all orders for a specific index from cache only (no blockchain loading)
+   * Get all orders for a specific index from persistent cache only
    */
   async getOrdersByIndex(indexId: number): Promise<any[]> {
-    // Only return cached orders - no blockchain loading
-    const cached = this.orderCache.get(indexId);
-    const orders = cached?.orders || [];
-    
-    console.log(`📋 Loaded ${orders.length} cached orders for index ${indexId}`);
-    return orders;
+    try {
+      const allOrders = await this.getAllCachedOrders();
+      const indexOrders = allOrders.filter(order => order.indexId === indexId);
+      
+      console.log(`📋 Loaded ${indexOrders.length} persistent orders for index ${indexId}`);
+      return indexOrders;
+      
+    } catch (error) {
+      console.error(`⚠️ Failed to load orders for index ${indexId}:`, error);
+      return [];
+    }
   }
 
   /**
    * Get ALL cached orders across all indices (for portfolio overview)
-   * Merges both in-memory cache and persistent localStorage cache
+   * Uses persistent localStorage cache only
    */
   async getAllCachedOrders(): Promise<any[]> {
-    const allOrders: any[] = [];
-    
-    // Get orders from in-memory cache
-    for (const [indexId, cacheData] of Array.from(this.orderCache.entries())) {
-      allOrders.push(...cacheData.orders);
-    }
-    
-    // Get orders from persistent localStorage cache
     try {
       const persistentOrders = OrderCacheService.getAllOrders();
       
@@ -577,33 +564,16 @@ export class BlockchainOrders {
         transactionHash: persistentOrder.orderHash
       }));
       
-      // Merge orders, avoiding duplicates (persistent cache takes precedence for status)
-      const mergedOrders = [...allOrders];
-      
-      for (const persistentOrder of convertedPersistentOrders) {
-        const existingIndex = mergedOrders.findIndex(order => order.hash === persistentOrder.hash);
-        if (existingIndex >= 0) {
-          // Update existing order with persistent cache status (more reliable)
-          mergedOrders[existingIndex] = { ...mergedOrders[existingIndex], ...persistentOrder };
-        } else {
-          // Add new order from persistent cache
-          mergedOrders.push(persistentOrder);
-        }
-      }
-      
       // Sort by creation time (newest first)
-      mergedOrders.sort((a, b) => b.createdAt - a.createdAt);
+      convertedPersistentOrders.sort((a, b) => b.createdAt - a.createdAt);
       
-      console.log(`📋 Loaded ${allOrders.length} in-memory + ${walletPersistentOrders.length} persistent = ${mergedOrders.length} total cached orders`);
-      return mergedOrders;
+      console.log(`📋 Loaded ${walletPersistentOrders.length} persistent orders (persistent storage only)`);
+      return convertedPersistentOrders;
       
     } catch (error) {
-      console.error('⚠️ Failed to load persistent cache, using in-memory cache only:', error);
-      
-      // Fallback to in-memory cache only
-      allOrders.sort((a, b) => b.createdAt - a.createdAt);
-      console.log(`📋 Loaded ${allOrders.length} total cached orders (in-memory only)`);
-      return allOrders;
+      console.error('⚠️ Failed to load persistent cache:', error);
+      console.log('📋 No orders loaded - persistent storage failed');
+      return [];
     }
   }
 
