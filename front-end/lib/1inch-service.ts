@@ -1,5 +1,17 @@
 import { Hex } from "viem";
 
+// Type definitions for window.ethereum
+declare global {
+  interface Window {
+    ethereum?: {
+      request: (args: {
+        method: string;
+        params?: any[];
+      }) => Promise<any>;
+    };
+  }
+}
+
 // Base mainnet configuration (1inch doesn't support testnets)
 const BASE_MAINNET_CHAIN_ID = 8453;
 const INCH_API_BASE_URL = `https://api.1inch.dev/swap/v6.1/${BASE_MAINNET_CHAIN_ID}`;
@@ -639,12 +651,12 @@ export class OneInchService {
   }
 
   /**
-   * Complete Intent swap flow: create order and monitor status
+   * Complete Intent swap flow: create order, get user signature, and submit
    */
   async performIntentSwap(
     params: IntentSwapParams
-  ): Promise<{ orderHash: string; quoteId: string }> {
-    console.log("Creating Intent swap order...");
+  ): Promise<{ orderHash: string; message: string; requiresSignature?: boolean; orderToSign?: any; domain?: any; types?: any }> {
+    console.log("🚀 Starting Fusion intent swap flow...");
 
     const orderRequest: IntentSwapOrderRequest = {
       srcToken: params.srcToken,
@@ -652,25 +664,73 @@ export class OneInchService {
       amount: params.amount,
       walletAddress: params.walletAddress,
       preset: params.preset || "fast",
-      ...(params.takingSurplusRecipient && {
-        takingSurplusRecipient: params.takingSurplusRecipient,
-      }),
-      ...(params.permits && { permits: params.permits }),
-      ...(params.receiver && { receiver: params.receiver }),
-      ...(params.nonce && { nonce: params.nonce }),
     };
 
+    // Step 1: Create order for signing
     const orderResponse = await this.createIntentSwapOrder(orderRequest);
 
-    console.log("Intent swap order created:", {
-      orderHash: orderResponse.orderHash,
-      quoteId: orderResponse.quoteId,
-    });
+    if (orderResponse.requiresSignature) {
+      console.log("📝 Order created - requires wallet signature");
+      
+      // Check if we have access to window and provider
+      if (typeof window === 'undefined' || !window.ethereum) {
+        throw new Error("No wallet provider found. Please connect your wallet.");
+      }
 
-    return {
-      orderHash: orderResponse.orderHash,
-      quoteId: orderResponse.quoteId,
-    };
+      try {
+        // Request wallet signature using EIP-712
+        console.log("🔐 Requesting wallet signature...");
+        
+        const signature = await window.ethereum.request({
+          method: 'eth_signTypedData_v4',
+          params: [
+            params.walletAddress,
+            JSON.stringify({
+              domain: orderResponse.domain,
+              types: orderResponse.types,
+              primaryType: 'Order',
+              message: orderResponse.order
+            })
+          ]
+        });
+
+        console.log("✅ Order signed successfully");
+
+        // Step 2: Submit signed order
+        const submitResponse = await this.submitSignedIntentOrder(
+          orderResponse.order,
+          signature,
+          params.chainId
+        );
+
+        console.log("🎯 Intent swap order submitted:", {
+          orderHash: submitResponse.orderHash,
+          status: submitResponse.status
+        });
+
+        return {
+          orderHash: submitResponse.orderHash,
+          message: submitResponse.message
+        };
+
+      } catch (signError) {
+        console.error("❌ Wallet signing failed:", signError);
+        
+        if (signError.code === 4001) {
+          throw new Error("User rejected the signing request. Fusion orders require wallet signature.");
+        }
+        
+        throw new Error(`Wallet signing failed: ${signError.message || 'Unknown error'}`);
+      }
+
+    } else {
+      // Fallback for older implementation
+      console.log("⚠️ Using fallback flow (no signature required)");
+      return {
+        orderHash: orderResponse.orderHash || "fallback",
+        message: "Order processed via fallback method"
+      };
+    }
   }
 }
 
