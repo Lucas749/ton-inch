@@ -12,10 +12,7 @@ import {
   Plus,
   Activity,
   BarChart3,
-  MessageCircle,
-  Heart,
-  Repeat2,
-  Eye,
+
   Loader2,
   RefreshCw,
   ArrowUpDown
@@ -1265,52 +1262,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                 className="mt-0"
               />
             )}
-            
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <MessageCircle className="w-5 h-5" />
-                  <span>Latest Buzz</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {index.socialFeed.map((post: any) => (
-                  <div key={post.id} className="border-b border-gray-100 pb-4 last:border-b-0">
-                    <div className="flex items-start space-x-3">
-                      <div className="w-8 h-8 bg-gray-300 rounded-full"></div>
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2">
-                          <span className="font-medium text-sm">{post.user}</span>
-                          <span className="text-gray-500 text-sm">{post.handle}</span>
-                          <span className="text-gray-400 text-sm">•</span>
-                          <span className="text-gray-400 text-sm">{post.time}</span>
-                        </div>
-                        <p className="text-sm text-gray-700 mt-1">{post.content}</p>
-                        
-                        <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
-                          <div className="flex items-center space-x-1">
-                            <MessageCircle className="w-3 h-3" />
-                            <span>{post.replies}</span>
-                          </div>
-                          <div className="flex items-center space-x-1">
-                            <Repeat2 className="w-3 h-3" />
-                            <span>{post.retweets}</span>
-                          </div>
-                          <div className="flex items-center space-x-1">
-                            <Heart className="w-3 h-3" />
-                            <span>{post.likes}</span>
-                          </div>
-                          <div className="flex items-center space-x-1">
-                            <Eye className="w-3 h-3" />
-                            <span>{post.views}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
+
 
             {/* Connection Warning */}
             {!isConnected && (
