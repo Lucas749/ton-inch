@@ -305,14 +305,15 @@ class TokenService {
   }
 
   /**
-   * Get token logo URL with safe fallback
+   * Get token logo URL with safe proxy fallback
    */
   getTokenLogoUrl(token: Token): string {
     if (token.logoURI && token.logoURI.startsWith('http')) {
-      return token.logoURI;
+      // Use image proxy to avoid CORB issues
+      return `/api/proxy-image?url=${encodeURIComponent(token.logoURI)}`;
     }
     
-    // Use a safe base64 encoded SVG fallback instead of external URLs
+    // Use a safe base64 encoded SVG fallback for tokens without logoURI
     return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTYiIGZpbGw9IiM2MzY2RjEiLz4KPHN2ZyB4PSI4IiB5PSI4IiB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSI+CjxjaXJjbGUgY3g9IjEyIiBjeT0iMTIiIHI9IjMiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xMiAxdjJtMCAxOHYybTExLTEyaC0ybS0xOCAwaDIiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+Cjwvc3ZnPgo8L3N2Zz4K';
   }
 
