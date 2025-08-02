@@ -1,4 +1,4 @@
-# 🦄 Unicorn Project - Event-Triggered DeFi Strategies
+# c1nch - Smart Limit Orders Triggered by Real-World Events
 
 Revolutionary DeFi platform that executes token swaps based on **real-world events** using **1inch Protocol** and **Alpha Vantage data**.
 
@@ -128,7 +128,7 @@ PRIVATE_KEY=your_private_key_for_testing_only
 ## 📁 **Project Structure**
 
 ```
-unicorn-project/
+c1nch/
 ├── front-end/                 # 🎨 Main Next.js Application
 │   ├── app/                   # Next.js 13 App Router
 │   ├── components/            # React components

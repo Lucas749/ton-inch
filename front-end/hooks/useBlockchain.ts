@@ -2,9 +2,11 @@
  * 🪝 React Hook for Blockchain Integration
  *
  * This hook provides easy access to blockchain functionality in React components
+ * Integrates with RainbowKit/wagmi for wallet connection
  */
 
 import { useState, useEffect, useCallback } from "react";
+import { useAccount, useBalance, useChainId, useConnect, useDisconnect } from "wagmi";
 import {
   blockchainService,
   CustomIndex,
@@ -20,8 +22,8 @@ export interface UseBlockchainReturn {
   error: string | null;
 
   // Network info
-  chainId: number | null;
-  networkName: string | null;
+  chainId: number;
+  networkName: string;
 
   // Balances
   ethBalance: string | null;
@@ -40,59 +42,74 @@ export interface UseBlockchainReturn {
   refreshIndices: () => Promise<void>;
   validateCondition: (condition: OrderCondition) => Promise<boolean>;
   getTokenBalance: (tokenAddress: string) => Promise<string>;
-  switchToBaseSepoliaNetwork: () => Promise<boolean>;
+  switchToBaseMainnet: () => Promise<boolean>;
+  getPrivateKeyForDemo: () => Promise<string>;
 
   // Utils
   clearError: () => void;
+  isOwner: boolean;
 }
 
 export function useBlockchain(): UseBlockchainReturn {
-  const [isConnected, setIsConnected] = useState(false);
-  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  // Use RainbowKit/wagmi hooks for wallet state
+  const { address, isConnected: wagmiIsConnected } = useAccount();
+  const { data: balance } = useBalance({ address });
+  const chainId = useChainId();
+  const { connect, connectors } = useConnect();
+  const { disconnect } = useDisconnect();
+  
+  // Local state for blockchain-specific data
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [chainId, setChainId] = useState<number | null>(null);
-  const [networkName, setNetworkName] = useState<string | null>(null);
-  const [ethBalance, setEthBalance] = useState<string | null>(null);
   const [indices, setIndices] = useState<CustomIndex[]>([]);
+  const [isOwner, setIsOwner] = useState<boolean>(false);
+
+  // Derive state from wagmi
+  const isConnected = wagmiIsConnected;
+  const walletAddress = address || null;
+  const ethBalance = balance ? balance.formatted : null;
+  const networkName = chainId === 8453 ? "Base Mainnet" : `Chain ${chainId}`;
 
   // Clear error helper
   const clearError = useCallback(() => {
     setError(null);
   }, []);
 
-  // Connect wallet
+  // Connect wallet using RainbowKit with improved error handling
   const connectWallet = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
 
-      const address = await blockchainService.connectWallet();
-      if (address) {
-        setWalletAddress(address);
-        setIsConnected(true);
+      // Check if we already have a connection attempt in progress
+      if (isLoading) {
+        console.log("⏳ Connection already in progress, skipping duplicate attempt");
+        return;
+      }
 
-        // Get network info
-        const networkInfo = await blockchainService.getNetworkInfo();
-        setChainId(networkInfo.chainId);
-        setNetworkName(networkInfo.networkName);
-
-        // Get ETH balance
-        const balance = await blockchainService.getETHBalance();
-        setEthBalance(balance);
-
-        // Load indices
-        await refreshIndices();
+      // Use the first available connector (usually MetaMask/injected)
+      const connector = connectors[0];
+      if (connector) {
+        console.log("🔌 Attempting to connect with connector:", connector.name);
+        connect({ connector });
+      } else {
+        throw new Error("No wallet connector available");
       }
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to connect wallet";
-      setError(errorMessage);
+      
+      // Don't set error for user rejection or connection interruption
+      if (!errorMessage.includes("User rejected") && 
+          !errorMessage.includes("Connection interrupted")) {
+        setError(errorMessage);
+      }
+      
       console.error("❌ Wallet connection failed:", err);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [connect, connectors, isLoading]);
 
   // Create new index
   const createIndex = useCallback(
@@ -154,16 +171,40 @@ export function useBlockchain(): UseBlockchainReturn {
     []
   );
 
-  // Refresh indices
+  // Check if user is contract owner
+  const checkOwnership = useCallback(async () => {
+    try {
+      const ownerStatus = await blockchainService.isContractOwner();
+      setIsOwner(ownerStatus);
+    } catch (err) {
+      console.error("❌ Failed to check ownership:", err);
+      setIsOwner(false);
+    }
+  }, []);
+
+  // Refresh indices with debounce to prevent multiple rapid calls
   const refreshIndices = useCallback(async () => {
     try {
+      console.log('🔄 useBlockchain: Refreshing indices...');
+      console.log('🔍 useBlockchain: Wallet connected:', isConnected);
+      console.log('🔍 useBlockchain: Wallet address:', walletAddress);
+      
+      // DON'T clear cache - we want to preserve cached orders and data
+      // Only fetch fresh data and merge with existing cache
       const allIndices = await blockchainService.getAllIndices();
+      
+      console.log('🔍 useBlockchain: Loaded indices from service:', allIndices);
       setIndices(allIndices);
+      
+      // Only check ownership if wallet is connected
+      if (isConnected && walletAddress) {
+        await checkOwnership();
+      }
     } catch (err) {
       console.error("❌ Failed to refresh indices:", err);
       // Don't set error state for background refresh failures
     }
-  }, []);
+  }, [checkOwnership, isConnected, walletAddress]);
 
   // Validate order condition
   const validateCondition = useCallback(
@@ -195,11 +236,11 @@ export function useBlockchain(): UseBlockchainReturn {
     []
   );
 
-  // Switch to Base Sepolia network
-  const switchToBaseSepoliaNetwork = useCallback(async (): Promise<boolean> => {
+  // Switch to Base Mainnet network
+  const switchToBaseMainnet = useCallback(async (): Promise<boolean> => {
     try {
       setError(null);
-      const success = await blockchainService.switchToBaseSepoliaNetwork();
+      const success = await blockchainService.switchToBaseMainnet();
       
       if (success) {
         // Refresh network info after switching
@@ -217,54 +258,81 @@ export function useBlockchain(): UseBlockchainReturn {
     }
   }, []);
 
-  // Set up event listeners on mount
+  // Get private key for demo operations (WARNING: Demo only!)
+  const getPrivateKeyForDemo = useCallback(async (): Promise<string> => {
+    try {
+      setError(null);
+      return await blockchainService.getPrivateKeyForDemo();
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to get demo private key";
+      setError(errorMessage);
+      throw err;
+    }
+  }, []);
+
+  // Load indices on component mount (regardless of wallet connection)
   useEffect(() => {
-    // Check if already connected
-    if (blockchainService.isWalletConnected()) {
-      const address = blockchainService.getWalletAddress();
-      if (address) {
-        setWalletAddress(address);
-        setIsConnected(true);
+    console.log('🔄 useBlockchain: Loading indices on mount...');
+    refreshIndices().catch((err) => {
+      console.warn("Warning: Failed to load indices on mount:", err);
+    });
+  }, []); // Only run once on mount
 
-        // Load initial data
-        blockchainService.getNetworkInfo().then((networkInfo) => {
-          setChainId(networkInfo.chainId);
-          setNetworkName(networkInfo.networkName);
-        });
+  // Sync wagmi wallet state with blockchain service
+  useEffect(() => {
+    console.log('🔄 useBlockchain wallet sync triggered');
+    console.log('🔍 isConnected:', isConnected);
+    console.log('🔍 walletAddress:', walletAddress);
+    
+    // Sync wallet state with blockchain service
+    blockchainService.wallet.syncExternalWallet(walletAddress);
+    
+    if (isConnected && walletAddress) {
+      console.log('✅ Wallet connected, refreshing indices and checking ownership...');
+      refreshIndices().catch((err) => {
+        console.warn("Warning: Failed to refresh indices after wallet connection:", err);
+      });
+    } else {
+      console.log('❌ Wallet not connected, clearing ownership status...');
+      // Only reset ownership status, keep indices visible
+      setIsOwner(false);
+      // Clear errors on disconnect to prevent stale error states
+      setError(null);
+    }
+  }, [isConnected, walletAddress]); // Removed refreshIndices from dependency array to prevent infinite loop
 
-        blockchainService.getETHBalance().then((balance) => {
-          setEthBalance(balance);
-        });
+  // Handle wallet disconnect events and connection recovery
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
 
-        refreshIndices();
+    const handleAccountsChanged = (accounts: string[]) => {
+      console.log('🔄 Accounts changed:', accounts);
+      if (accounts.length === 0) {
+        console.log('🚪 Wallet disconnected');
+        // Clear any connection errors when wallet is manually disconnected
+        setError(null);
       }
+    };
+
+    const handleDisconnect = () => {
+      console.log('🚪 Wallet disconnected event');
+      setError(null);
+    };
+
+    // Listen for wallet events
+    if ((window as any).ethereum) {
+      (window as any).ethereum.on('accountsChanged', handleAccountsChanged);
+      (window as any).ethereum.on('disconnect', handleDisconnect);
     }
 
-    // Listen for account changes
-    blockchainService.onAccountChanged((account) => {
-      if (account) {
-        setWalletAddress(account);
-        setIsConnected(true);
-
-        // Refresh balances and data for new account
-        blockchainService.getETHBalance().then(setEthBalance);
-        refreshIndices();
-      } else {
-        setWalletAddress(null);
-        setIsConnected(false);
-        setEthBalance(null);
-        setIndices([]);
+    return () => {
+      if ((window as any).ethereum) {
+        (window as any).ethereum.removeListener('accountsChanged', handleAccountsChanged);
+        (window as any).ethereum.removeListener('disconnect', handleDisconnect);
       }
-    });
-
-    // Listen for network changes
-    blockchainService.onNetworkChanged((chainId) => {
-      blockchainService.getNetworkInfo().then((networkInfo) => {
-        setChainId(networkInfo.chainId);
-        setNetworkName(networkInfo.networkName);
-      });
-    });
-  }, [refreshIndices]);
+    };
+  }, []);
 
   return {
     // State
@@ -284,10 +352,12 @@ export function useBlockchain(): UseBlockchainReturn {
     refreshIndices,
     validateCondition,
     getTokenBalance,
-    switchToBaseSepoliaNetwork,
+    switchToBaseMainnet,
+    getPrivateKeyForDemo,
 
     // Utils
     clearError,
+    isOwner,
   };
 }
 

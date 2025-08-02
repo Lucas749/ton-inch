@@ -61,6 +61,7 @@ export function IndexManager({
     updateIndex,
     refreshIndices,
     clearError,
+    isOwner,
   } = useBlockchain();
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -294,6 +295,11 @@ export function IndexManager({
                             <Badge variant="outline" className="text-xs">
                               ID: {index.id}
                             </Badge>
+                            {isOwner && (
+                              <Badge variant="default" className="text-xs bg-orange-500 hover:bg-orange-600">
+                                👑 Owner
+                              </Badge>
+                            )}
                             {index.active && (
                               <Badge
                                 variant="default"

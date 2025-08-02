@@ -1,23 +1,35 @@
-import { createPublicClient, createWalletClient, Hex, http } from "viem";
-import { baseSepolia } from "viem/chains";
-import { privateKeyToAccount } from "viem/accounts";
+import { Hex } from "viem";
+import { OrderCacheService, SavedOrder } from './order-cache-service';
+import { tokenService } from './token-service';
 
-// Base Sepolia configuration
-const BASE_SEPOLIA_CHAIN_ID = 84532;
-const INCH_API_BASE_URL = `https://api.1inch.dev/swap/v6.1/${BASE_SEPOLIA_CHAIN_ID}`;
-const INCH_FUSION_API_BASE_URL = `https://api.1inch.dev/fusion/v1.0/${BASE_SEPOLIA_CHAIN_ID}`;
+// Type definitions for window.ethereum
+declare global {
+  interface Window {
+    ethereum?: {
+      request: (args: {
+        method: string;
+        params?: any[];
+      }) => Promise<any>;
+    };
+  }
+}
 
-// Common token addresses on Base Sepolia
+// Base mainnet configuration (1inch doesn't support testnets)
+const BASE_MAINNET_CHAIN_ID = 8453;
+const INCH_API_BASE_URL = `https://api.1inch.dev/swap/v6.1/${BASE_MAINNET_CHAIN_ID}`;
+// Fusion API now handled through proxy endpoints
+
+// Common token addresses on Base mainnet
 export const TOKENS = {
-  USDC: "0x036CbD53842c5426634e7929541eC2318f3dCF7e", // USDC on Base Sepolia
-  WETH: "0x4200000000000000000000000000000000000006", // WETH on Base Sepolia
-  ETH: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE", // Native ETH
+  USDC: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // Native USDC on Base mainnet (Circle)
+  USDBC: "0xd9aAEc86B65D86f6A7B5B1b0c42FFA531710b6CA", // Bridged USDC on Base mainnet
+  WETH: "0x4200000000000000000000000000000000000006", // WETH on Base mainnet
+  ETH: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE", // Native ETH placeholder
 };
 
 export interface SwapConfig {
   apiKey: string;
   rpcUrl: string;
-  privateKey?: Hex;
   walletAddress: string;
 }
 
@@ -127,18 +139,42 @@ export interface IntentSwapOrderRequest {
 
 export interface IntentSwapOrderResponse {
   order: {
-    salt: string;
-    maker: string;
-    receiver: string;
-    makerAsset: string;
-    takerAsset: string;
-    makingAmount: string;
-    takingAmount: string;
-    makerTraits: string;
+    salt?: string;
+    maker?: string;
+    receiver?: string;
+    makerAsset?: string;
+    takerAsset?: string;
+    makingAmount?: string;
+    takingAmount?: string;
+    makerTraits?: string;
+    // New Fusion order properties
+    fromToken?: string;
+    toToken?: string;
+    fromAmount?: string;
+    toAmount?: string;
+    validUntil?: number;
+    nonce?: string;
   };
   signature: string;
   orderHash: string;
   quoteId: string;
+  // New properties for signing flow
+  requiresSignature?: boolean;
+  domain?: {
+    name: string;
+    version: string;
+    chainId: number;
+    verifyingContract: string;
+  };
+  types?: {
+    Order: Array<{
+      name: string;
+      type: string;
+    }>;
+  };
+  message?: string;
+  estimatedOutput?: string;
+  minOutput?: string;
 }
 
 export interface OrderStatus {
@@ -157,43 +193,70 @@ export type SwapMode = "classic" | "intent";
 
 export class OneInchService {
   private config: SwapConfig;
-  private publicClient: any;
-  private walletClient: any;
-  private account: any;
 
   constructor(config: SwapConfig) {
     this.config = config;
+  }
 
-    // Initialize viem clients
-    this.publicClient = createPublicClient({
-      chain: baseSepolia,
-      transport: http(config.rpcUrl),
-    });
+  /**
+   * Check if browser wallet is available and connected
+   */
+  private isWalletAvailable(): boolean {
+    return typeof window !== "undefined" && 
+           !!window.ethereum && 
+           !!window.ethereum.selectedAddress;
+  }
 
-    if (config.privateKey) {
-      this.account = privateKeyToAccount(config.privateKey);
-      this.walletClient = createWalletClient({
-        account: this.account,
-        chain: baseSepolia,
-        transport: http(config.rpcUrl),
+  /**
+   * Send transaction using browser wallet
+   */
+  private async sendTransaction(transaction: TransactionPayload): Promise<string> {
+    if (!this.isWalletAvailable()) {
+      throw new Error("Browser wallet not available or not connected");
+    }
+
+    try {
+      const txHash = await window.ethereum!.request({
+        method: 'eth_sendTransaction',
+        params: [{
+          from: this.config.walletAddress,
+          to: transaction.to,
+          data: transaction.data,
+          value: `0x${transaction.value.toString(16)}`,
+        }],
       });
+
+      console.log("✅ Transaction sent:", txHash);
+      return txHash;
+    } catch (error) {
+      console.error("❌ Failed to send transaction:", error);
+      throw error;
     }
   }
 
   private buildQueryURL(path: string, params: Record<string, string>): string {
-    const url = new URL(INCH_API_BASE_URL + path);
+    // Use proxy endpoints to avoid CORS issues
+    let proxyPath = '/api/oneinch';
+    if (path.includes('/quote')) {
+      proxyPath += '/quote';
+    } else if (path.includes('/swap')) {
+      proxyPath += '/swap';  
+    } else if (path.includes('/fusion')) {
+      proxyPath += '/fusion';
+    } else {
+      // Default to swap endpoint for other paths
+      proxyPath += '/swap';
+    }
+    
+    const url = new URL(proxyPath, window.location.origin);
+    
+    // Add chainId and other params
+    params.chainId = BASE_MAINNET_CHAIN_ID.toString();
     url.search = new URLSearchParams(params).toString();
     return url.toString();
   }
 
-  private buildFusionQueryURL(
-    path: string,
-    params: Record<string, string>
-  ): string {
-    const url = new URL(INCH_FUSION_API_BASE_URL + path);
-    url.search = new URLSearchParams(params).toString();
-    return url.toString();
-  }
+  // Fusion queries now handled through proxy endpoints
 
   private async call1inchAPI<T>(
     endpointPath: string,
@@ -201,57 +264,36 @@ export class OneInchService {
   ): Promise<T> {
     const url = this.buildQueryURL(endpointPath, queryParams);
 
+    console.log("🌐 OneInchService API call:", {
+      endpoint: endpointPath,
+      url,
+      params: queryParams,
+      walletAddress: this.config.walletAddress
+    });
+
     const response = await fetch(url, {
       method: "GET",
       headers: {
         Accept: "application/json",
-        Authorization: `Bearer ${this.config.apiKey}`,
+        // API key is handled by the proxy endpoint
       },
     });
 
     if (!response.ok) {
       const body = await response.text();
-      throw new Error(`1inch API returned status ${response.status}: ${body}`);
+      console.error("❌ API Error Details:", {
+        status: response.status,
+        body,
+        url,
+        params: queryParams
+      });
+      throw new Error(`1inch API proxy returned status ${response.status}: ${body}`);
     }
 
     return (await response.json()) as T;
   }
 
-  private async callFusionAPI<T>(
-    endpointPath: string,
-    queryParams: Record<string, string> = {},
-    method: "GET" | "POST" = "GET",
-    body?: any
-  ): Promise<T> {
-    const url =
-      method === "GET"
-        ? this.buildFusionQueryURL(endpointPath, queryParams)
-        : INCH_FUSION_API_BASE_URL + endpointPath;
-
-    const requestInit: RequestInit = {
-      method,
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${this.config.apiKey}`,
-        "Content-Type": "application/json",
-      },
-    };
-
-    if (method === "POST" && body) {
-      requestInit.body = JSON.stringify(body);
-    }
-
-    const response = await fetch(url, requestInit);
-
-    if (!response.ok) {
-      const body = await response.text();
-      throw new Error(
-        `1inch Fusion API returned status ${response.status}: ${body}`
-      );
-    }
-
-    return (await response.json()) as T;
-  }
+  // Fusion API calls now handled through proxy endpoints
 
   /**
    * Get a quote for a token swap (no transaction)
@@ -306,6 +348,9 @@ export class OneInchService {
    * Get swap transaction data
    */
   async getSwapTransaction(params: SwapParams): Promise<SwapResponse> {
+    console.log("🔍 getSwapTransaction called with params:", params);
+    console.log("🔍 Config wallet address:", this.config.walletAddress);
+
     const queryParams = {
       src: params.src,
       dst: params.dst,
@@ -316,74 +361,12 @@ export class OneInchService {
       allowPartialFill: (params.allowPartialFill || false).toString(),
     };
 
+    console.log("🔍 Final query params for swap:", queryParams);
+
     return this.call1inchAPI<SwapResponse>("/swap", queryParams);
   }
 
-  /**
-   * Sign and send a transaction (requires private key)
-   */
-  async signAndSendTransaction(tx: TransactionPayload): Promise<string> {
-    if (!this.walletClient || !this.account) {
-      throw new Error(
-        "Wallet client not initialized. Private key required for transactions."
-      );
-    }
 
-    console.log("Estimating gas for transaction...");
-    const gas = await this.publicClient.estimateGas({
-      account: this.config.walletAddress as Hex,
-      to: tx.to,
-      data: tx.data,
-      value: BigInt(tx.value),
-    });
-
-    const latestBlock = await this.publicClient.getBlock();
-    const baseFeePerGas = latestBlock.baseFeePerGas;
-
-    const nonce = await this.publicClient.getTransactionCount({
-      address: this.account.address,
-      blockTag: "pending",
-    });
-
-    try {
-      if (baseFeePerGas !== null && baseFeePerGas !== undefined) {
-        console.log("Using EIP-1559 transaction format");
-        const fee = await this.publicClient.estimateFeesPerGas();
-
-        return await this.walletClient.sendTransaction({
-          account: this.account,
-          to: tx.to,
-          data: tx.data,
-          value: BigInt(tx.value),
-          gas,
-          maxFeePerGas: fee.maxFeePerGas,
-          maxPriorityFeePerGas: fee.maxPriorityFeePerGas,
-          chain: baseSepolia,
-          nonce,
-        });
-      } else {
-        console.log("Using legacy transaction format");
-        const gasPrice = await this.publicClient.getGasPrice();
-
-        return await this.walletClient.sendTransaction({
-          account: this.account,
-          to: tx.to,
-          data: tx.data,
-          value: BigInt(tx.value),
-          gas,
-          gasPrice,
-          chain: baseSepolia,
-          nonce,
-        });
-      }
-    } catch (err) {
-      console.error("Transaction signing or broadcasting failed");
-      console.error("Transaction data:", tx);
-      console.error("Gas:", gas.toString());
-      console.error("Nonce:", nonce.toString());
-      throw err;
-    }
-  }
 
   /**
    * Complete swap flow: check allowance, approve if needed, then swap
@@ -391,8 +374,8 @@ export class OneInchService {
   async performSwap(
     params: SwapParams
   ): Promise<{ approvalTxHash?: string; swapTxHash: string }> {
-    if (!this.walletClient) {
-      throw new Error("Wallet client required for performing swaps");
+    if (!this.isWalletAvailable()) {
+      throw new Error("Browser wallet not available. Please connect your wallet.");
     }
 
     const result: { approvalTxHash?: string; swapTxHash: string } = {
@@ -412,7 +395,7 @@ export class OneInchService {
           params.amount
         );
 
-        const approvalTxHash = await this.signAndSendTransaction({
+        const approvalTxHash = await this.sendTransaction({
           to: approveTx.to,
           data: approveTx.data,
           value: approveTx.value,
@@ -431,9 +414,12 @@ export class OneInchService {
     console.log("Fetching swap transaction...");
     const swapTx = await this.getSwapTransaction(params);
 
-    const swapTxHash = await this.signAndSendTransaction(swapTx.tx);
+    const swapTxHash = await this.sendTransaction(swapTx.tx);
     result.swapTxHash = swapTxHash;
     console.log("Swap transaction sent. Hash:", swapTxHash);
+
+    // Save swap order to cache for tracking
+    await this.saveSwapToCache(params, swapTxHash, result.approvalTxHash, swapTx);
 
     return result;
   }
@@ -447,7 +433,7 @@ export class OneInchService {
     const whole = value / divisor;
     const remainder = value % divisor;
 
-    if (remainder === 0n) {
+    if (remainder === BigInt(0)) {
       return whole.toString();
     }
 
@@ -466,8 +452,18 @@ export class OneInchService {
     const paddedFractional = fractional
       .padEnd(decimals, "0")
       .slice(0, decimals);
+    
+    // Helper function for BigInt exponentiation
+    const pow10 = (exp: number): bigint => {
+      let result = BigInt(1);
+      for (let i = 0; i < exp; i++) {
+        result *= BigInt(10);
+      }
+      return result;
+    };
+    
     return (
-      BigInt(whole) * BigInt(10 ** decimals) +
+      BigInt(whole) * pow10(decimals) +
       BigInt(paddedFractional)
     ).toString();
   }
@@ -495,46 +491,143 @@ export class OneInchService {
       ...(params.nonce && { nonce: params.nonce }),
     };
 
-    return this.callFusionAPI<IntentSwapQuoteResponse>(
-      "/quote/receive",
-      queryParams
-    );
+    // Use proxy endpoint instead of direct fusion API call
+    const url = this.buildQueryURL("/fusion", queryParams);
+    
+    console.log("🌐 Intent swap quote using proxy:", url);
+    
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`Fusion API proxy returned status ${response.status}: ${body}`);
+    }
+
+    return (await response.json()) as IntentSwapQuoteResponse;
   }
 
   /**
-   * Create an Intent swap order (Fusion mode)
-   * This creates a gasless order that will be filled by resolvers
+   * Create an Intent swap order (Fusion mode) - Step 1: Create order for signing
+   * This creates order data that the user needs to sign with their wallet
    */
   async createIntentSwapOrder(
     params: IntentSwapOrderRequest
   ): Promise<IntentSwapOrderResponse> {
     const body = {
-      srcToken: params.srcToken,
-      dstToken: params.dstToken,
+      action: 'create-order',
+      fromTokenAddress: params.srcToken,
+      toTokenAddress: params.dstToken,
       amount: params.amount,
       walletAddress: params.walletAddress,
-      ...(params.preset && { preset: params.preset }),
-      ...(params.takingSurplusRecipient && {
-        takingSurplusRecipient: params.takingSurplusRecipient,
-      }),
-      ...(params.permits && { permits: params.permits }),
-      ...(params.receiver && { receiver: params.receiver }),
-      ...(params.nonce && { nonce: params.nonce }),
+      preset: params.preset || "fast",
+      chainId: BASE_MAINNET_CHAIN_ID.toString(),
     };
 
-    return this.callFusionAPI<IntentSwapOrderResponse>(
-      "/order/submit",
-      {},
-      "POST",
-      body
-    );
+    // Use our corrected proxy endpoint instead of direct Fusion API
+    const url = new URL('/api/oneinch/fusion', window.location.origin);
+    
+    console.log("🚀 Creating intent swap order for signing via proxy:", { url: url.toString(), body });
+    
+    const response = await fetch(url.toString(), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Intent swap proxy returned status ${response.status}: ${errorText}`);
+    }
+
+    const responseData = await response.json();
+    
+    // Map the response to match the expected interface
+    return {
+      order: responseData.orderToSign || {},
+      signature: "",
+      orderHash: "",
+      quoteId: "",
+      requiresSignature: responseData.requiresSignature,
+      domain: responseData.domain,
+      types: responseData.types,
+      message: responseData.message,
+      estimatedOutput: responseData.estimatedOutput,
+      minOutput: responseData.minOutput
+    } as IntentSwapOrderResponse;
+  }
+
+  /**
+   * Submit signed Intent swap order (Fusion mode) - Step 2: Submit signed order
+   * This submits the signed order to the Fusion system for execution
+   */
+  async submitSignedIntentOrder(
+    order: any,
+    signature: string,
+    chainId?: string
+  ): Promise<{
+    success: boolean;
+    orderHash: string;
+    status: string;
+    message: string;
+    estimatedFillTime?: string;
+  }> {
+    const body = {
+      action: 'submit-order',
+      chainId: chainId || BASE_MAINNET_CHAIN_ID.toString(),
+      order,
+      signature
+    };
+
+    const url = new URL('/api/oneinch/fusion', window.location.origin);
+
+    console.log('🚀 Submitting signed Intent swap order via proxy:', { url: url.toString(), orderNonce: order.nonce });
+
+    const response = await fetch(url.toString(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Intent swap order submission failed: ${response.status}: ${errorText}`);
+    }
+
+    const responseData = await response.json();
+    
+    return {
+      success: responseData.success,
+      orderHash: responseData.orderHash,
+      status: responseData.status,
+      message: responseData.message,
+      estimatedFillTime: responseData.estimatedFillTime
+    };
   }
 
   /**
    * Get the status of an Intent swap order
    */
   async getOrderStatus(orderHash: string): Promise<OrderStatus> {
-    return this.callFusionAPI<OrderStatus>(`/orders/${orderHash}`, {});
+    // Note: Order status would need a separate endpoint implementation
+    // For now, return a placeholder since the direct API calls are not working
+    console.warn("Order status checking not yet implemented in proxy");
+    return {
+      orderHash,
+      status: "pending",
+      createdAt: Date.now(),
+      fills: [],
+    } as OrderStatus;
   }
 
   /**
@@ -544,16 +637,10 @@ export class OneInchService {
     walletAddress: string,
     limit: number = 100
   ): Promise<OrderStatus[]> {
-    const queryParams = {
-      address: walletAddress,
-      limit: limit.toString(),
-    };
-
-    const response = await this.callFusionAPI<{ orders: OrderStatus[] }>(
-      "/orders",
-      queryParams
-    );
-    return response.orders || [];
+    // Note: Active orders would need a separate endpoint implementation
+    // For now, return empty array since the direct API calls are not working
+    console.warn("Active orders fetching not yet implemented in proxy");
+    return [];
   }
 
   /**
@@ -562,26 +649,19 @@ export class OneInchService {
   async cancelOrder(
     orderHash: string
   ): Promise<{ success: boolean; txHash?: string }> {
-    try {
-      const response = await this.callFusionAPI<{ txHash: string }>(
-        `/orders/${orderHash}/cancel`,
-        {},
-        "POST"
-      );
-      return { success: true, txHash: response.txHash };
-    } catch (error) {
-      console.error("Failed to cancel order:", error);
-      return { success: false };
-    }
+    // Note: Order cancellation would need a separate endpoint implementation
+    // For now, return failure since the direct API calls are not working
+    console.warn("Order cancellation not yet implemented in proxy");
+    return { success: false };
   }
 
   /**
-   * Complete Intent swap flow: create order and monitor status
+   * Complete Intent swap flow: create order, get user signature, and submit
    */
   async performIntentSwap(
     params: IntentSwapParams
-  ): Promise<{ orderHash: string; quoteId: string }> {
-    console.log("Creating Intent swap order...");
+  ): Promise<{ orderHash: string; message: string; requiresSignature?: boolean; orderToSign?: any; domain?: any; types?: any }> {
+    console.log("🚀 Starting Fusion intent swap flow...");
 
     const orderRequest: IntentSwapOrderRequest = {
       srcToken: params.srcToken,
@@ -589,25 +669,235 @@ export class OneInchService {
       amount: params.amount,
       walletAddress: params.walletAddress,
       preset: params.preset || "fast",
-      ...(params.takingSurplusRecipient && {
-        takingSurplusRecipient: params.takingSurplusRecipient,
-      }),
-      ...(params.permits && { permits: params.permits }),
-      ...(params.receiver && { receiver: params.receiver }),
-      ...(params.nonce && { nonce: params.nonce }),
     };
 
+    // Step 1: Create order for signing
     const orderResponse = await this.createIntentSwapOrder(orderRequest);
 
-    console.log("Intent swap order created:", {
-      orderHash: orderResponse.orderHash,
-      quoteId: orderResponse.quoteId,
-    });
+    if (orderResponse.requiresSignature) {
+      console.log("📝 Order created - requires wallet signature");
+      
+      // Check if we have access to window and provider
+      if (typeof window === 'undefined' || !window.ethereum) {
+        throw new Error("No wallet provider found. Please connect your wallet.");
+      }
 
-    return {
-      orderHash: orderResponse.orderHash,
-      quoteId: orderResponse.quoteId,
-    };
+      try {
+        // Request wallet signature using EIP-712
+        console.log("🔐 Requesting wallet signature...");
+        
+        const signature = await window.ethereum.request({
+          method: 'eth_signTypedData_v4',
+          params: [
+            params.walletAddress,
+            JSON.stringify({
+              domain: orderResponse.domain,
+              types: orderResponse.types,
+              primaryType: 'Order',
+              message: orderResponse.order
+            })
+          ]
+        });
+
+        console.log("✅ Order signed successfully");
+
+        // Step 2: Submit signed order
+        const submitResponse = await this.submitSignedIntentOrder(
+          orderResponse.order,
+          signature,
+          params.chainId
+        );
+
+        console.log("🎯 Intent swap order submitted:", {
+          orderHash: submitResponse.orderHash,
+          status: submitResponse.status
+        });
+
+        // Save order to cache for tracking
+        await this.saveOrderToCache(orderResponse.order, submitResponse, params);
+
+        return {
+          orderHash: submitResponse.orderHash,
+          message: submitResponse.message
+        };
+
+      } catch (signError) {
+        console.error("❌ Wallet signing failed:", signError);
+        
+        if (signError.code === 4001) {
+          throw new Error("User rejected the signing request. Fusion orders require wallet signature.");
+        }
+        
+        throw new Error(`Wallet signing failed: ${signError.message || 'Unknown error'}`);
+      }
+
+    } else {
+      // Fallback for older implementation
+      console.log("⚠️ Using fallback flow (no signature required)");
+      return {
+        orderHash: orderResponse.orderHash || "fallback",
+        message: "Order processed via fallback method"
+      };
+    }
+  }
+
+  /**
+   * Save completed order to browser cache for tracking
+   */
+  private async saveOrderToCache(
+    order: any, 
+    submitResponse: { orderHash: string; status: string; message: string; estimatedFillTime?: string }, 
+    params: IntentSwapParams
+  ): Promise<void> {
+    try {
+      console.log('💾 Saving order to cache...');
+
+      // Get token details for both from and to tokens
+      const [fromTokenDetails, toTokenDetails] = await Promise.all([
+        tokenService.getTokenDetails(params.srcToken),
+        tokenService.getTokenDetails(params.dstToken)
+      ]);
+
+      if (!fromTokenDetails || !toTokenDetails) {
+        console.warn('⚠️ Could not get token details, skipping cache save');
+        return;
+      }
+
+      // Create formatted amounts for display
+      const fromAmountFormatted = OrderCacheService.formatTokenAmount(
+        params.amount, 
+        fromTokenDetails.decimals, 
+        fromTokenDetails.symbol
+      );
+      
+      const toAmountFormatted = OrderCacheService.formatTokenAmount(
+        order.toAmount, 
+        toTokenDetails.decimals, 
+        toTokenDetails.symbol
+      );
+
+      // Calculate estimated price
+      const estimatedPrice = OrderCacheService.calculatePrice(
+        params.amount,
+        order.toAmount,
+        fromTokenDetails.decimals,
+        toTokenDetails.decimals,
+        fromTokenDetails.symbol,
+        toTokenDetails.symbol
+      );
+
+      // Create saved order object using helper method
+      const savedOrder = OrderCacheService.createFusionOrder({
+        orderHash: submitResponse.orderHash,
+        fromToken: {
+          address: fromTokenDetails.address,
+          symbol: fromTokenDetails.symbol,
+          name: fromTokenDetails.name,
+          decimals: fromTokenDetails.decimals
+        },
+        toToken: {
+          address: toTokenDetails.address,
+          symbol: toTokenDetails.symbol,
+          name: toTokenDetails.name,
+          decimals: toTokenDetails.decimals
+        },
+        fromAmount: params.amount,
+        toAmount: order.toAmount,
+        walletAddress: params.walletAddress,
+        chainId: params.chainId || BASE_MAINNET_CHAIN_ID.toString(),
+        preset: params.preset || 'fast',
+        nonce: order.nonce,
+        validUntil: order.validUntil,
+        estimatedFillTime: submitResponse.estimatedFillTime
+      });
+
+      // Save to localStorage
+      OrderCacheService.saveOrder(savedOrder);
+
+      console.log('✅ Order saved to cache:', {
+        orderHash: savedOrder.orderHash,
+        fromToken: savedOrder.fromToken.symbol,
+        toToken: savedOrder.toToken.symbol,
+        fromAmount: savedOrder.fromAmountFormatted,
+        toAmount: savedOrder.toAmountFormatted
+      });
+
+    } catch (error) {
+      console.error('❌ Failed to save order to cache:', error);
+      // Don't throw - this is not critical to the swap flow
+    }
+  }
+
+  /**
+   * Save completed regular swap to browser cache for tracking
+   */
+  private async saveSwapToCache(
+    params: SwapParams,
+    swapTxHash: string,
+    approvalTxHash?: string,
+    swapResponse?: SwapResponse
+  ): Promise<void> {
+    try {
+      console.log('💾 Saving swap to cache...');
+
+      // Get token details for both from and to tokens
+      const [fromTokenDetails, toTokenDetails] = await Promise.all([
+        tokenService.getTokenDetails(params.src),
+        tokenService.getTokenDetails(params.dst)
+      ]);
+
+      if (!fromTokenDetails || !toTokenDetails) {
+        console.warn('⚠️ Could not get token details, skipping swap cache save');
+        return;
+      }
+
+      // For regular swaps, we need to estimate the toAmount from the swap response
+      // or calculate it based on the quote if available
+      let toAmount = params.amount; // fallback
+      if (swapResponse && (swapResponse as any).toAmount) {
+        toAmount = (swapResponse as any).toAmount;
+      } else if (swapResponse && (swapResponse as any).dstAmount) {
+        toAmount = (swapResponse as any).dstAmount;
+      }
+
+      // Create saved order object using helper method
+      const savedOrder = OrderCacheService.createSwapOrder({
+        swapTxHash,
+        approvalTxHash,
+        fromToken: {
+          address: fromTokenDetails.address,
+          symbol: fromTokenDetails.symbol,
+          name: fromTokenDetails.name,
+          decimals: fromTokenDetails.decimals
+        },
+        toToken: {
+          address: toTokenDetails.address,
+          symbol: toTokenDetails.symbol,
+          name: toTokenDetails.name,
+          decimals: toTokenDetails.decimals
+        },
+        fromAmount: params.amount,
+        toAmount,
+        walletAddress: params.from,
+        chainId: BASE_MAINNET_CHAIN_ID.toString(),
+        slippage: params.slippage
+      });
+
+      // Save to localStorage
+      OrderCacheService.saveOrder(savedOrder);
+
+      console.log('✅ Swap saved to cache:', {
+        swapTxHash,
+        fromToken: savedOrder.fromToken.symbol,
+        toToken: savedOrder.toToken.symbol,
+        fromAmount: savedOrder.fromAmountFormatted,
+        toAmount: savedOrder.toAmountFormatted
+      });
+
+    } catch (error) {
+      console.error('❌ Failed to save swap to cache:', error);
+      // Don't throw - this is not critical to the swap flow
+    }
   }
 }
 

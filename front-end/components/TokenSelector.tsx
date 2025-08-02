@@ -7,7 +7,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
@@ -45,7 +45,7 @@ interface TokenSelectorProps {
 export function TokenSelector({
   selectedToken,
   onTokenSelect,
-  label = 'Select Token',
+  label = '',
   placeholder = 'Choose a token',
   disabled = false,
   className = '',
@@ -53,6 +53,9 @@ export function TokenSelector({
   walletAddress,
   excludeTokens = []
 }: TokenSelectorProps) {
+  // Memoize excludeTokens to prevent unnecessary re-renders
+  const memoizedExcludeTokens = useMemo(() => excludeTokens, [excludeTokens]);
+  
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Token[]>([]);
@@ -60,54 +63,132 @@ export function TokenSelector({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tokenDetails, setTokenDetails] = useState<Record<string, TokenDetails>>({});
+  const [apiTokensLoaded, setApiTokensLoaded] = useState(false);
 
-  // Load popular tokens on mount
+  // Load top 25 popular tokens from API on mount ONCE
   useEffect(() => {
+    let isMounted = true; // Prevent state updates if component unmounts
+    
     const loadPopularTokens = async () => {
+      // Prevent multiple simultaneous calls
+      if (apiTokensLoaded || isLoading) {
+        console.log('🔒 Tokens already loaded or loading, skipping...');
+        return;
+      }
+      
       try {
-        const popular = tokenService.getPopularTokens();
-        const filtered = popular.filter(token => 
-          !excludeTokens.includes(token.address.toLowerCase())
+        setIsLoading(true);
+        setError(null);
+        console.log('🚀 Loading top 25 popular tokens (once)...');
+        
+        const popularTokens = await tokenService.getTop25PopularTokens();
+        
+        // Check if component is still mounted
+        if (!isMounted) return;
+        
+        // Safety check - ensure we have valid tokens array
+        if (!Array.isArray(popularTokens)) {
+          throw new Error('Invalid tokens response');
+        }
+        
+        const filtered = popularTokens.filter(token => 
+          token && 
+          typeof token === 'object' && 
+          token.address && 
+          token.symbol && 
+          !memoizedExcludeTokens.includes(token.address.toLowerCase())
         );
+        
         setPopularTokens(filtered);
         setSearchResults(filtered);
-      } catch (err) {
-        console.error('Error loading popular tokens:', err);
-        setError('Failed to load popular tokens');
+        setApiTokensLoaded(true);
+        console.log(`✅ Loaded ${filtered.length} popular tokens (done)`);
+      } catch (error) {
+        if (!isMounted) return;
+        
+        console.error('❌ Failed to load popular tokens:', error);
+        
+        // Safe fallback to hardcoded tokens
+        try {
+          const fallbackTokens = tokenService.getPopularTokensSync() || [];
+          const safeTokens = fallbackTokens.slice(0, 25).filter(token => 
+            token && 
+            typeof token === 'object' && 
+            token.address && 
+            token.symbol &&
+            !memoizedExcludeTokens.includes(token.address.toLowerCase())
+          );
+          
+          setPopularTokens(safeTokens);
+          setSearchResults(safeTokens);
+          setApiTokensLoaded(true);
+          setError(safeTokens.length > 0 ? 'Using fallback tokens' : 'No tokens available');
+        } catch (fallbackError) {
+          console.error('❌ Fallback failed:', fallbackError);
+          setPopularTokens([]);
+          setSearchResults([]);
+          setError('Failed to load tokens');
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
-    loadPopularTokens();
-  }, [excludeTokens]);
+    // Only load if not already loaded
+    if (!apiTokensLoaded) {
+      loadPopularTokens();
+    }
 
-  // Search tokens with debouncing
+    return () => {
+      isMounted = false; // Cleanup flag
+    };
+  }, []); // Empty dependency array - load only once on mount
+
+  // Search tokens - only call API when user searches by address
   const searchTokens = useCallback(async (query: string) => {
     if (!query.trim()) {
       setSearchResults(popularTokens);
       return;
     }
 
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const results = await tokenService.searchTokens(query, 50);
-      const filtered = results.filter(token => 
-        !excludeTokens.includes(token.address.toLowerCase())
-      );
+    // First check if it looks like a token address (0x...)
+    const isAddress = query.startsWith('0x') && query.length >= 10;
+    
+    if (isAddress) {
+      // It's an address - search via API
+      setIsLoading(true);
+      setError(null);
+      
+      try {
+        console.log(`🔍 Searching API for token address: ${query}`);
+        const results = await tokenService.searchTokens(query, 10);
+        const filtered = results.filter(token => 
+          !memoizedExcludeTokens.includes(token.address.toLowerCase())
+        );
+        setSearchResults(filtered);
+        
+        if (filtered.length === 0) {
+          setError('Token not found');
+        }
+      } catch (err: any) {
+        console.error('API search error:', err);
+        setError(err.message || 'Search failed');
+        setSearchResults([]);
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      // It's a symbol/name - search locally in popular tokens only
+      console.log(`🔍 Local search for: ${query}`);
+      const filtered = popularTokens.filter(token => {
+        if (!token || !token.symbol || !token.name) return false;
+        return token.symbol.toLowerCase().includes(query.toLowerCase()) ||
+               token.name.toLowerCase().includes(query.toLowerCase());
+      });
       setSearchResults(filtered);
-    } catch (err) {
-      console.error('Error searching tokens:', err);
-      setError('Failed to search tokens');
-      // Fallback to local search in popular tokens
-      const filtered = popularTokens.filter(token =>
-        token.name.toLowerCase().includes(query.toLowerCase()) ||
-        token.symbol.toLowerCase().includes(query.toLowerCase()) ||
-        token.address.toLowerCase().includes(query.toLowerCase())
-      );
-      setSearchResults(filtered);
-    } finally {
-      setIsLoading(false);
+      setError(filtered.length === 0 ? 'No tokens found. Try entering a token address (0x...)' : null);
     }
   }, [popularTokens, excludeTokens]);
 
@@ -138,9 +219,22 @@ export function TokenSelector({
   };
 
   const handleTokenSelect = (token: Token) => {
-    onTokenSelect(token);
-    setIsOpen(false);
-    setSearchQuery('');
+    try {
+      // Safety check - ensure token has required properties
+      if (!token || !token.address || !token.symbol) {
+        console.error('❌ Invalid token selected:', token);
+        setError('Invalid token selected');
+        return;
+      }
+      
+      console.log('✅ Token selected:', token.symbol, token.address);
+      onTokenSelect(token);
+      setIsOpen(false);
+      setSearchQuery('');
+    } catch (error) {
+      console.error('❌ Error selecting token:', error);
+      setError('Failed to select token');
+    }
   };
 
   const handleDialogOpen = (open: boolean) => {
@@ -156,6 +250,12 @@ export function TokenSelector({
   };
 
   const TokenItem = ({ token }: { token: Token }) => {
+    // Safety checks to prevent crashes
+    if (!token || !token.address || !token.symbol) {
+      console.warn('⚠️ Invalid token props:', token);
+      return null;
+    }
+
     const details = tokenDetails[token.address];
     const logoUrl = getTokenLogoUrl(token);
     const isStable = isStablecoin(token);
@@ -173,9 +273,13 @@ export function TokenSelector({
               alt={token.symbol}
               className="w-8 h-8 rounded-full"
               onError={(e) => {
-                // Fallback to a generic token icon
-                (e.target as HTMLImageElement).src = 
-                  'https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/32/generic.png';
+                const img = e.target as HTMLImageElement;
+                // Prevent infinite loops by checking if we already set the fallback
+                if (!img.dataset.fallbackSet) {
+                  img.dataset.fallbackSet = 'true';
+                  // Use a base64 encoded generic token icon
+                  img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTYiIGZpbGw9IiM2MzY2RjEiLz4KPHN2ZyB4PSI4IiB5PSI4IiB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSI+CjxjaXJjbGUgY3g9IjEyIiBjeT0iMTIiIHI9IjMiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xMiAxdjJtMCAxOHYybTExLTEyaC0ybS0xOCAwaDIiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+Cjwvc3ZnPgo8L3N2Zz4K';
+                }
               }}
             />
             {isStable && (
@@ -185,7 +289,7 @@ export function TokenSelector({
           
           <div className="flex-1 min-w-0">
             <div className="flex items-center space-x-2">
-              <span className="font-medium text-gray-900">{token.symbol}</span>
+              <span className="font-medium text-gray-900">{token.symbol || 'Unknown'}</span>
               {details?.rating && details.rating > 90 && (
                 <Star className="w-4 h-4 text-yellow-500 fill-current" />
               )}
@@ -200,7 +304,7 @@ export function TokenSelector({
                 </Badge>
               )}
             </div>
-            <p className="text-sm text-gray-500 truncate">{token.name}</p>
+            <p className="text-sm text-gray-500 truncate">{token.name || 'Unknown Token'}</p>
           </div>
         </div>
 
@@ -239,12 +343,16 @@ export function TokenSelector({
                   alt={selectedToken.symbol}
                   className="w-6 h-6 rounded-full"
                   onError={(e) => {
-                    (e.target as HTMLImageElement).src = 
-                      'https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/32/generic.png';
+                    const img = e.target as HTMLImageElement;
+                    // Prevent infinite loops by checking if we already set the fallback
+                    if (!img.dataset.fallbackSet) {
+                      img.dataset.fallbackSet = 'true';
+                      // Use a base64 encoded generic token icon
+                      img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTYiIGZpbGw9IiM2MzY2RjEiLz4KPHN2ZyB4PSI4IiB5PSI4IiB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSI+CjxjaXJjbGUgY3g9IjEyIiBjeT0iMTIiIHI9IjMiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xMiAxdjJtMCAxOHYybTExLTEyaC0ybS0xOCAwaDIiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+Cjwvc3ZnPgo8L3N2Zz4K';
+                    }
                   }}
                 />
                 <span className="font-medium">{selectedToken.symbol}</span>
-                <span className="text-gray-500 text-sm">{selectedToken.name}</span>
               </div>
             ) : (
               <span className="text-gray-500">{placeholder}</span>
@@ -263,7 +371,7 @@ export function TokenSelector({
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <Input
-                placeholder="Search by name, symbol, or address..."
+                                    placeholder="Search popular tokens or enter address (0x...)"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
@@ -272,6 +380,13 @@ export function TokenSelector({
                 <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 animate-spin text-gray-400" />
               )}
             </div>
+
+            {/* Helper Text */}
+            {!error && searchQuery && !searchQuery.startsWith('0x') && (
+              <div className="text-xs text-gray-500 px-1">
+                💡 Searching popular tokens only. Enter token address (0x...) to search all tokens.
+              </div>
+            )}
 
             {/* Error Alert */}
             {error && (
@@ -291,9 +406,11 @@ export function TokenSelector({
                 )}
                 
                 {searchResults.length > 0 ? (
-                  searchResults.map((token) => (
-                    <TokenItem key={token.address} token={token} />
-                  ))
+                  searchResults
+                    .filter(token => token && token.address && token.symbol) // Safety filter
+                    .map((token) => (
+                      <TokenItem key={token.address} token={token} />
+                    ))
                 ) : (
                   <div className="text-center py-8 text-gray-500">
                     {searchQuery ? 'No tokens found' : 'No tokens available'}

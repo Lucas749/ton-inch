@@ -32,6 +32,7 @@ import {
 } from "@/lib/1inch-service";
 import { TokenSelector } from "@/components/TokenSelector";
 import { Token, tokenService } from "@/lib/token-service";
+import { useBlockchain } from "@/hooks/useBlockchain";
 
 interface SwapInterfaceProps {
   walletAddress?: string;
@@ -61,6 +62,9 @@ export function SwapInterface({
   const [orderHash, setOrderHash] = useState<string>("");
   const [orderStatus, setOrderStatus] = useState<OrderStatus | null>(null);
   const [preset, setPreset] = useState<"fast" | "fair" | "auction">("fast");
+  
+  // Get blockchain data for real balances
+  const { ethBalance } = useBlockchain();
 
   const oneInchService =
     apiKey && rpcUrl && walletAddress
@@ -73,12 +77,14 @@ export function SwapInterface({
 
   const isConfigured = !!oneInchService;
 
+
+
   // Initialize with popular tokens
   useEffect(() => {
     const popularTokens = tokenService.getPopularTokens();
     if (popularTokens.length >= 2 && !fromToken && !toToken) {
-      setFromToken(popularTokens[0]); // WETH
-      setToToken(popularTokens[1]); // USDC
+      setFromToken(popularTokens[0]); // ETH
+      setToToken(popularTokens[1]); // WETH
     }
   }, [fromToken, toToken]);
 
@@ -315,7 +321,7 @@ export function SwapInterface({
   };
 
   const getExplorerUrl = (hash: string) => {
-    return `https://sepolia.basescan.org/tx/${hash}`;
+    return `https://basescan.org/tx/${hash}`;
   };
 
   if (!isConfigured) {
@@ -349,7 +355,7 @@ export function SwapInterface({
             <span>1inch Swap</span>
           </div>
           <Badge variant="outline" className="text-xs">
-            Base Sepolia
+            Base Mainnet
           </Badge>
         </CardTitle>
       </CardHeader>
@@ -410,16 +416,6 @@ export function SwapInterface({
         <div className="space-y-2">
           <Label htmlFor="from-amount">From</Label>
           <div className="flex space-x-2">
-            <div className="flex-1">
-              <Input
-                id="from-amount"
-                type="number"
-                placeholder="0.0"
-                value={fromAmount}
-                onChange={(e) => setFromAmount(e.target.value)}
-                disabled={isSwapping}
-              />
-            </div>
             <div className="w-32">
               <TokenSelector
                 selectedToken={fromToken}
@@ -428,6 +424,17 @@ export function SwapInterface({
                 disabled={isSwapping}
                 excludeTokens={toToken ? [toToken.address] : []}
                 className="w-full"
+              />
+            </div>
+            <div className="flex-1">
+              <Input
+                id="from-amount"
+                type="number"
+                placeholder="0.0"
+                value={fromAmount}
+                onChange={(e) => setFromAmount(e.target.value)}
+                disabled={isSwapping}
+                className="h-12"
               />
             </div>
           </div>
@@ -449,15 +456,6 @@ export function SwapInterface({
         <div className="space-y-2">
           <Label htmlFor="to-amount">To</Label>
           <div className="flex space-x-2">
-            <div className="flex-1">
-              <Input
-                id="to-amount"
-                type="number"
-                placeholder="0.0"
-                value={toAmount}
-                disabled
-              />
-            </div>
             <div className="w-32">
               <TokenSelector
                 selectedToken={toToken}
@@ -466,6 +464,16 @@ export function SwapInterface({
                 disabled={isSwapping}
                 excludeTokens={fromToken ? [fromToken.address] : []}
                 className="w-full"
+              />
+            </div>
+            <div className="flex-1">
+              <Input
+                id="to-amount"
+                type="number"
+                placeholder="0.0"
+                value={toAmount}
+                disabled
+                className="h-12"
               />
             </div>
           </div>

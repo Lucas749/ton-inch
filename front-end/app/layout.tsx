@@ -10,7 +10,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'EventLimit - Smart Limit Orders Triggered by Real-World Events',
+  title: 'c1nch - Smart Limit Orders Triggered by Real-World Events',
   description: 'Create 1inch limit order strategies triggered by Twitter, on-chain events, and market conditions',
 };
 
