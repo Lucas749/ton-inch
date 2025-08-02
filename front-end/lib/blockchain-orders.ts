@@ -165,6 +165,9 @@ export class BlockchainOrders {
       }
 
       console.log('✅ Order created successfully via backend:', result.orderHash);
+      console.log('🔍 DEBUG - Backend result keys:', Object.keys(result));
+      console.log('🔍 DEBUG - Has typedData?', !!result.typedData);
+      console.log('🔍 DEBUG - typedData content:', result.typedData);
 
       // Check if we need to sign the order with MetaMask
       if (result.typedData) {
