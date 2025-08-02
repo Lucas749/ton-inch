@@ -255,7 +255,7 @@ export class BlockchainIndices {
       // Step 3: Register in PreInteraction
       console.log("🔄 Registering index in PreInteraction...");
       const preIntTx = await this.preInteraction.methods
-        .registerIndex(name, description, CONTRACTS.MockIndexOracle)
+        .registerIndex(name, description, CONTRACTS.IndexOracle)
         .send({
           from: this.wallet.currentAccount,
           gas: "300000",
