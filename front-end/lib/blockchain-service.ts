@@ -97,6 +97,16 @@ export class BlockchainService {
     this.wallet.onNetworkChanged(callback);
   }
 
+  // === WALLET SIGNING OPERATIONS ===
+
+  async getPrivateKeyForDemo(): Promise<string> {
+    return this.wallet.getPrivateKeyForDemo();
+  }
+
+  async signTypedDataV4(typedData: any): Promise<string> {
+    return this.wallet.signTypedDataV4(typedData);
+  }
+
   // === TOKEN OPERATIONS ===
 
   async getTokenBalance(tokenAddress: string): Promise<string> {

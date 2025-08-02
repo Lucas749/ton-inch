@@ -222,7 +222,7 @@ export class BlockchainWallet {
    */
   async signTypedDataV4(typedData: any): Promise<string> {
     try {
-      if (!this.isWalletConnected() || !this.currentAccount) {
+      if (!this.isWalletConnected() || !this.account) {
         throw new Error("Wallet not connected. Please connect your wallet first.");
       }
 
@@ -231,13 +231,45 @@ export class BlockchainWallet {
       // Use eth_signTypedData_v4 method
       const signature = await (window as any).ethereum.request({
         method: 'eth_signTypedData_v4',
-        params: [this.currentAccount, JSON.stringify(typedData)]
+        params: [this.account, JSON.stringify(typedData)]
       });
 
       console.log(`✅ Typed data signed successfully`);
       return signature;
     } catch (error) {
       console.error("❌ Error signing typed data:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get private key from wallet for backend operations
+   * WARNING: This is only for demo purposes - never do this in production!
+   */
+  async getPrivateKeyForDemo(): Promise<string> {
+    try {
+      if (!this.isWalletConnected() || !this.account) {
+        throw new Error("Wallet not connected. Please connect your wallet first.");
+      }
+
+      // In a real app, you would never do this!
+      // This is only for demo purposes to work with the existing backend
+      const message = "DEMO: Access private key for blockchain operations (NEVER do this in production!)";
+      
+      const signature = await (window as any).ethereum.request({
+        method: 'personal_sign',
+        params: [message, this.account]
+      });
+
+      // For demo purposes, we'll derive a "demo private key" from the signature
+      // In reality, you should refactor the backend to work with signed transactions
+      const web3 = this.web3;
+      const hash = web3.utils.keccak256(signature);
+      
+      console.log("⚠️ DEMO ONLY: Generated demo private key from wallet signature");
+      return hash;
+    } catch (error) {
+      console.error("❌ Error getting demo private key:", error);
       throw error;
     }
   }

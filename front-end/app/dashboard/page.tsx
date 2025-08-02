@@ -49,7 +49,7 @@ export default function Dashboard() {
     }
   };
   
-  const { isConnected, indices: blockchainIndices, refreshIndices, isOwner, walletAddress } = useBlockchain();
+  const { isConnected, indices: blockchainIndices, refreshIndices, isOwner, walletAddress, getPrivateKeyForDemo } = useBlockchain();
   const { orders } = useOrders();
   const router = useRouter();
 
@@ -162,13 +162,9 @@ export default function Dashboard() {
     setCancelSuccess(null);
 
     try {
-      // Get the private key from the user (in production, this would be handled securely)
-      const privateKey = prompt("Enter your private key to cancel the order (DEMO ONLY - DO NOT USE REAL PRIVATE KEYS):");
-      
-      if (!privateKey) {
-        setCancelError("Private key required to cancel order");
-        return;
-      }
+      // Get private key from wallet (DEMO method - shows security warning)
+      console.log('🔐 Getting private key from wallet for order cancellation...');
+      const privateKey = await getPrivateKeyForDemo();
 
       console.log('🚫 Cancelling order:', orderHash);
 

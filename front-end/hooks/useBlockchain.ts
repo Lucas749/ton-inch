@@ -41,6 +41,7 @@ export interface UseBlockchainReturn {
   validateCondition: (condition: OrderCondition) => Promise<boolean>;
   getTokenBalance: (tokenAddress: string) => Promise<string>;
   switchToBaseMainnet: () => Promise<boolean>;
+  getPrivateKeyForDemo: () => Promise<string>;
 
   // Utils
   clearError: () => void;
@@ -235,6 +236,19 @@ export function useBlockchain(): UseBlockchainReturn {
     }
   }, []);
 
+  // Get private key for demo operations (WARNING: Demo only!)
+  const getPrivateKeyForDemo = useCallback(async (): Promise<string> => {
+    try {
+      setError(null);
+      return await blockchainService.getPrivateKeyForDemo();
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to get demo private key";
+      setError(errorMessage);
+      throw err;
+    }
+  }, []);
+
   // Set up event listeners on mount
   useEffect(() => {
     // Check if already connected
@@ -330,6 +344,7 @@ export function useBlockchain(): UseBlockchainReturn {
     validateCondition,
     getTokenBalance,
     switchToBaseMainnet,
+    getPrivateKeyForDemo,
 
       // Utils
     clearError,

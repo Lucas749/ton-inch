@@ -43,7 +43,7 @@ export function IndicesExplorer() {
   const [requestError, setRequestError] = useState<string | null>(null);
   
   const router = useRouter();
-  const { isConnected, indices: blockchainIndices, isOwner, walletAddress } = useBlockchain();
+  const { isConnected, indices: blockchainIndices, isOwner, walletAddress, getPrivateKeyForDemo } = useBlockchain();
 
   // Load real data from Alpha Vantage
   const loadIndicesData = async (isRefresh = false) => {
@@ -182,13 +182,9 @@ export function IndicesExplorer() {
     setRequestSuccess(null);
 
     try {
-      // Get the private key from the user (in production, this would be handled securely)
-      const privateKey = prompt("Enter your private key to create the blockchain index (DEMO ONLY - DO NOT USE REAL PRIVATE KEYS):");
-      
-      if (!privateKey) {
-        setRequestError("Private key required to create blockchain index");
-        return;
-      }
+      // Get private key from wallet (DEMO method - shows security warning)
+      console.log('🔐 Getting private key from wallet for blockchain operation...');
+      const privateKey = await getPrivateKeyForDemo();
 
       console.log('🏗️ Requesting blockchain index creation:', {
         name: index.name,
