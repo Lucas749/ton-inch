@@ -19,6 +19,13 @@ import { useBlockchain } from "@/hooks/useBlockchain";
 import { Sparkline } from "./Sparkline";
 import { RealIndicesService, RealIndexData } from "@/lib/real-indices-service";
 
+// Extended interface for blockchain-integrated indices
+interface ExtendedRealIndexData extends RealIndexData {
+  blockchainId?: number;
+  blockchainValue?: number;
+  onChain?: boolean;
+}
+
 const categories = ["All", "Stocks", "Crypto", "Commodities", "Forex", "ETFs", "Indices"];
 
 export function IndicesExplorer() {
@@ -61,12 +68,70 @@ export function IndicesExplorer() {
     loadIndicesData();
   }, []);
 
-  // Available contract indices that should not appear in market indices
-  const availableIndicesSymbols = ['AAPL', 'TSLA', 'VIX', 'BTCUSD'];
+  // Create integrated contract indices by combining blockchain indices with Alpha Vantage data
+  const createIntegratedContractIndices = () => {
+    const integratedIndices: ExtendedRealIndexData[] = [];
+    
+    // For each blockchain index with an Alpha Vantage symbol, create an integrated index
+    blockchainIndices.forEach(blockchainIndex => {
+      if (blockchainIndex.alphaVantageSymbol) {
+        // Find matching Alpha Vantage data
+        const alphaVantageData = indices.find(index => 
+          index.symbol === blockchainIndex.alphaVantageSymbol
+        );
+        
+        if (alphaVantageData) {
+          // Create integrated index with blockchain data and Alpha Vantage UI data
+          integratedIndices.push({
+            ...alphaVantageData,
+            id: `blockchain_${blockchainIndex.id}`, // Unique ID for blockchain indices
+            name: blockchainIndex.name || alphaVantageData.name,
+            description: `${blockchainIndex.description} (On-Chain)`,
+            // Keep Alpha Vantage display data but indicate blockchain availability
+            blockchainId: blockchainIndex.id,
+            blockchainValue: blockchainIndex.value,
+            onChain: true
+          });
+        }
+      }
+    });
+    
+    // Also include blockchain indices without Alpha Vantage mapping
+    blockchainIndices.forEach(blockchainIndex => {
+      if (!blockchainIndex.alphaVantageSymbol) {
+        integratedIndices.push({
+          id: `blockchain_${blockchainIndex.id}`,
+          name: blockchainIndex.name || `Index ${blockchainIndex.id}`,
+          symbol: blockchainIndex.symbol || `IDX${blockchainIndex.id}`,
+          handle: `@index${blockchainIndex.id}`,
+          description: blockchainIndex.description || `Custom blockchain index #${blockchainIndex.id}`,
+          category: blockchainIndex.category || "Custom",
+          provider: "Blockchain",
+          avatar: "🔗",
+          color: "bg-blue-500",
+          currentValue: blockchainIndex.value,
+          valueLabel: `${(blockchainIndex.value / 100).toFixed(2)}`,
+          price: blockchainIndex.value / 100,
+          change: "0.00%",
+          changeValue: "0.00",
+          isPositive: true,
+          mindshare: "N/A",
+          sparklineData: [0, 0, 0, 0, 0, 0, 0, 0],
+          lastUpdated: new Date(blockchainIndex.timestamp * 1000).toISOString().split('T')[0],
+          blockchainId: blockchainIndex.id,
+          blockchainValue: blockchainIndex.value,
+          onChain: true
+        });
+      }
+    });
+    
+    return integratedIndices;
+  };
+
+  const availableContractIndices = createIntegratedContractIndices();
   
-  // Show ALL blockchain indices (both predefined 0-5 and custom 6+) as available
-  const availableBlockchainIds = blockchainIndices.map(index => index.id); // All blockchain indices
-  
+  // Filter out Alpha Vantage indices that are available as contract indices from market indices
+  const availableContractSymbols = availableContractIndices.map(index => index.symbol);
   const filteredIndices = indices.filter(index => {
     const matchesSearch = index.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          index.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -75,20 +140,10 @@ export function IndicesExplorer() {
     const matchesCategory = selectedCategory === "All" || index.category === selectedCategory;
     
     // Exclude indices that are available as contract indices
-    const isNotAvailableContract = !availableIndicesSymbols.includes(index.symbol);
+    const isNotAvailableContract = !availableContractSymbols.includes(index.symbol);
     
     return matchesSearch && matchesCategory && isNotAvailableContract;
   });
-
-  // Get available contract indices from both market data AND blockchain indices
-  const availableContractIndices = indices.filter(index => 
-    availableIndicesSymbols.includes(index.symbol)
-  );
-  
-  // Also include the blockchain indices that are available
-  const availableBlockchainIndices = blockchainIndices.filter(index => 
-    availableBlockchainIds.includes(index.id)
-  );
 
   const handleViewIndex = (index: RealIndexData) => {
     router.push(`/index/${index.id.toLowerCase()}`);
@@ -198,7 +253,7 @@ export function IndicesExplorer() {
       )}
 
       {/* Available Contract Indices Section */}
-      {!isLoading && (availableContractIndices.length > 0 || availableBlockchainIndices.length > 0) && (
+      {!isLoading && availableContractIndices.length > 0 && (
         <div className="space-y-4">
           <div className="text-center">
             <h3 className="text-2xl font-bold text-gray-900 mb-2">Available Contract Indices</h3>
@@ -267,8 +322,14 @@ export function IndicesExplorer() {
                     className="ml-4"
                     onClick={(e) => {
                       e.stopPropagation();
-                      // Route to the index detail page
-                      router.push(`/index/${index.id}`);
+                      // For blockchain indices, route to create-index with the blockchain index ID
+                      const extendedIndex = index as ExtendedRealIndexData;
+                      if (extendedIndex.onChain && extendedIndex.blockchainId !== undefined) {
+                        router.push(`/create-index?selectedIndex=${extendedIndex.blockchainId}`);
+                      } else {
+                        // Route to the index detail page for regular indices
+                        router.push(`/index/${index.id}`);
+                      }
                     }}
                   >
                     <Plus className="w-4 h-4 mr-1" />
@@ -365,75 +426,10 @@ export function IndicesExplorer() {
         </div>
       )}
 
-      {/* Blockchain Indices Section - Hidden since we show Available Contract Indices above */}
-      {false && !isLoading && isConnected && blockchainIndices.length > 0 && (
-        <div className="space-y-4">
-          <div className="text-center">
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">Available Contract Indices</h3>
-            <p className="text-md text-gray-600 max-w-2xl mx-auto">
-              These indices are available on the blockchain with oracle data. Click &ldquo;Add&rdquo; to start trading with these indices.
-            </p>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {blockchainIndices.map((index) => (
-              <Card 
-                key={index.id} 
-                className="hover:shadow-lg transition-all duration-200 border border-blue-200 rounded-xl bg-blue-50"
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white text-lg font-bold">
-                        {(index.name || 'U').charAt(0)}
-                      </div>
-                      <div>
-                                              <div className="font-semibold text-gray-900">{index.name || 'Unknown Index'}</div>
-                      <div className="text-sm text-gray-500">ID: {index.id}</div>
-                      </div>
-                    </div>
-                    <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                      On-Chain
-                    </Badge>
-                  </div>
 
-                  <div className="mb-3">
-                    <p className="text-sm text-gray-600">{index.description}</p>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-lg font-bold text-gray-900">
-                        {index.value ? index.value.toLocaleString() : 'Loading...'}
-                      </div>
-                      <div className="text-xs text-gray-500">Current Value</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm font-medium text-blue-700">
-                        {index.active ? 'Active' : 'Inactive'}
-                      </div>
-                      <div className="text-xs text-gray-500">Status</div>
-                    </div>
-                    <Button 
-                      size="sm" 
-                      className="ml-4 bg-blue-600 hover:bg-blue-700"
-                      onClick={() => {
-                        router.push(`/create-index?selectedIndex=${index.id}`);
-                      }}
-                    >
-                      <Plus className="w-4 h-4 mr-1" />
-                      Add
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* No Results */}
-      {!isLoading && filteredIndices.length === 0 && (!isConnected || blockchainIndices.length === 0) && (
+      {!isLoading && filteredIndices.length === 0 && availableContractIndices.length === 0 && (
         <Card>
           <CardContent className="text-center py-12">
             <Search className="w-12 h-12 text-gray-400 mx-auto mb-4" />

@@ -13,7 +13,7 @@ export const OPERATORS = {
   NEQ: 6, // Not Equal
 };
 
-// Index mappings (matching new backend system)
+// Index mappings (matching new backend system and Alpha Vantage integration)
 export const INDICES = {
   APPLE_STOCK: {
     id: 0,
@@ -21,6 +21,8 @@ export const INDICES = {
     symbol: 'AAPL',
     description: 'Apple Inc. stock price',
     unit: 'USD (basis points)',
+    alphaVantageSymbol: 'AAPL',
+    category: 'Stocks',
   },
   TESLA_STOCK: {
     id: 1,
@@ -28,6 +30,8 @@ export const INDICES = {
     symbol: 'TSLA',
     description: 'Tesla Inc. stock price',
     unit: 'USD (basis points)',
+    alphaVantageSymbol: 'TSLA',
+    category: 'Stocks',
   },
   VIX_INDEX: {
     id: 2,
@@ -35,6 +39,8 @@ export const INDICES = {
     symbol: 'VIX', 
     description: 'CBOE Volatility Index',
     unit: 'Index points (basis points)',
+    alphaVantageSymbol: 'VIX',
+    category: 'Indices',
   },
   BTC_PRICE: {
     id: 3,
@@ -42,6 +48,8 @@ export const INDICES = {
     symbol: 'BTC',
     description: 'Bitcoin price in USD', 
     unit: 'USD (basis points)',
+    alphaVantageSymbol: 'BTC',
+    category: 'Crypto',
   },
 };
 

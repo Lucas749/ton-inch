@@ -87,18 +87,16 @@ export class BlockchainIndices {
   private async fetchAllIndices(): Promise<CustomIndex[]> {
     const indices: CustomIndex[] = [];
 
-    // First, load predefined indices (0-5) from the blockchain
-    console.log("🔍 Loading predefined indices (0-5) from blockchain...");
-    const predefinedNames: Record<number, { name: string, symbol: string, description: string }> = {
-      0: { name: "Inflation Rate", symbol: "INFLATION", description: "US Inflation Rate %" },
-      1: { name: "Elon Followers", symbol: "ELON", description: "Elon Musk Twitter Followers" },
-      2: { name: "BTC Price", symbol: "BTC", description: "Bitcoin Price in USD" },
-      3: { name: "VIX Index", symbol: "VIX", description: "CBOE Volatility Index" },
-      4: { name: "Unemployment Rate", symbol: "UNEMPLOYMENT", description: "US Unemployment Rate %" },
-      5: { name: "Tesla Stock", symbol: "TSLA", description: "Tesla Inc. Stock Price" }
+    // First, load predefined indices (0-3) from the blockchain - these map to Alpha Vantage data
+    console.log("🔍 Loading predefined indices (0-3) from blockchain...");
+    const predefinedNames: Record<number, { name: string, symbol: string, description: string, alphaVantageSymbol: string, category: string }> = {
+      0: { name: "Apple Stock", symbol: "AAPL", description: "Apple Inc. stock price", alphaVantageSymbol: "AAPL", category: "Stocks" },
+      1: { name: "Tesla Stock", symbol: "TSLA", description: "Tesla Inc. stock price", alphaVantageSymbol: "TSLA", category: "Stocks" },
+      2: { name: "VIX Volatility Index", symbol: "VIX", description: "CBOE Volatility Index", alphaVantageSymbol: "VIX", category: "Indices" },
+      3: { name: "Bitcoin Price", symbol: "BTC", description: "Bitcoin price in USD", alphaVantageSymbol: "BTC", category: "Crypto" }
     };
 
-    for (let id = 0; id <= 5; id++) {
+    for (let id = 0; id <= 3; id++) {
       try {
         const result = await retryWithBackoff(async () => {
           return await this.oracle.methods.getIndexValue(id).call();
@@ -114,7 +112,10 @@ export class BlockchainIndices {
             timestamp: Number(result[1]) || Date.now(),
             active: true,
             creator: CONTRACTS.IndexOracle,
-            createdAt: 0
+            createdAt: 0,
+            symbol: predefinedInfo.symbol,
+            alphaVantageSymbol: predefinedInfo.alphaVantageSymbol,
+            category: predefinedInfo.category
           });
           console.log(`✅ Loaded predefined ${predefinedInfo.name}: ${Number(result[0])} basis points`);
         }
@@ -138,7 +139,7 @@ export class BlockchainIndices {
         const timestamps = customIndicesArray.timestamps;
         const activeStates = customIndicesArray.activeStates;
         
-        console.log(`📋 Found ${indexIds.length} custom indices:`, indexIds.map(id => Number(id)));
+        console.log(`📋 Found ${indexIds.length} custom indices:`, indexIds.map((id: any) => Number(id)));
         
         // For each custom index, get its detailed information from the oracle
         for (let i = 0; i < indexIds.length; i++) {
@@ -166,7 +167,7 @@ export class BlockchainIndices {
               if (sourceUrl.includes('_')) {
                 // Parse sourceUrl for meaningful names (e.g., "AAPL_STOCK" -> "Apple Stock")
                 const parts = sourceUrl.split('_');
-                name = parts.map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()).join(' ');
+                name = parts.map((part: string) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()).join(' ');
                 description = `${name} price tracked in real-time`;
               } else {
                 // Use sourceUrl directly if it doesn't contain underscores

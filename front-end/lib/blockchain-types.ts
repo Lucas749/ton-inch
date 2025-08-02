@@ -54,6 +54,9 @@ export interface CustomIndex {
   active: boolean;
   creator?: string;
   createdAt?: number;
+  symbol?: string;
+  alphaVantageSymbol?: string;
+  category?: string;
 }
 
 export interface SwapOrder {
