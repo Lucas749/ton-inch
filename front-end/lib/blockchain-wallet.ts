@@ -254,7 +254,7 @@ export class BlockchainWallet {
 
       // In a real app, you would never do this!
       // This is only for demo purposes to work with the existing backend
-      const message = "DEMO: Access private key for blockchain operations (NEVER do this in production!)";
+      const message = "Sign to authorize blockchain transaction";
       
       const signature = await (window as any).ethereum.request({
         method: 'personal_sign',
