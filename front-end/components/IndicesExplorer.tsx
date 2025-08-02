@@ -11,9 +11,11 @@ import {
   Search,
   Eye,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  Plus
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useBlockchain } from "@/hooks/useBlockchain";
 import { Sparkline } from "./Sparkline";
 import { RealIndicesService, RealIndexData } from "@/lib/real-indices-service";
 
@@ -28,6 +30,7 @@ export function IndicesExplorer() {
   const [error, setError] = useState<string | null>(null);
   
   const router = useRouter();
+  const { isConnected, indices: blockchainIndices } = useBlockchain();
 
   // Load real data from Alpha Vantage
   const loadIndicesData = async (isRefresh = false) => {
@@ -80,9 +83,9 @@ export function IndicesExplorer() {
     <div className="space-y-6">
       {/* Header */}
       <div className="text-center">
-        <h2 className="text-3xl font-bold text-gray-900 mb-4">Market Indices</h2>
+        <h2 className="text-3xl font-bold text-gray-900 mb-4">Indices Explorer</h2>
         <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-          Discover and track market indices with real-time data from Alpha Vantage. Click on any index to view detailed charts and add to your portfolio.
+          Discover market indices and blockchain indices. Request market data or add on-chain indices for conditional trading.
         </p>
       </div>
 
@@ -175,9 +178,17 @@ export function IndicesExplorer() {
         </div>
       )}
 
-      {/* Indices Grid - Cookie.fun style */}
+      {/* Market Indices Section */}
       {!isLoading && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="space-y-4">
+          <div className="text-center">
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">Market Indices (Request Data)</h3>
+            <p className="text-md text-gray-600 max-w-2xl mx-auto">
+              Real-time market data from Alpha Vantage. Click "Request" to request adding these indices to the system.
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredIndices.map((index) => (
             <Card 
               key={index.id} 
@@ -239,18 +250,86 @@ export function IndicesExplorer() {
                       handleViewIndex(index);
                     }}
                   >
-                    <Eye className="w-4 h-4 mr-1" />
-                    View
+                    <Plus className="w-4 h-4 mr-1" />
+                    Request
                   </Button>
                 </div>
               </CardContent>
             </Card>
           ))}
+          </div>
+        </div>
+      )}
+
+      {/* Blockchain Indices Section */}
+      {!isLoading && isConnected && blockchainIndices.length > 0 && (
+        <div className="space-y-4">
+          <div className="text-center">
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">Available Contract Indices</h3>
+            <p className="text-md text-gray-600 max-w-2xl mx-auto">
+              These indices are available on the blockchain with oracle data. Click "Add" to start trading with these indices.
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {blockchainIndices.map((index) => (
+              <Card 
+                key={index.id} 
+                className="hover:shadow-lg transition-all duration-200 border border-blue-200 rounded-xl bg-blue-50"
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white text-lg font-bold">
+                        {index.name.charAt(0)}
+                      </div>
+                      <div>
+                        <div className="font-semibold text-gray-900">{index.name}</div>
+                        <div className="text-sm text-gray-500">ID: {index.id}</div>
+                      </div>
+                    </div>
+                    <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                      On-Chain
+                    </Badge>
+                  </div>
+
+                  <div className="mb-3">
+                    <p className="text-sm text-gray-600">{index.description}</p>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-lg font-bold text-gray-900">
+                        {index.value ? index.value.toLocaleString() : 'Loading...'}
+                      </div>
+                      <div className="text-xs text-gray-500">Current Value</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-medium text-blue-700">
+                        {index.isActive ? 'Active' : 'Inactive'}
+                      </div>
+                      <div className="text-xs text-gray-500">Status</div>
+                    </div>
+                    <Button 
+                      size="sm" 
+                      className="ml-4 bg-blue-600 hover:bg-blue-700"
+                      onClick={() => {
+                        router.push(`/create-index?selectedIndex=${index.id}`);
+                      }}
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      Add
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
       )}
 
       {/* No Results */}
-      {!isLoading && filteredIndices.length === 0 && (
+      {!isLoading && filteredIndices.length === 0 && (!isConnected || blockchainIndices.length === 0) && (
         <Card>
           <CardContent className="text-center py-12">
             <Search className="w-12 h-12 text-gray-400 mx-auto mb-4" />
