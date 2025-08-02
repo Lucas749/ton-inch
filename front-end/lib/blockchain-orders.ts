@@ -19,7 +19,7 @@ const CONFIG = {
   CHAIN_ID: 8453, // Base Mainnet
   RPC_URL: 'https://base.llamarpc.com',
   LIMIT_ORDER_PROTOCOL: '0x111111125421cA6dc452d289314280a0f8842A65',
-  INDEX_ORACLE_ADDRESS: '0x8a585F9B2359Ef093E8a2f5432F387960e953BD2',
+  INDEX_ORACLE_ADDRESS: '0x3073D2b5e72c48f16Ee99700BC07737b8ecd8709',
   
   // Base Mainnet Token Addresses (matching backend)
   TOKENS: {
@@ -453,18 +453,48 @@ export class BlockchainOrders {
       const result = await response.json();
       console.log('📋 Cancellation prepared:', result);
 
-      console.log('⚠️ Order cancellation requires MetaMask signature for 1inch API');
-      console.log('🔧 Currently simulating successful cancellation after API preparation');
-      
-      // TODO: Implement actual MetaMask transaction for order cancellation
-      // This would require:
-      // 1. Creating cancellation transaction data using result.cancellationData
-      // 2. Prompting user to sign with MetaMask
-      // 3. Submitting signed transaction to 1inch API
-      // For now, we simulate success since API preparation indicates cancellation is possible
+      console.log('🔧 Executing actual 1inch protocol cancellation with MetaMask...');
       
       // Check if the API preparation was successful
       if (result.success) {
+        // Step 1: Get order details from 1inch API to get makerTraits
+        console.log('🔍 Step 1: Getting order details from 1inch API...');
+        
+        try {
+          const orderDetailsResponse = await fetch(`/api/oneinch/fusion?action=get-order&orderHash=${orderHash}`);
+          if (!orderDetailsResponse.ok) {
+            throw new Error('Failed to get order details from 1inch API');
+          }
+          
+          const orderDetails = await orderDetailsResponse.json();
+          if (!orderDetails.success || !orderDetails.order) {
+            throw new Error('Order not found in 1inch API');
+          }
+          
+          console.log('✅ Order details retrieved:', {
+            maker: orderDetails.order.maker,
+            makerTraits: orderDetails.order.makerTraits
+          });
+          
+          // Step 2: Verify user is the order maker
+          if (orderDetails.order.maker.toLowerCase() !== this.wallet.currentAccount?.toLowerCase()) {
+            throw new Error(`Only the order maker can cancel this order. Maker: ${orderDetails.order.maker}, Your address: ${this.wallet.currentAccount}`);
+          }
+          
+          console.log('✅ Order ownership verified');
+          
+          // Step 3: Execute cancellation transaction via MetaMask
+          console.log('📤 Step 3: Executing cancellation transaction...');
+          
+          const txHash = await this.executeCancellationTransaction(orderHash, orderDetails.order.makerTraits);
+          
+          console.log(`✅ Order cancelled successfully! Transaction: ${txHash}`);
+          
+        } catch (contractError) {
+          console.error('❌ Contract cancellation failed:', contractError);
+          const errorMessage = contractError instanceof Error ? contractError.message : String(contractError);
+          throw new Error(`Failed to cancel order on-chain: ${errorMessage}`);
+        }
         console.log('✅ API cancellation preparation successful, updating persistent storage');
         
         // First try to update the order in persistent storage
@@ -509,6 +539,111 @@ export class BlockchainOrders {
       console.error("❌ Error cancelling order:", error);
       throw error;
     }
+  }
+
+  /**
+   * Execute cancellation transaction via MetaMask
+   */
+  private async executeCancellationTransaction(orderHash: string, makerTraits: string): Promise<string> {
+    try {
+      if (typeof window === "undefined" || !window.ethereum) {
+        throw new Error("MetaMask not available");
+      }
+
+      // Contract ABI for cancelOrder function
+      const cancelOrderABI = [
+        {
+          "inputs": [
+            {"internalType": "uint256", "name": "makerTraits", "type": "uint256"},
+            {"internalType": "bytes32", "name": "orderHash", "type": "bytes32"}
+          ],
+          "name": "cancelOrder",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        }
+      ];
+
+      // Create contract interface
+      const iface = new ethers.utils.Interface(cancelOrderABI);
+      
+      // Encode the function call
+      const calldata = iface.encodeFunctionData("cancelOrder", [makerTraits, orderHash]);
+      
+      console.log('🔧 Transaction details:', {
+        to: CONFIG.LIMIT_ORDER_PROTOCOL,
+        data: calldata,
+        makerTraits,
+        orderHash
+      });
+
+      // Send transaction via MetaMask
+      const txHash = await window.ethereum.request({
+        method: 'eth_sendTransaction',
+        params: [{
+          from: this.wallet.currentAccount,
+          to: CONFIG.LIMIT_ORDER_PROTOCOL,
+          data: calldata,
+          // Let MetaMask estimate gas
+        }],
+      });
+
+      console.log(`⏳ Transaction sent: ${txHash}`);
+      console.log('⏳ Waiting for confirmation...');
+
+      // Wait for transaction confirmation
+      await this.waitForTransactionConfirmation(txHash);
+      
+      return txHash;
+    } catch (error) {
+      console.error("❌ Error executing cancellation transaction:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Wait for transaction confirmation
+   */
+  private async waitForTransactionConfirmation(txHash: string): Promise<void> {
+    const maxAttempts = 30; // 5 minutes at 10 second intervals
+    let attempts = 0;
+    
+    while (attempts < maxAttempts) {
+      try {
+        const receipt = await window.ethereum?.request({
+          method: 'eth_getTransactionReceipt',
+          params: [txHash],
+        });
+        
+        if (receipt) {
+          if (receipt.status === '0x1') {
+            console.log(`✅ Transaction confirmed in block ${parseInt(receipt.blockNumber, 16)}`);
+            return;
+          } else {
+            throw new Error('Transaction failed (reverted)');
+          }
+        }
+        
+        // Transaction not yet mined, wait and try again
+        console.log(`⏳ Waiting for confirmation... (${attempts + 1}/${maxAttempts})`);
+        await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
+        attempts++;
+        
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        if (errorMessage.includes('Transaction failed')) {
+          throw error;
+        }
+        // Other errors might be temporary, continue waiting
+        attempts++;
+        if (attempts >= maxAttempts) {
+          throw new Error('Transaction confirmation timeout');
+        }
+        await new Promise(resolve => setTimeout(resolve, 10000));
+      }
+    }
+    
+    throw new Error('Transaction confirmation timeout');
   }
 
   /**

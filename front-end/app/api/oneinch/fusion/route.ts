@@ -3,73 +3,143 @@ import { NextRequest, NextResponse } from 'next/server';
 // FUSION INTENT SWAP API ROUTE - Complete Intent-Based Swap Implementation
 export const dynamic = 'force-dynamic';
 
-// GET method for getting Fusion quotes
+// GET method for getting Fusion quotes and order details
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   
+  const action = searchParams.get('action');
   const chainId = searchParams.get('chainId') || '8453';
-  const srcToken = searchParams.get('srcToken');
-  const dstToken = searchParams.get('dstToken');
-  const amount = searchParams.get('amount');
-  const walletAddress = searchParams.get('walletAddress');
-  const preset = searchParams.get('preset');
   
-  console.log('🎯 FUSION QUOTE - Received params:', {
-    srcToken, dstToken, amount, walletAddress, preset, chainId
-  });
-  
-  if (!srcToken || !dstToken || !amount || !walletAddress) {
-    console.error('❌ Missing FUSION quote parameters:', { 
-      srcToken: !!srcToken, 
-      dstToken: !!dstToken, 
-      amount: !!amount, 
-      walletAddress: !!walletAddress 
-    });
-    return NextResponse.json({ 
-      error: 'Missing required parameters: srcToken, dstToken, amount, walletAddress' 
-    }, { status: 400 });
-  }
-
-  try {
-    // Use the 1inch quote API for Fusion quote (simplified approach)
-    const fusionUrl = new URL(`https://api.1inch.dev/swap/v6.1/${chainId}/quote`);
+  if (action === 'get-order') {
+    // Get order details by hash
+    const orderHash = searchParams.get('orderHash');
     
-    fusionUrl.searchParams.set('src', srcToken);
-    fusionUrl.searchParams.set('dst', dstToken);
-    fusionUrl.searchParams.set('amount', amount);
+    if (!orderHash) {
+      return NextResponse.json({ 
+        error: 'Missing required parameter: orderHash' 
+      }, { status: 400 });
+    }
+    
+    console.log('🔍 GET ORDER - Getting order details for:', orderHash);
+    
+    try {
+      // Use 1inch Fusion API to get order details
+      const orderUrl = new URL(`https://api.1inch.dev/orderbook/v4.1/${chainId}/order/${orderHash}`);
+      
+      const response = await fetch(orderUrl.toString(), {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_ONEINCH_API_KEY}`,
+          'Content-Type': 'application/json',
+          'User-Agent': 'c1nch/1.0',
+        },
+      });
 
-    console.log('🔍 FUSION QUOTE - Proxying request to:', fusionUrl.toString());
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ GET ORDER API ERROR:', response.status, errorText);
+        
+        if (response.status === 404) {
+          return NextResponse.json({
+            success: false,
+            error: 'Order not found'
+          }, { status: 404 });
+        }
+        
+        throw new Error(`Get order API error: ${response.status}`);
+      }
 
-    const response = await fetch(fusionUrl.toString(), {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${process.env.NEXT_PUBLIC_ONEINCH_API_KEY}`,
-        'Content-Type': 'application/json',
-        'User-Agent': 'c1nch/1.0',
-      },
+      const orderData = await response.json();
+      
+      console.log('✅ Order details retrieved:', {
+        maker: orderData.maker,
+        makerTraits: orderData.makerTraits
+      });
+      
+      return NextResponse.json({
+        success: true,
+        order: orderData
+      }, {
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization', 
+        },
+      });
+      
+    } catch (error) {
+      console.error('❌ GET ORDER ERROR:', error);
+      return NextResponse.json({
+        success: false,
+        error: 'Failed to get order details'
+      }, { status: 500 });
+    }
+    
+  } else {
+    // Default behavior: Fusion quote
+    const srcToken = searchParams.get('srcToken');
+    const dstToken = searchParams.get('dstToken');
+    const amount = searchParams.get('amount');
+    const walletAddress = searchParams.get('walletAddress');
+    const preset = searchParams.get('preset');
+    
+    console.log('🎯 FUSION QUOTE - Received params:', {
+      srcToken, dstToken, amount, walletAddress, preset, chainId
     });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ FUSION QUOTE API ERROR:', response.status, errorText);
-      throw new Error(`Fusion quote API error: ${response.status}`);
+    
+    if (!srcToken || !dstToken || !amount || !walletAddress) {
+      console.error('❌ Missing FUSION quote parameters:', { 
+        srcToken: !!srcToken, 
+        dstToken: !!dstToken, 
+        amount: !!amount, 
+        walletAddress: !!walletAddress 
+      });
+      return NextResponse.json({ 
+        error: 'Missing required parameters: srcToken, dstToken, amount, walletAddress' 
+      }, { status: 400 });
     }
 
-    const data = await response.json();
-    
-    return NextResponse.json(data, {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization', 
-      },
-    });
-  } catch (error) {
-    console.error('❌ FUSION QUOTE PROXY ERROR:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch Fusion quote' },
-      { status: 500 }
-    );
+    try {
+      // Use the 1inch quote API for Fusion quote (simplified approach)
+      const fusionUrl = new URL(`https://api.1inch.dev/swap/v6.1/${chainId}/quote`);
+      
+      fusionUrl.searchParams.set('src', srcToken);
+      fusionUrl.searchParams.set('dst', dstToken);
+      fusionUrl.searchParams.set('amount', amount);
+
+      console.log('🔍 FUSION QUOTE - Proxying request to:', fusionUrl.toString());
+
+      const response = await fetch(fusionUrl.toString(), {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_ONEINCH_API_KEY}`,
+          'Content-Type': 'application/json',
+          'User-Agent': 'c1nch/1.0',
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ FUSION QUOTE API ERROR:', response.status, errorText);
+        throw new Error(`Fusion quote API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      return NextResponse.json(data, {
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization', 
+        },
+      });
+    } catch (error) {
+      console.error('❌ FUSION QUOTE PROXY ERROR:', error);
+      return NextResponse.json(
+        { error: 'Failed to fetch Fusion quote' },
+        { status: 500 }
+      );
+    }
   }
 }
 

@@ -19,7 +19,7 @@ const CONFIG = {
     CHAIN_ID: parseInt(process.env.CHAIN_ID) || 8453,
     RPC_URL: process.env.RPC_URL || 'https://base.llamarpc.com',
     CONTRACTS: {
-        INDEX_ORACLE_ADDRESS: process.env.INDEX_ORACLE_ADDRESS || '0x8a585F9B2359Ef093E8a2f5432F387960e953BD2'
+        INDEX_ORACLE_ADDRESS: process.env.INDEX_ORACLE_ADDRESS || '0x3073D2b5e72c48f16Ee99700BC07737b8ecd8709'
     }
 };
 
