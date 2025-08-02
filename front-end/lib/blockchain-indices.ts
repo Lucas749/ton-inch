@@ -528,6 +528,83 @@ export class BlockchainIndices {
   }
 
   /**
+   * Create a new custom index with oracle type (similar to backend oracle-manager.js)
+   */
+  async createIndexWithOracleType(
+    name: string,
+    initialValue: number,
+    sourceUrl: string,
+    oracleType: number
+  ): Promise<{
+    success: boolean;
+    indexId?: number;
+    transactionHash?: string;
+    error?: string;
+  }> {
+    try {
+      if (!this.wallet.isWalletConnected() || !this.wallet.currentAccount) {
+        throw new Error("Wallet not connected. Please connect your wallet first.");
+      }
+
+      console.log(`🆕 Creating new index with oracle type:`, {
+        name,
+        initialValue,
+        sourceUrl,
+        oracleType
+      });
+
+      // Estimate gas first
+      const gasEstimate = await this.oracle.methods
+        .createCustomIndex(
+          initialValue,
+          sourceUrl,
+          oracleType,
+          '0x0000000000000000000000000000000000000000' // null address for chainlink oracle
+        )
+        .estimateGas({ from: this.wallet.currentAccount });
+
+      console.log(`⛽ Estimated gas: ${gasEstimate}`);
+
+      // Execute transaction
+      const tx = await this.oracle.methods
+        .createCustomIndex(
+          initialValue,
+          sourceUrl,
+          oracleType,
+          '0x0000000000000000000000000000000000000000'
+        )
+        .send({
+          from: this.wallet.currentAccount,
+          gas: Math.floor(gasEstimate * 1.2), // Add 20% buffer
+        });
+
+      console.log("✅ Index created successfully:", tx.transactionHash);
+
+      // Parse the events to get the new index ID
+      let indexId = null;
+      if (tx.events && tx.events.CustomIndexCreated) {
+        indexId = parseInt(tx.events.CustomIndexCreated.returnValues.indexId);
+      }
+
+      // Clear cache so next fetch gets fresh data
+      this.clearCache();
+
+      return {
+        success: true,
+        indexId: indexId,
+        transactionHash: tx.transactionHash
+      };
+
+    } catch (error) {
+      console.error("❌ Error creating index with oracle type:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error"
+      };
+    }
+  }
+
+  /**
    * Reinitialize contracts (called when network changes)
    */
   reinitialize(): void {

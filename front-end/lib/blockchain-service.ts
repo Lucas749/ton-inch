@@ -169,6 +169,20 @@ export class BlockchainService {
     return this.indices.isOwner();
   }
 
+  async createIndexWithOracleType(
+    name: string,
+    initialValue: number,
+    sourceUrl: string,
+    oracleType: number
+  ): Promise<{
+    success: boolean;
+    indexId?: number;
+    transactionHash?: string;
+    error?: string;
+  }> {
+    return this.indices.createIndexWithOracleType(name, initialValue, sourceUrl, oracleType);
+  }
+
   // === ORDER OPERATIONS ===
 
   async createOrder(params: OrderParams): Promise<Order | null> {

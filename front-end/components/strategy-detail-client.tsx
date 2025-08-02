@@ -126,6 +126,30 @@ const getStrategyMetadata = (strategyId: string) => {
       icon: '📊',
       description: 'Trade based on market volatility spikes using the VIX index.',
       targetSymbol: 'VIX'
+    },
+    'corn-cycle': {
+      name: 'Corn Seasonal Strategy',
+      tokenPair: 'CORN/USD',
+      trigger: 'Corn Price Movement',
+      icon: '🌽',
+      description: 'Trade based on seasonal corn price cycles using Alpha Vantage commodity data.',
+      targetSymbol: 'CORN'
+    },
+    'wheat-seasonal': {
+      name: 'Wheat Harvest Strategy',
+      tokenPair: 'WHEAT/USD', 
+      trigger: 'Wheat Price Movement',
+      icon: '🌾',
+      description: 'Capitalize on wheat seasonal patterns and harvest cycles.',
+      targetSymbol: 'WHEAT'
+    },
+    'oil-momentum': {
+      name: 'Oil Momentum Strategy',
+      tokenPair: 'WTI/USD',
+      trigger: 'WTI Oil Price',
+      icon: '🛢️',
+      description: 'Trade WTI crude oil based on price momentum and supply/demand dynamics.',
+      targetSymbol: 'WTI'
     }
   };
   
@@ -187,7 +211,7 @@ export function StrategyDetailClient({
       console.log(`📡 Using API key: ${apiKey.substring(0, 8)}...`);
       
       // Determine the appropriate API call based on symbol type
-      let response: TimeSeriesResponse;
+      let response: TimeSeriesResponse | undefined;
       let parsedData: Array<{
         date: string;
         open: number;
@@ -201,7 +225,7 @@ export function StrategyDetailClient({
         // Crypto symbols like BTCUSD, ETHUSD
         console.log(`📈 Fetching crypto data for ${symbol}`);
         const cryptoResponse = await alphaVantageService.getCryptoTimeSeries(
-          symbol.replace('USD', ''), 'USD', 'Daily'
+          symbol.replace('USD', ''), 'USD', 'daily'
         );
         // Note: Crypto API has different structure, would need custom parsing
         // For now, fallback to regular daily series
@@ -212,7 +236,7 @@ export function StrategyDetailClient({
         console.log(`📈 Fetching forex data for ${symbol}`);
         const [fromCurrency, toCurrency] = symbol.split('/');
         const forexResponse = await alphaVantageService.getForexTimeSeries(
-          fromCurrency, toCurrency, 'Daily'
+          fromCurrency, toCurrency, 'daily'
         );
         // Note: Forex API has different structure, would need custom parsing
         // For now, fallback to regular daily series
@@ -221,16 +245,42 @@ export function StrategyDetailClient({
       } else if (['WTI', 'BRENT', 'WHEAT', 'CORN'].includes(symbol)) {
         // Commodity symbols
         console.log(`📈 Fetching commodity data for ${symbol}`);
-        if (symbol === 'WTI') {
-          const commodityResponse = await alphaVantageService.getWTIOil('daily');
-          // Note: Commodity API has different structure, would need custom parsing
-          // For now, fallback to regular daily series
-          response = await alphaVantageService.getDailyTimeSeries('SPY', false, "full");
-          parsedData = AlphaVantageService.parseTimeSeriesData(response);
+        let commodityResponse: any;
+        
+        switch (symbol) {
+          case 'WTI':
+            commodityResponse = await alphaVantageService.getWTIOil('monthly');
+            break;
+          case 'BRENT':
+            commodityResponse = await alphaVantageService.getBrentOil('monthly');
+            break;
+          case 'WHEAT':
+            commodityResponse = await alphaVantageService.getWheat('monthly');
+            break;
+          case 'CORN':
+            commodityResponse = await alphaVantageService.getCorn('monthly');
+            break;
+          default:
+            throw new Error(`Unsupported commodity: ${symbol}`);
+        }
+        
+        console.log(`📊 Raw commodity API response for ${symbol}:`, commodityResponse);
+        
+        // Parse commodity data (different structure from stock data)
+        if (commodityResponse && commodityResponse.data && Array.isArray(commodityResponse.data)) {
+          parsedData = commodityResponse.data
+            .slice(-90) // Get last 90 data points
+            .map((item: { date: string; value: string }) => ({
+              date: item.date,
+              open: parseFloat(item.value),
+              high: parseFloat(item.value) * 1.02, // Mock slight variations since commodity data only has one value
+              low: parseFloat(item.value) * 0.98,
+              close: parseFloat(item.value),
+              volume: 1000000 // Mock volume
+            }))
+            .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
         } else {
-          // For other commodities, use regular stock API
-          response = await alphaVantageService.getDailyTimeSeries(symbol, false, "full");
-          parsedData = AlphaVantageService.parseTimeSeriesData(response);
+          throw new Error(`Invalid commodity data structure for ${symbol}`);
         }
       } else {
         // Regular stocks and ETFs
@@ -239,7 +289,9 @@ export function StrategyDetailClient({
         parsedData = AlphaVantageService.parseTimeSeriesData(response);
       }
       
-      console.log(`📊 Raw API response for ${symbol}:`, response);
+      if (!(['WTI', 'BRENT', 'WHEAT', 'CORN'].includes(symbol))) {
+        console.log(`📊 Raw API response for ${symbol}:`, response);
+      }
       console.log(`📈 Parsed data (${parsedData.length} items):`, parsedData.slice(0, 3));
       
       // Format data for Recharts (last 90 days for 3 months)
@@ -258,7 +310,14 @@ export function StrategyDetailClient({
       console.error("❌ Error loading chart data:", error);
       setChartError(`Failed to load chart data for ${symbol}: ${(error as Error).message}`);
       // Set fallback mock data on error
-      const fallbackPrice = symbol === 'BTCUSD' ? 45000 : symbol === 'TSLA' ? 250 : 175;
+      const fallbackPrice = 
+        symbol === 'BTCUSD' ? 45000 : 
+        symbol === 'TSLA' ? 250 : 
+        symbol === 'CORN' ? 450 :  // Corn price in cents per bushel
+        symbol === 'WHEAT' ? 650 :  // Wheat price in cents per bushel
+        symbol === 'WTI' ? 75 :     // Oil price per barrel
+        symbol === 'BRENT' ? 78 :   // Brent oil price per barrel
+        175; // Default fallback
       setPriceData([
         { date: "2024-01-15", price: fallbackPrice * 0.98, sentiment: 45 },
         { date: "2024-01-16", price: fallbackPrice * 1.02, sentiment: 52 },

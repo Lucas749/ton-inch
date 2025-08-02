@@ -54,6 +54,17 @@ export const INDICES = {
 };
 
 // Contract addresses - Base Mainnet (New Architecture)
+// Oracle Types (matching backend oracle-manager.js)
+export const ORACLE_TYPES = {
+  MOCK: 0,
+  CHAINLINK: 1
+};
+
+export const ORACLE_TYPE_NAMES = {
+  0: 'Mock Oracle',
+  1: 'Chainlink Functions'
+};
+
 export const CONTRACTS = {
   // ONLY contract we need - Hybrid Oracle for index data
   IndexOracle: "0x8a585F9B2359Ef093E8a2f5432F387960e953BD2", // Hybrid Oracle (Base Mainnet)
@@ -213,6 +224,18 @@ export const ABIS = {
       inputs: [],
       outputs: [{ name: "", type: "address" }],
       stateMutability: "view",
+    },
+    {
+      type: "function",
+      name: "createCustomIndex",
+      inputs: [
+        { name: "initialValue", type: "uint256" },
+        { name: "sourceUrl", type: "string" },
+        { name: "oracleType", type: "uint8" },
+        { name: "chainlinkOracleAddress", type: "address" }
+      ],
+      outputs: [{ name: "indexId", type: "uint256" }],
+      stateMutability: "nonpayable",
     },
   ],
   // Removed IndexPreInteraction - not needed in new architecture

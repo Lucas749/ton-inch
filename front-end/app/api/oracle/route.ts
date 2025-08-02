@@ -1,12 +1,13 @@
 /**
  * 🏗️ Oracle Management API Route
  * 
- * This API route connects the frontend to backend oracle management functionality.
- * It handles creating blockchain indices using the oracle manager.
+ * This API route handles creating blockchain indices using the front-end blockchain service.
+ * It creates indices with oracle types directly via smart contract calls.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import path from 'path';
+import { Web3 } from 'web3';
+import { CONTRACTS, ABIS, ORACLE_TYPES } from '@/lib/blockchain-constants';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,9 +32,15 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        // Import the backend oracle manager
-        const backendPath = path.join(process.cwd(), '../backend/src/oracle-manager.js');
-        const oracleManager = require(backendPath);
+        // Initialize Web3 with Base RPC
+        const provider = new Web3.providers.HttpProvider('https://base.llamarpc.com');
+        const web3 = new Web3(provider);
+        
+        // Create wallet from private key
+        const wallet = web3.eth.accounts.privateKeyToAccount(privateKey);
+        
+        // Create contract instance  
+        const contract = new web3.eth.Contract(ABIS.IndexOracle, CONTRACTS.IndexOracle);
 
         console.log('📋 Creating blockchain index with oracle:', {
           name,
@@ -42,43 +49,88 @@ export async function POST(request: NextRequest) {
           oracleType: 'CHAINLINK'
         });
 
-        // Create the index using the backend oracle manager with Chainlink oracle type 
-        const result = await oracleManager.createNewIndexWithOracleType(
-          name,
+        // Estimate gas
+        const gasEstimate = await contract.methods
+          .createCustomIndex(
+            initialValue,
+            sourceUrl,
+            ORACLE_TYPES.CHAINLINK, // Use Chainlink oracle type
+            '0x0000000000000000000000000000000000000000' // null address for chainlink oracle
+          )
+          .estimateGas({ from: wallet.address });
+
+        // Build transaction
+        const tx = contract.methods.createCustomIndex(
           initialValue,
           sourceUrl,
-          oracleManager.ORACLE_TYPES.CHAINLINK, // Use Chainlink for real data
-          privateKey
+          ORACLE_TYPES.CHAINLINK,
+          '0x0000000000000000000000000000000000000000'
         );
 
-        if (result.success) {
-          console.log('✅ Index created successfully:', result.indexId);
-          
-          return NextResponse.json({
-            success: true,
-            indexId: result.indexId,
-            name: name,
-            transactionHash: result.transactionHash,
-            gasUsed: result.gasUsed,
-            blockNumber: result.blockNumber,
-            message: `Index "${name}" created successfully on blockchain!`
-          }, {
-            headers: {
-              'Access-Control-Allow-Origin': '*',
-              'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-              'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-            },
-          });
-        } else {
-          throw new Error(result.error || 'Failed to create index');
+        const txData = {
+          to: CONTRACTS.IndexOracle,
+          data: tx.encodeABI(),
+          gas: Math.floor(gasEstimate * 1.2),
+          gasPrice: await web3.eth.getGasPrice(),
+        };
+
+        // Sign and send transaction
+        const signedTx = await web3.eth.accounts.signTransaction(txData, privateKey);
+        const receipt = await web3.eth.sendSignedTransaction(signedTx.rawTransaction!);
+
+        // Parse events to get index ID
+        let indexId = null;
+        if (receipt.logs && receipt.logs.length > 0) {
+          try {
+            const decodedLogs = receipt.logs.map(log => {
+              try {
+                return web3.eth.abi.decodeLog(
+                  [
+                    { type: 'uint256', name: 'indexId', indexed: true },
+                    { type: 'uint256', name: 'value' },
+                    { type: 'uint256', name: 'timestamp' },
+                    { type: 'string', name: 'sourceUrl' }
+                  ],
+                  log.data,
+                  log.topics.slice(1)
+                );
+              } catch {
+                return null;
+              }
+            }).filter(Boolean);
+            
+            if (decodedLogs.length > 0 && decodedLogs[0].indexId) {
+              indexId = parseInt(decodedLogs[0].indexId);
+            }
+          } catch (error) {
+            console.warn('Could not parse event logs for index ID:', error);
+          }
         }
 
-      } catch (backendError: any) {
-        console.error('❌ Backend oracle manager error:', backendError);
+        console.log('✅ Index created successfully:', indexId);
+          
+        return NextResponse.json({
+          success: true,
+          indexId: indexId,
+          name: name,
+          transactionHash: receipt.transactionHash,
+          gasUsed: receipt.gasUsed?.toString(),
+          blockNumber: receipt.blockNumber,
+          message: `Index "${name}" created successfully on blockchain with Chainlink oracle!`
+        }, {
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          },
+        });
+
+      } catch (contractError: any) {
+        console.error('❌ Contract interaction error:', contractError);
         return NextResponse.json({
           error: 'Failed to create blockchain index',
-          message: backendError.message || 'Backend oracle manager error',
-          details: backendError.toString()
+          message: contractError.message || 'Contract interaction error',
+          details: contractError.toString()
         }, { status: 500 });
       }
 
