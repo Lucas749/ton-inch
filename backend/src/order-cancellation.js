@@ -201,7 +201,7 @@ async function cancelLimitOrder(orderHash, privateKey, oneInchApiKey) {
         console.log(`📤 Transaction: ${tx.hash}`);
         console.log(`🧱 Block: ${receipt.blockNumber}`);
         console.log(`⛽ Gas Used: ${receipt.gasUsed}`);
-        console.log(`💰 Transaction Fee: ${ethers.utils.formatEther(receipt.gasUsed.mul(tx.gasPrice))} ETH\n`);
+
         
         return {
             success: true,

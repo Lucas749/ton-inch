@@ -10,7 +10,7 @@ const {Wallet, ethers} = require('ethers');
 require('dotenv').config();
 
 // Oracle deployed to Base Mainnet
-const INDEX_ORACLE_ADDRESS = '0x55aAfa1D3de3D05536C96Ee9F1b965D6cE04a4c1';
+const INDEX_ORACLE_ADDRESS = '0x8a585F9B2359Ef093E8a2f5432F387960e953BD2';
 
 async function testUnfillableOrder() {
     console.log('CREATING UNFILLABLE ORDER - Testing Conditional Trading');

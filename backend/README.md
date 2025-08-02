@@ -24,7 +24,8 @@ node test-index-order-creator.js   # Test order creation
 
 | File | Purpose | Usage |
 |------|---------|-------|
-| `src/oracle-manager.js` | **Oracle Interface** - Query & update index data | `const result = await getAllIndices()` |
+| `src/oracle-manager.js` | **Mock Oracle Interface** - Query & update mock index data | `const result = await getAllIndices()` |
+| `src/chainlink-oracle-manager.js` | **Chainlink Oracle Interface** - Decentralized real-world data via Chainlink Functions | `const result = await getAllChainlinkIndices()` |
 | `src/order-manager.js` | **Order Retrieval** - Get active/historical orders | `const orders = await getAllActiveOrdersForMaker(address, apiKey)` |
 | `src/index-order-creator.js` | **Order Creation** - Create conditional limit orders | `const order = await createIndexBasedOrder({...})` |
 | `src/order-cancellation.js` | **Order Cancellation** - Cancel limit orders by hash | `const result = await cancelLimitOrder(hash, privateKey, apiKey)` |
@@ -36,6 +37,8 @@ node test-index-order-creator.js   # Test order creation
 |------|---------|---------------|
 | `simple-oracle-demo.js` | **Quick Oracle View** | Current values of all 7 indices |
 | `test-oracle-manager.js` | **Complete Oracle Testing** | Full test suite: read all indices, create custom index, update values, simulate price movements, manage status |
+| `test-chainlink-oracle.js` | **Chainlink Functions Testing** | Test Chainlink Functions integration, real-world data fetching, decentralized oracle management |
+| `test-hybrid-oracle.js` | **Hybrid Oracle Testing** | Test switching between mock and Chainlink oracles, oracle type management, seamless integration |
 | `test-order-manager.js` | **Order Testing** | Retrieve your active & historical orders |
 | `test-index-order-creator.js` | **Order Creation Testing** | Create conditional orders with different indices |
 | `test-order-cancellation.js` | **Order Cancellation Testing** | Test order cancellation functionality, check cancellable orders, batch cancellation |
@@ -44,7 +47,8 @@ node test-index-order-creator.js   # Test order creation
 
 | File | Purpose | Deployed Address |
 |------|---------|------------------|
-| `contracts/MockIndexOracle.sol` | **Index Data Contract** | `0x55aAfa1D3de3D05536C96Ee9F1b965D6cE04a4c1` |
+| `contracts/MockIndexOracle.sol` | **Hybrid Index Oracle** | `0x8a585F9B2359Ef093E8a2f5432F387960e953BD2` |
+| `contracts/ChainlinkIndexOracle.sol` | **Chainlink Functions Oracle** | *Deploy with script* |
 
 ## 📊 Available Indices
 
@@ -170,7 +174,7 @@ PRIVATE_KEY=0xYourPrivateKey                    # Your wallet private key
 ONEINCH_API_KEY=YourAPIKey                      # 1inch API key
 CHAIN_ID=8453                                   # Base mainnet
 RPC_URL=https://base.llamarpc.com               # Base RPC
-INDEX_ORACLE_ADDRESS=0x55aAfa1D3de3D...         # Oracle contract
+INDEX_ORACLE_ADDRESS=0x8a585F9B2359Ef093E8a2f5432F387960e953BD2         # Oracle contract
 ```
 
 ### Supported Tokens (Base Mainnet)
@@ -249,6 +253,8 @@ app.delete('/api/orders/:orderHash', async (req, res) => {
 ### Run Tests
 ```bash
 node test-oracle-manager.js      # Complete oracle test suite (see below)
+node test-hybrid-oracle.js       # Test hybrid oracle switching (mock ↔ chainlink)
+node test-chainlink-oracle.js    # Test Chainlink Functions integration
 node test-order-manager.js       # Test order retrieval  
 node test-index-order-creator.js # Test order creation
 node test-order-cancellation.js  # Test order cancellation
@@ -273,7 +279,7 @@ This comprehensive test demonstrates **all oracle functionality**:
 
 **🎯 Expected Results:**
 ```bash
-✅ Oracle operational at 0x55aAfa1D3de3D05536C96Ee9F1b965D6cE04a4c1
+✅ Oracle operational at 0x8a585F9B2359Ef093E8a2f5432F387960e953BD2
 ✅ Found 6 predefined indices
 ✅ Created custom index 6 with transaction hash
 ✅ Updated index 6 to 50000  
@@ -283,14 +289,230 @@ This comprehensive test demonstrates **all oracle functionality**:
 📊 FINAL SUMMARY: Total Indices: 7 (6 predefined + 1 custom)
 ```
 
-### Deploy New Oracle (if needed)
+### Deploy Oracles
 ```bash
-./deploy-oracle.sh              # Deploy MockIndexOracle contract
+# Deploy Mock Oracle (for testing)
+./deploy-oracle.sh
+
+# Deploy Chainlink Functions Oracle (for production)
+forge script script/DeployChainlinkOracle.s.sol --rpc-url $RPC_URL --broadcast --verify
+```
+
+## 🔄 Hybrid Oracle System
+
+### 🌟 **Seamless Oracle Switching**
+
+The system now features a **Hybrid Oracle** that can seamlessly switch between mock data and real-world Chainlink Functions on a **per-index basis**:
+
+**🔥 Key Features:**
+- ✅ **Per-index oracle selection** - Each index can use Mock or Chainlink
+- ✅ **Zero frontend changes** - Same interface for both oracle types
+- ✅ **Automatic fallback** - Falls back to mock data if Chainlink fails
+- ✅ **Gradual migration** - Switch indices to Chainlink one by one
+- ✅ **Production flexibility** - Use mock for testing, Chainlink for production
+
+### 🚀 **Quick Start with Hybrid Oracle**
+
+1. **Deploy the Updated Oracle:**
+```bash
+# Deploy hybrid oracle (updated MockIndexOracle)
+./deploy-hybrid-oracle.sh
+```
+
+2. **Set Chainlink Oracle Address:**
+```bash
+# After deploying ChainlinkIndexOracle
+export CHAINLINK_ORACLE_ADDRESS=0x...
+
+# Connect the oracles
+node -e "const oracle = require('./src/oracle-manager'); oracle.setChainlinkOracleAddress('$CHAINLINK_ORACLE_ADDRESS', process.env.PRIVATE_KEY)"
+```
+
+3. **Switch Indices to Chainlink:**
+```bash
+# Switch VIX index to Chainlink Functions
+node -e "const oracle = require('./src/oracle-manager'); oracle.setIndexOracleType(3, 1, process.env.PRIVATE_KEY)"
+
+# Switch multiple indices at once
+node -e "const oracle = require('./src/oracle-manager'); oracle.batchSetOracleTypes([0,2,3], [1,1,1], process.env.PRIVATE_KEY)"
+```
+
+4. **Test the Hybrid System:**
+```bash
+# Run comprehensive hybrid oracle test
+node test-hybrid-oracle.js
+
+# Check hybrid status
+node -e "const oracle = require('./src/oracle-manager'); oracle.getHybridOracleStatus().then(console.log)"
+```
+
+### 🔧 **Oracle Type Management**
+
+```javascript
+const oracleManager = require('./src/oracle-manager');
+
+// Oracle types
+const ORACLE_TYPES = {
+    MOCK: 0,        // Use local mock data
+    CHAINLINK: 1    // Use Chainlink Functions
+};
+
+// Set individual index oracle type
+await oracleManager.setIndexOracleType(
+    3,                              // VIX Index
+    ORACLE_TYPES.CHAINLINK,         // Switch to Chainlink
+    privateKey
+);
+
+// Create new index with specific oracle type
+await oracleManager.createNewIndexWithOracleType(
+    'Gold Price',                   // Name
+    200000,                         // Initial value
+    'https://api.metals.live/gold', // Source URL
+    ORACLE_TYPES.CHAINLINK,         // Use Chainlink
+    privateKey
+);
+
+// Check which oracle an index is using
+const oracleType = await oracleManager.getIndexOracleType(3);
+console.log('VIX Oracle Type:', oracleType.oracleTypeName);
+
+// Get hybrid oracle status
+const status = await oracleManager.getHybridOracleStatus();
+console.log('Mock Indices:', status.mockIndicesCount);
+console.log('Chainlink Indices:', status.chainlinkIndicesCount);
+```
+
+### 💡 **How It Works**
+
+**Frontend Code (No Changes Needed):**
+```javascript
+// This automatically uses the correct oracle based on index configuration
+const indexValue = await oracleContract.getIndexValue(3); // VIX
+
+// Returns Chainlink data if index is set to CHAINLINK
+// Returns mock data if index is set to MOCK
+// Falls back to mock data if Chainlink fails
+```
+
+**Smart Contract Logic:**
+```solidity
+function getIndexValue(uint256 indexId) external view returns (uint256, uint256) {
+    IndexData memory data = indexData[indexType];
+    
+    // Route to appropriate oracle
+    if (data.oracleType == OracleType.CHAINLINK && chainlinkOracleAddress != address(0)) {
+        return _getChainlinkValue(indexId);  // Get from Chainlink
+    } else {
+        return (data.value, data.timestamp); // Get from mock
+    }
+}
+```
+
+## 🔗 Chainlink Functions Integration
+
+### 🌐 **Decentralized Real-World Data**
+
+The system now supports **Chainlink Functions** for truly decentralized data feeds:
+
+**🔥 Key Features:**
+- ✅ **Real-world data** - BTC prices, VIX index, inflation rates, stock prices
+- ✅ **Decentralized** - No single point of failure
+- ✅ **Customizable** - Add any REST API as a data source
+- ✅ **Production ready** - Built on Chainlink's proven infrastructure
+
+### 📝 **Source Code Templates**
+
+Pre-built JavaScript templates for common data sources:
+
+```bash
+chainlink-functions/
+├── vix-source.js           # VIX volatility index
+├── btc-price-source.js     # Bitcoin price from CoinGecko
+├── stock-price-source.js   # Stock prices (requires API key)
+├── inflation-source.js     # US inflation rate
+└── generic-api-source.js   # Template for any REST API
+```
+
+### 🚀 **Quick Start with Chainlink Functions**
+
+1. **Deploy the Chainlink Oracle:**
+```bash
+# Set your Chainlink Functions subscription ID
+export CHAINLINK_SUBSCRIPTION_ID=123
+
+# Deploy the contract
+forge script script/DeployChainlinkOracle.s.sol --rpc-url $RPC_URL --broadcast
+```
+
+2. **Test the Integration:**
+```bash
+# Set the deployed contract address
+export CHAINLINK_ORACLE_ADDRESS=0x...
+
+# Run the test suite
+node test-chainlink-oracle.js
+```
+
+3. **Create Custom Data Sources:**
+```javascript
+const chainlinkManager = require('./src/chainlink-oracle-manager');
+
+// Create a new index with custom API
+await chainlinkManager.createChainlinkIndex(
+    'GENERIC',                           // Template
+    'https://api.example.com/data',      // Source URL
+    'Custom Economic Indicator',         // Description
+    privateKey
+);
+```
+
+### 🔧 **Chainlink Functions Usage**
+
+```javascript
+// Get all Chainlink-powered indices
+const indices = await chainlinkManager.getAllChainlinkIndices();
+
+// Update an index with real-world data
+await chainlinkManager.updateChainlinkIndex(
+    0,              // Index ID
+    'VIX',          // Template name
+    [],             // Arguments
+    privateKey
+);
+
+// Use in trading orders
+const order = await createIndexBasedOrder({
+    fromToken: 'USDC',
+    toToken: 'WETH',
+    amount: '0.1',
+    indexId: 0,           // Chainlink VIX index
+    operator: 'gt',
+    threshold: 2500,      // VIX > 25.00
+    oracleType: 'chainlink'
+});
+```
+
+### ⚙️ **Chainlink Functions Setup**
+
+1. **Create Subscription:** Visit [functions.chain.link](https://functions.chain.link)
+2. **Fund with LINK:** Add LINK tokens to your subscription
+3. **Add Consumer:** Add your deployed contract as a consumer
+4. **Configure:** Update environment variables:
+
+```bash
+CHAINLINK_ORACLE_ADDRESS=0x...     # Your deployed contract
+CHAINLINK_SUBSCRIPTION_ID=123      # Your subscription ID
 ```
 
 ## 📋 System Flow
 
-1. **Oracle** provides real-time index data (VIX, BTC, etc.)
+1. **Hybrid Oracle** provides real-time index data (VIX, BTC, etc.)
+   - **Per-index selection:** Each index can use Mock or Chainlink oracle
+   - **Mock Oracle:** For testing with simulated data
+   - **Chainlink Functions:** For production with real decentralized data
+   - **Automatic routing:** Frontend code automatically uses the correct oracle
+   - **Fallback protection:** Falls back to mock data if Chainlink fails
 2. **Order Creator** builds 1inch limit orders with index conditions
 3. **1inch Protocol** executes orders when conditions are met
 4. **Order Manager** tracks and retrieves order status
@@ -307,7 +529,9 @@ This comprehensive test demonstrates **all oracle functionality**:
 
 - **1inch API**: https://docs.1inch.io/
 - **Base Network**: https://base.org/
-- **Oracle Contract**: `0x55aAfa1D3de3D05536C96Ee9F1b965D6cE04a4c1`
+- **Chainlink Functions**: https://docs.chain.link/chainlink-functions
+- **Mock Oracle Contract**: `0x8a585F9B2359Ef093E8a2f5432F387960e953BD2`
+- **Chainlink Functions Console**: https://functions.chain.link/
 
 ---
 
