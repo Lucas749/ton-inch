@@ -125,18 +125,42 @@ export interface IntentSwapOrderRequest {
 
 export interface IntentSwapOrderResponse {
   order: {
-    salt: string;
-    maker: string;
-    receiver: string;
-    makerAsset: string;
-    takerAsset: string;
-    makingAmount: string;
-    takingAmount: string;
-    makerTraits: string;
+    salt?: string;
+    maker?: string;
+    receiver?: string;
+    makerAsset?: string;
+    takerAsset?: string;
+    makingAmount?: string;
+    takingAmount?: string;
+    makerTraits?: string;
+    // New Fusion order properties
+    fromToken?: string;
+    toToken?: string;
+    fromAmount?: string;
+    toAmount?: string;
+    validUntil?: number;
+    nonce?: string;
   };
   signature: string;
   orderHash: string;
   quoteId: string;
+  // New properties for signing flow
+  requiresSignature?: boolean;
+  domain?: {
+    name: string;
+    version: string;
+    chainId: number;
+    verifyingContract: string;
+  };
+  types?: {
+    Order: Array<{
+      name: string;
+      type: string;
+    }>;
+  };
+  message?: string;
+  estimatedOutput?: string;
+  minOutput?: string;
 }
 
 export interface OrderStatus {
@@ -471,31 +495,26 @@ export class OneInchService {
   }
 
   /**
-   * Create an Intent swap order (Fusion mode)
-   * This creates a gasless order that will be filled by resolvers
+   * Create an Intent swap order (Fusion mode) - Step 1: Create order for signing
+   * This creates order data that the user needs to sign with their wallet
    */
   async createIntentSwapOrder(
     params: IntentSwapOrderRequest
   ): Promise<IntentSwapOrderResponse> {
     const body = {
+      action: 'create-order',
       fromTokenAddress: params.srcToken,
       toTokenAddress: params.dstToken,
       amount: params.amount,
       walletAddress: params.walletAddress,
       preset: params.preset || "fast",
       chainId: BASE_MAINNET_CHAIN_ID.toString(),
-      ...(params.takingSurplusRecipient && {
-        takingSurplusRecipient: params.takingSurplusRecipient,
-      }),
-      ...(params.permits && { permits: params.permits }),
-      ...(params.receiver && { receiver: params.receiver }),
-      ...(params.nonce && { nonce: params.nonce }),
     };
 
     // Use our corrected proxy endpoint instead of direct Fusion API
     const url = new URL('/api/oneinch/fusion', window.location.origin);
     
-    console.log("🚀 Creating intent swap order via proxy:", { url: url.toString(), body });
+    console.log("🚀 Creating intent swap order for signing via proxy:", { url: url.toString(), body });
     
     const response = await fetch(url.toString(), {
       method: "POST",
@@ -515,11 +534,68 @@ export class OneInchService {
     
     // Map the response to match the expected interface
     return {
-      order: responseData.order || {},
-      signature: responseData.signature || "",
-      orderHash: responseData.orderHash || "",
-      quoteId: responseData.quoteId || "",
+      order: responseData.orderToSign || {},
+      signature: "",
+      orderHash: "",
+      quoteId: "",
+      requiresSignature: responseData.requiresSignature,
+      domain: responseData.domain,
+      types: responseData.types,
+      message: responseData.message,
+      estimatedOutput: responseData.estimatedOutput,
+      minOutput: responseData.minOutput
     } as IntentSwapOrderResponse;
+  }
+
+  /**
+   * Submit signed Intent swap order (Fusion mode) - Step 2: Submit signed order
+   * This submits the signed order to the Fusion system for execution
+   */
+  async submitSignedIntentOrder(
+    order: any,
+    signature: string,
+    chainId?: string
+  ): Promise<{
+    success: boolean;
+    orderHash: string;
+    status: string;
+    message: string;
+    estimatedFillTime?: string;
+  }> {
+    const body = {
+      action: 'submit-order',
+      chainId: chainId || BASE_MAINNET_CHAIN_ID.toString(),
+      order,
+      signature
+    };
+
+    const url = new URL('/api/oneinch/fusion', window.location.origin);
+
+    console.log('🚀 Submitting signed Intent swap order via proxy:', { url: url.toString(), orderNonce: order.nonce });
+
+    const response = await fetch(url.toString(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Intent swap order submission failed: ${response.status}: ${errorText}`);
+    }
+
+    const responseData = await response.json();
+    
+    return {
+      success: responseData.success,
+      orderHash: responseData.orderHash,
+      status: responseData.status,
+      message: responseData.message,
+      estimatedFillTime: responseData.estimatedFillTime
+    };
   }
 
   /**
