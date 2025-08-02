@@ -1,4 +1,5 @@
 import { IndexDetailClient } from "./IndexDetailClient";
+import { redirect } from 'next/navigation';
 
 // Generate static params for all available indices
 export function generateStaticParams() {
@@ -328,6 +329,15 @@ const indexDetails: Record<string, any> = {
 // Server component that handles routing and passes data to client
 export default function IndexDetailPage({ params }: { params: { id: string } }) {
   const indexData = indexDetails[params.id];
+  
+  // Handle blockchain indices - redirect to trading interface
+  if (!indexData && params.id.startsWith('blockchain_')) {
+    // Extract blockchain index ID from the URL parameter
+    const blockchainId = params.id.replace('blockchain_', '');
+    
+    // Redirect to create-index page with the blockchain index ID
+    redirect(`/create-index?selectedIndex=${blockchainId}`);
+  }
   
   if (!indexData) {
     return <div>Index not found</div>;

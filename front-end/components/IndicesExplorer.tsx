@@ -258,7 +258,7 @@ export function IndicesExplorer() {
           <div className="text-center">
             <h3 className="text-2xl font-bold text-gray-900 mb-2">Available Contract Indices</h3>
             <p className="text-md text-gray-600 max-w-2xl mx-auto">
-              These indices are live on the blockchain with oracle data. Click &ldquo;Add&rdquo; to start trading with these indices.
+              These indices are live on the blockchain with oracle data. Click anywhere on a card to start trading with these indices.
             </p>
           </div>
           
@@ -268,7 +268,15 @@ export function IndicesExplorer() {
             <Card 
               key={index.id} 
               className="hover:shadow-lg transition-all duration-200 cursor-pointer border border-gray-200 rounded-xl"
-              onClick={() => handleViewIndex(index)}
+              onClick={() => {
+                // For blockchain indices, route to create-index with the blockchain index ID
+                const extendedIndex = index as ExtendedRealIndexData;
+                if (extendedIndex.onChain && extendedIndex.blockchainId !== undefined) {
+                  router.push(`/create-index?selectedIndex=${extendedIndex.blockchainId}`);
+                } else {
+                  handleViewIndex(index);
+                }
+              }}
             >
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-3">
