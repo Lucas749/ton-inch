@@ -1223,9 +1223,9 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                               <div># 1. Deploy Chainlink oracle</div>
                               <div>forge script script/DeployChainlinkOracle.s.sol --rpc-url $RPC_URL --broadcast</div>
                               <div className="mt-2"># 2. Set oracle address</div>
-                              <div>node -e "const oracle = require('./src/oracle-manager'); oracle.setChainlinkOracleAddress('0xYOUR_ORACLE_ADDRESS', process.env.PRIVATE_KEY)"</div>
+                              <div>node -e &quot;const oracle = require(&apos;./src/oracle-manager&apos;); oracle.setChainlinkOracleAddress(&apos;0xYOUR_ORACLE_ADDRESS&apos;, process.env.PRIVATE_KEY)&quot;</div>
                               <div className="mt-2"># 3. Switch to Chainlink</div>
-                              <div>node -e "const oracle = require('./src/oracle-manager'); oracle.setIndexOracleType({blockchainIndexId}, 1, process.env.PRIVATE_KEY)"</div>
+                              <div>node -e &quot;const oracle = require(&apos;./src/oracle-manager&apos;); oracle.setIndexOracleType({`{blockchainIndexId}`}, 1, process.env.PRIVATE_KEY)&quot;</div>
                             </div>
                           </div>
 
@@ -1245,14 +1245,15 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
 
                   {/* Conditional Order Form - CHAINLINK Oracle */}
                   {!oracleStatus.loading && !oracleStatus.error && oracleStatus.isChainlink && (
-                  <div>
-                    <label className="text-sm font-medium">Description</label>
-                    <Input
-                      placeholder={`Buy when ${realIndexData.name} hits target`}
-                      value={orderForm.description}
-                      onChange={(e) => setOrderForm(prev => ({ ...prev, description: e.target.value }))}
-                    />
-                  </div>
+                  <>
+                    <div>
+                      <label className="text-sm font-medium">Description</label>
+                      <Input
+                        placeholder={`Buy when ${realIndexData.name} hits target`}
+                        value={orderForm.description}
+                        onChange={(e) => setOrderForm(prev => ({ ...prev, description: e.target.value }))}
+                      />
+                    </div>
 
                   {/* From Token */}
                   <div className="space-y-2">
@@ -1382,6 +1383,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                     </Button>
                   </div>
 
+                  </>
                   )}
                 </CardContent>
               </Card>
