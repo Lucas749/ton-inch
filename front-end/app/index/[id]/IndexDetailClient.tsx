@@ -220,8 +220,8 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
           console.log(`📈 Fetching crypto data for ${tokenSymbol} (using ${alphaVantageSymbol})`);
           // Use crypto API for all tokens - Alpha Vantage will handle the lookup
           const response = await alphaVantageService.getCryptoTimeSeries(alphaVantageSymbol, 'USD', 'daily');
-          // Parse crypto response directly since it has different structure
-          return AlphaVantageService.parseTimeSeriesData(response as any);
+          // @ts-ignore - Parse crypto response directly since it has different structure
+          return AlphaVantageService.parseTimeSeriesData(response);
         } catch (error) {
           console.warn(`⚠️ Could not load crypto data for ${tokenSymbol}:`, error);
           return [];
@@ -296,14 +296,14 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
               close: parseFloat(item.value),
               volume: 1000000 // Mock volume
             }))
-            .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
           
           // Fetch token price data for commodities
           const fromTokenPriceData = canFetchFromToken ? await fetchTokenData(fromToken!.symbol) : [];
           const toTokenPriceData = canFetchToToken ? await fetchTokenData(toToken!.symbol) : [];
           
           // Format commodity data for chart with token prices
-          const chartDataFormatted = rawCommodityData.map((item, index) => {
+          const chartDataFormatted = rawCommodityData.map((item: { date: string; open: number; high: number; low: number; close: number; volume: number; }, index: number) => {
             // Find matching token price data points by date
             const fromTokenPoint = fromTokenPriceData.find(fp => fp.date === item.date);
             const toTokenPoint = toTokenPriceData.find(tp => tp.date === item.date);
