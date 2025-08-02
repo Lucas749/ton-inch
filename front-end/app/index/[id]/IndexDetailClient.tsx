@@ -555,6 +555,10 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
     const canFetchFromToken = fromToken && !shouldSkipToken(fromToken.symbol);
     const canFetchToToken = toToken && !shouldSkipToken(toToken.symbol);
     
+    // Check if tokens are stablecoins (we'll show flat $1 lines for these)
+    const fromTokenIsStablecoin = fromToken && shouldSkipToken(fromToken.symbol);
+    const toTokenIsStablecoin = toToken && shouldSkipToken(toToken.symbol);
+    
     try {
       setIsLoadingChart(true);
       setChartError(null);
@@ -566,9 +570,28 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
       if (canFetchToToken) {
         console.log(`🔗 Loading toToken data: ${toToken?.symbol}`);
       }
-      if (!canFetchFromToken && !canFetchToToken) {
-        console.log(`🔗 No Alpha Vantage data available for selected tokens (stablecoins skipped)`);
+      if (!canFetchFromToken && !canFetchToToken && !fromTokenIsStablecoin && !toTokenIsStablecoin) {
+        console.log(`🔗 No Alpha Vantage data available for selected tokens`);
       }
+      if (fromTokenIsStablecoin || toTokenIsStablecoin) {
+        console.log(`🔗 Stablecoin detected - will show flat $1 line for: ${fromTokenIsStablecoin ? fromToken?.symbol : ''}${fromTokenIsStablecoin && toTokenIsStablecoin ? ', ' : ''}${toTokenIsStablecoin ? toToken?.symbol : ''}`);
+      }
+
+      // Helper function to generate flat stablecoin data (always $1)
+      const generateStablecoinData = (days: number = 90) => {
+        return Array.from({ length: days }, (_, i) => {
+          const date = new Date();
+          date.setDate(date.getDate() - (days - 1 - i));
+          return {
+            date: date.toISOString().split('T')[0],
+            open: 1.00,
+            high: 1.00,
+            low: 1.00,
+            close: 1.00,
+            volume: 1000000 // Mock volume for stablecoins
+          };
+        });
+      };
 
       // Helper function to fetch token price data using cached API route
       const fetchTokenData = async (tokenSymbol: string) => {
@@ -717,8 +740,10 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
             .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
           
           // Fetch token price data for commodities
-          const fromTokenPriceData = canFetchFromToken ? await fetchTokenData(fromToken!.symbol) : [];
-          const toTokenPriceData = canFetchToToken ? await fetchTokenData(toToken!.symbol) : [];
+          const fromTokenPriceData = canFetchFromToken ? await fetchTokenData(fromToken!.symbol) : 
+                                   fromTokenIsStablecoin ? generateStablecoinData(90) : [];
+          const toTokenPriceData = canFetchToToken ? await fetchTokenData(toToken!.symbol) : 
+                                 toTokenIsStablecoin ? generateStablecoinData(90) : [];
           
           // Format commodity data for chart with token prices
           const chartDataFormatted = rawCommodityData.map((item: { date: string; open: number; high: number; low: number; close: number; volume: number; }, index: number) => {
@@ -760,8 +785,10 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
       console.log(`📈 Parsed data (${parsedData.length} items):`, parsedData.slice(0, 3));
       
       // Fetch token price data
-      const fromTokenPriceData = canFetchFromToken ? await fetchTokenData(fromToken!.symbol) : [];
-      const toTokenPriceData = canFetchToToken ? await fetchTokenData(toToken!.symbol) : [];
+      const fromTokenPriceData = canFetchFromToken ? await fetchTokenData(fromToken!.symbol) : 
+                               fromTokenIsStablecoin ? generateStablecoinData(90) : [];
+      const toTokenPriceData = canFetchToToken ? await fetchTokenData(toToken!.symbol) : 
+                             toTokenIsStablecoin ? generateStablecoinData(90) : [];
       
       // Format data for Recharts (last 90 days for 3 months)
       const chartDataFormatted = parsedData
@@ -798,7 +825,6 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
       setChartError(`Failed to load chart data for ${symbol}. Using demo visualization.`);
       
       // Generate fallback demo data with realistic prices for different asset types
-      const symbol = getAlphaVantageSymbol(index.id);
       const basePrice = 
         symbol === 'BTCUSD' ? 45000 : 
         symbol === 'ETHUSD' ? 2500 :
@@ -857,12 +883,18 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
         if (canFetchFromToken && fromTokenBasePrice > 0) {
           const fromTokenPrice = fromTokenBasePrice * (1 + variation + (Math.random() - 0.5) * 0.05);
           dataPoint.fromTokenPrice = Number(fromTokenPrice.toFixed(2));
+        } else if (fromTokenIsStablecoin) {
+          // Stablecoins always stay at $1
+          dataPoint.fromTokenPrice = 1.00;
         }
         
         // Add toToken price if available  
         if (canFetchToToken && toTokenBasePrice > 0) {
           const toTokenPrice = toTokenBasePrice * (1 + variation + (Math.random() - 0.5) * 0.05);
           dataPoint.toTokenPrice = Number(toTokenPrice.toFixed(2));
+        } else if (toTokenIsStablecoin) {
+          // Stablecoins always stay at $1
+          dataPoint.toTokenPrice = 1.00;
         }
         
         return dataPoint;
