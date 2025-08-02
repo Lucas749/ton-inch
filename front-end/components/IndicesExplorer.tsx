@@ -61,6 +61,9 @@ export function IndicesExplorer() {
     loadIndicesData();
   }, []);
 
+  // Available contract indices that should not appear in market indices
+  const availableIndicesSymbols = ['AAPL', 'TSLA', 'VIX', 'BTCUSD'];
+  
   const filteredIndices = indices.filter(index => {
     const matchesSearch = index.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          index.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -68,8 +71,16 @@ export function IndicesExplorer() {
     
     const matchesCategory = selectedCategory === "All" || index.category === selectedCategory;
     
-    return matchesSearch && matchesCategory;
+    // Exclude indices that are available as contract indices
+    const isNotAvailableContract = !availableIndicesSymbols.includes(index.symbol);
+    
+    return matchesSearch && matchesCategory && isNotAvailableContract;
   });
+
+  // Get available contract indices data from market data
+  const availableContractIndices = indices.filter(index => 
+    availableIndicesSymbols.includes(index.symbol)
+  );
 
   const handleViewIndex = (index: RealIndexData) => {
     router.push(`/index/${index.id.toLowerCase()}`);
@@ -175,6 +186,97 @@ export function IndicesExplorer() {
               </CardContent>
             </Card>
           ))}
+        </div>
+      )}
+
+      {/* Available Contract Indices Section */}
+      {!isLoading && availableContractIndices.length > 0 && (
+        <div className="space-y-4">
+          <div className="text-center">
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">Available Contract Indices</h3>
+            <p className="text-md text-gray-600 max-w-2xl mx-auto">
+              These indices are live on the blockchain with oracle data. Click "Add" to start trading with these indices.
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {availableContractIndices.map((index) => (
+            <Card 
+              key={index.id} 
+              className="hover:shadow-lg transition-all duration-200 cursor-pointer border border-blue-200 rounded-xl bg-blue-50"
+              onClick={() => handleViewIndex(index)}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  {/* Left side - Avatar and info */}
+                  <div className="flex items-center space-x-3">
+                    <div className={`w-10 h-10 rounded-full ${index.color} flex items-center justify-center text-white text-lg font-bold`}>
+                      {index.avatar}
+                    </div>
+                    <div>
+                      <div className="font-semibold text-gray-900">{index.name}</div>
+                      <div className="text-sm text-gray-500">{index.handle}</div>
+                    </div>
+                  </div>
+
+                  {/* Right side - Price change and sparkline */}
+                  <div className="flex items-center space-x-3">
+                    <div className="text-right">
+                      <div className={`text-sm font-medium ${
+                        index.isPositive ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {index.change}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {index.isPositive ? '▲' : '▼'} {index.changeValue}
+                      </div>
+                    </div>
+                    <div className="w-20">
+                      <Sparkline 
+                        data={index.sparklineData} 
+                        isPositive={index.isPositive}
+                        width={80}
+                        height={24}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bottom row - Current value and mindshare */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-lg font-bold text-gray-900">{index.valueLabel}</div>
+                    <div className="text-xs text-gray-500">Current Price</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm font-medium text-gray-700">{index.mindshare}</div>
+                    <div className="text-xs text-gray-500">Mindshare</div>
+                  </div>
+                  <Button 
+                    size="sm" 
+                    variant="default" 
+                    className="ml-4 bg-blue-600 hover:bg-blue-700"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      // Map symbol to indexId for available contract indices
+                      const symbolToIndexId: Record<string, number> = {
+                        'AAPL': 0,
+                        'TSLA': 1, 
+                        'VIX': 2,
+                        'BTCUSD': 3
+                      };
+                      const indexId = symbolToIndexId[index.symbol];
+                      router.push(`/create-index?indexId=${indexId}`);
+                    }}
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+          </div>
         </div>
       )}
 
