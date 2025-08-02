@@ -196,6 +196,53 @@ function getTokenInfo(tokenInput: string) {
 }
 
 /**
+ * Check wallet balances before attempting transactions
+ */
+async function checkWalletBalances(wallet: Wallet, token: any, amount: any) {
+  const provider = new ethers.providers.JsonRpcProvider(CONFIG.RPC_URL);
+  const connectedWallet = wallet.connect(provider);
+  
+  // Check ETH balance for gas
+  const ethBalance = await provider.getBalance(wallet.address);
+  const ethBalanceFormatted = ethers.utils.formatEther(ethBalance);
+  console.log(`💰 ETH Balance: ${ethBalanceFormatted} ETH`);
+  
+  // Estimate gas cost (rough estimate)
+  const gasPrice = await provider.getGasPrice();
+  const estimatedGasCost = gasPrice.mul(200000); // Rough estimate for approval + order
+  const estimatedCostEth = ethers.utils.formatEther(estimatedGasCost);
+  
+  console.log(`⛽ Estimated gas cost: ${estimatedCostEth} ETH`);
+  
+  if (ethBalance.lt(estimatedGasCost)) {
+    console.log(`⚠️  WARNING: Low ETH balance for gas fees. Need ~${estimatedCostEth} ETH, have ${ethBalanceFormatted} ETH`);
+    console.log(`💡 To fund wallet, send ETH to: ${wallet.address}`);
+    console.log(`📝 Order will be created but token approval and submission may fail`);
+  } else {
+    console.log(`✅ Sufficient ETH balance for gas fees`);
+  }
+  
+  // Check token balance
+  if (token.address.toLowerCase() !== '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee') {
+    const erc20Abi = ['function balanceOf(address account) view returns (uint256)'];
+    const tokenContract = new ethers.Contract(token.address, erc20Abi, provider);
+    const tokenBalance = await tokenContract.balanceOf(wallet.address);
+    const tokenBalanceFormatted = ethers.utils.formatUnits(tokenBalance, token.decimals);
+    const requiredAmount = ethers.utils.formatUnits(amount, token.decimals);
+    
+    console.log(`🪙 ${token.symbol} Balance: ${tokenBalanceFormatted} ${token.symbol}`);
+    console.log(`🎯 Required Amount: ${requiredAmount} ${token.symbol}`);
+    
+    if (tokenBalance.lt(amount)) {
+      console.log(`⚠️  WARNING: Insufficient ${token.symbol} balance. Need ${requiredAmount} ${token.symbol}, have ${tokenBalanceFormatted} ${token.symbol}`);
+      console.log(`📝 Order will be created but may fail during execution`);
+    } else {
+      console.log(`✅ Sufficient ${token.symbol} balance`);
+    }
+  }
+}
+
+/**
  * Ensure token approval for 1inch Limit Order Protocol
  */
 async function ensureTokenApproval(wallet: Wallet, token: any, amount: any) {
@@ -231,12 +278,11 @@ async function ensureTokenApproval(wallet: Wallet, token: any, amount: any) {
     }
     
     // Need to approve more tokens
-    console.log('⚠️ Insufficient allowance - approving tokens...');
+    console.log('⚠️ Insufficient allowance - attempting token approval...');
+    console.log(`ℹ️  Note: This requires ETH for gas fees in wallet: ${wallet.address}`);
     
-    // Approve a larger amount to avoid frequent approvals (approve 10x the required amount)
-    const approvalAmount = amount.mul(10);
-    
-    const approveTx = await tokenContract.approve(CONFIG.LIMIT_ORDER_PROTOCOL, approvalAmount, {
+    // Approve exact amount needed to reduce gas costs
+    const approveTx = await tokenContract.approve(CONFIG.LIMIT_ORDER_PROTOCOL, amount, {
       gasLimit: 100000, // Standard gas limit for ERC20 approve
     });
     
@@ -247,14 +293,22 @@ async function ensureTokenApproval(wallet: Wallet, token: any, amount: any) {
     
     if (receipt.status === 1) {
       console.log('✅ Token approval successful!');
-      console.log(`✅ Approved ${ethers.utils.formatUnits(approvalAmount, token.decimals)} ${token.symbol} for 1inch`);
+      console.log(`✅ Approved ${ethers.utils.formatUnits(amount, token.decimals)} ${token.symbol} for 1inch`);
     } else {
       throw new Error('Token approval transaction failed');
     }
     
   } catch (error: any) {
     console.error('❌ Token approval error:', error);
-    throw new Error(`Token approval failed: ${error.message}`);
+    
+    // Provide helpful error messages
+    if (error.message.includes('insufficient funds') || error.message.includes('failed to send tx')) {
+      throw new Error(`Token approval failed due to insufficient ETH for gas fees. Please ensure wallet ${wallet.address} has enough ETH for transaction fees.`);
+    } else if (error.code === 'INSUFFICIENT_FUNDS') {
+      throw new Error(`Insufficient ETH for gas fees in wallet: ${wallet.address}`);
+    } else {
+      throw new Error(`Token approval failed: ${error.message}`);
+    }
   }
 }
 
@@ -367,6 +421,11 @@ async function createIndexBasedOrderStandalone(params: any) {
     console.log(`📋 Condition: ${params.condition.description}`);
     console.log('');
     
+    // Check wallet balances before proceeding
+    console.log('💰 Checking wallet balances...');
+    await checkWalletBalances(wallet, fromToken, makingAmount);
+    console.log('✅ Wallet balance check passed');
+    
     // Create predicate
     console.log('🔮 Creating index predicate...');
     const predicate = createIndexPredicate(params.condition);
@@ -416,7 +475,14 @@ async function createIndexBasedOrderStandalone(params: any) {
     
     // Check and handle token approval before submitting
     console.log('🔍 Checking token allowance...');
-    await ensureTokenApproval(wallet, fromToken, makingAmount);
+    try {
+      await ensureTokenApproval(wallet, fromToken, makingAmount);
+    } catch (approvalError: any) {
+      console.log('⚠️  Token approval failed, but order will still be created');
+      console.log('📝 Order can be submitted later after resolving approval issues');
+      console.log(`💡 Error: ${approvalError.message}`);
+      // Continue with order creation - it will fail on submission but the order hash will be valid
+    }
     
     // Submit order
     console.log('📤 Submitting to 1inch...');
@@ -454,6 +520,10 @@ async function createIndexBasedOrderStandalone(params: any) {
         result: submitResult,
         error: submitError
       },
+      wallet: {
+        address: wallet.address,
+        fundingNote: submitError ? `To enable order submission, send ETH for gas fees to: ${wallet.address}` : null
+      },
       technical: {
         orderHash: order.getOrderHash(),
         salt: order.salt.toString(),
@@ -467,6 +537,15 @@ async function createIndexBasedOrderStandalone(params: any) {
     console.log(`Status: ${result.success ? 'SUCCESS' : 'CREATED (submission failed)'}`);
     console.log(`Hash: ${result.orderHash}`);
     console.log(`Condition: ${result.condition.index?.name} ${(OPERATORS as any)[Object.keys(OPERATORS).find(key => (OPERATORS as any)[key].value === params.condition.operator)]?.symbol} ${params.condition.threshold / 100}`);
+    
+    if (!result.success && submitError) {
+      console.log('\n💡 TO ENABLE ORDER SUBMISSION:');
+      console.log('===============================');
+      console.log(`1. Send Base ETH to wallet: ${wallet.address}`);
+      console.log(`2. Get Base ETH from: https://bridge.base.org or faucets`);
+      console.log(`3. Ensure wallet has tokens to trade (${fromToken.symbol})`);
+      console.log(`4. Retry order creation or use approve-token API first`);
+    }
     
     return result;
     
@@ -553,13 +632,14 @@ export async function GET(request: NextRequest) {
               return NextResponse.json({
           success: true,
           indexId: Number(indexId),
-          hasOracle: true, // Both MOCK and CHAINLINK are valid
+          hasOracle: oracleCheck.hasSpecificOracle, // Only true if specific oracle address is set
           oracleType: oracleCheck.oracleType,
           oracleTypeName: oracleCheck.oracleTypeName,
           oracleAddress: oracleCheck.oracleAddress,
           isChainlink: oracleCheck.isChainlink,
           isMock: oracleCheck.isMock,
-          setupRequired: false // No setup required for either type
+          hasSpecificOracle: oracleCheck.hasSpecificOracle,
+          setupRequired: !oracleCheck.hasSpecificOracle // Setup required if no specific oracle
         }, {
         headers: {
           'Access-Control-Allow-Origin': '*',
@@ -806,22 +886,25 @@ async function checkIndexOracleStatus(indexId: number) {
     const oracleType = await oracleContract.getIndexOracleType(indexId);
     const oracleAddress = await oracleContract.getIndexChainlinkOracle(indexId);
     
-    // Check if oracle is CHAINLINK type
-    const hasChainlinkOracle = oracleType === 1; // CHAINLINK = 1, MOCK = 0
+    // Check if oracle has a specific address (not zero address)
+    const zeroAddress = '0x0000000000000000000000000000000000000000';
+    const hasSpecificOracle = oracleAddress !== zeroAddress && oracleAddress !== '0x0';
     const oracleTypeName = oracleType === 0 ? 'MOCK' : 'CHAINLINK';
     
     console.log(`   Index ID: ${indexId}`);
     console.log(`   Oracle Type: ${oracleType} (${oracleTypeName})`);
     console.log(`   Oracle Address: ${oracleAddress}`);
-    console.log(`   Has Chainlink: ${hasChainlinkOracle}`);
+    console.log(`   Has Specific Oracle: ${hasSpecificOracle}`);
+    console.log(`   Is Zero Address: ${oracleAddress === zeroAddress}`);
     
     return {
-      hasOracle: hasChainlinkOracle,
+      hasOracle: hasSpecificOracle, // Only true if specific oracle address is set
       oracleType: oracleType,
       oracleTypeName: oracleTypeName,
       oracleAddress: oracleAddress,
-      isChainlink: hasChainlinkOracle,
-      isMock: oracleType === 0
+      isChainlink: oracleType === 1,
+      isMock: oracleType === 0,
+      hasSpecificOracle: hasSpecificOracle
     };
     
   } catch (error: any) {

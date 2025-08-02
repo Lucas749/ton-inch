@@ -33,6 +33,8 @@ interface ExtendedRealIndexData extends RealIndexData {
     oracleTypeName: string;
     isChainlink: boolean;
     isMock: boolean;
+    hasSpecificOracle: boolean;
+    oracleAddress: string;
     loading: boolean;
   };
 }
@@ -182,11 +184,13 @@ export function IndicesExplorer() {
       
       if (data.success) {
         const result = {
-          hasOracle: data.hasOracle,
+          hasOracle: data.hasSpecificOracle || false, // Use hasSpecificOracle for readiness
           oracleType: data.oracleType || 0,
           oracleTypeName: data.oracleTypeName || 'MOCK',
           isChainlink: data.isChainlink || false,
           isMock: data.isMock !== false,
+          hasSpecificOracle: data.hasSpecificOracle || false,
+          oracleAddress: data.oracleAddress || '0x0',
           loading: false
         };
         
@@ -204,6 +208,8 @@ export function IndicesExplorer() {
       oracleTypeName: 'UNKNOWN',
       isChainlink: false,
       isMock: true,
+      hasSpecificOracle: false,
+      oracleAddress: '0x0',
       loading: false
     };
     
@@ -266,11 +272,13 @@ export function IndicesExplorer() {
             blockchainValue: blockchainIndex.value,
             onChain: true,
             oracleStatus: {
-              hasOracle: true, // Will be populated asynchronously
+              hasOracle: false, // Will be populated asynchronously based on specific oracle
               oracleType: 0,
               oracleTypeName: 'UNKNOWN',
               isChainlink: false,
               isMock: true,
+              hasSpecificOracle: false,
+              oracleAddress: '0x0',
               loading: true
             }
           });
@@ -345,11 +353,13 @@ export function IndicesExplorer() {
             blockchainValue: blockchainIndex.value,
             onChain: true,
             oracleStatus: {
-              hasOracle: true, // Will be populated asynchronously
+              hasOracle: false, // Will be populated asynchronously based on specific oracle
               oracleType: 0,
               oracleTypeName: 'UNKNOWN',
               isChainlink: false,
               isMock: true,
+              hasSpecificOracle: false,
+              oracleAddress: '0x0',
               loading: true
             }
           });
@@ -383,6 +393,8 @@ export function IndicesExplorer() {
           oracleTypeName: 'UNKNOWN',
           isChainlink: false,
           isMock: true,
+          hasSpecificOracle: false,
+          oracleAddress: '0x0',
           loading: true
         }
       }));
@@ -660,7 +672,7 @@ export function IndicesExplorer() {
           <div className="text-center">
             <h3 className="text-2xl font-bold text-green-900 mb-2">✅ Ready for Trading</h3>
             <p className="text-md text-gray-600 max-w-2xl mx-auto">
-              These indices have oracles configured and are ready for conditional orders. Click any card to start trading.
+              These indices have specific oracle addresses configured and are ready for conditional orders. Click any card to start trading.
             </p>
           </div>
           
@@ -688,13 +700,13 @@ export function IndicesExplorer() {
                     <div>
                       <div className="flex items-center space-x-2">
                         <div className="font-semibold text-gray-900">{index.name}</div>
-                        {/* Oracle type badge */}
+                        {/* Oracle type badge with address */}
                         <div className={`px-2 py-1 rounded-full text-xs font-medium ${
                           index.oracleStatus?.isChainlink 
                             ? 'bg-green-100 text-green-800' 
                             : 'bg-blue-100 text-blue-800'
-                        }`}>
-                          {index.oracleStatus?.oracleTypeName}
+                        }`} title={`Oracle: ${index.oracleStatus?.oracleAddress || 'N/A'}`}>
+                          {index.oracleStatus?.oracleTypeName} Oracle
                         </div>
                         {/* Owner badge */}
                         {(index as ExtendedRealIndexData).blockchainId && isConnected && isIndexOwned((index as ExtendedRealIndexData).blockchainId!) && (
@@ -752,9 +764,9 @@ export function IndicesExplorer() {
       {!isLoading && filteredSetupIndices.length > 0 && (
         <div className="space-y-4">
           <div className="text-center">
-            <h3 className="text-2xl font-bold text-orange-900 mb-2">🔧 Setup Required</h3>
+            <h3 className="text-2xl font-bold text-orange-900 mb-2">🔧 Awaiting Specific Oracle</h3>
             <p className="text-md text-gray-600 max-w-2xl mx-auto">
-              These indices need oracle configuration before conditional orders can be created. Click to view details and setup instructions.
+              These indices need a specific oracle address configured before conditional orders can be created. Click to view setup instructions.
             </p>
           </div>
           
@@ -784,7 +796,7 @@ export function IndicesExplorer() {
                         <div className="font-semibold text-gray-900">{index.name}</div>
                         {/* Setup required badge */}
                         <div className="px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                          Setup Required
+                          Awaiting Oracle
                         </div>
                         {/* Owner badge */}
                         {(index as ExtendedRealIndexData).blockchainId && isConnected && isIndexOwned((index as ExtendedRealIndexData).blockchainId!) && (
