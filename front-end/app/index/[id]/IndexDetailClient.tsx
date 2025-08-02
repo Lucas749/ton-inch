@@ -91,13 +91,14 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
 
   // Load historical chart data
   const loadChartData = async () => {
+    const symbol = getAlphaVantageSymbol(index.id);
+    
     try {
       setIsLoadingChart(true);
       setChartError(null);
       
       const apiKey = process.env.NEXT_PUBLIC_ALPHAVANTAGE_API_KEY || "123";
       const alphaVantageService = new AlphaVantageService({ apiKey });
-      const symbol = getAlphaVantageSymbol(index.id);
       
       console.log(`🔍 Loading chart data for ${symbol} (${index.name})`);
       console.log(`📡 Using API key: ${apiKey.substring(0, 8)}...`);
