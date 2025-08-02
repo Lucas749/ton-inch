@@ -48,6 +48,7 @@ export class BlockchainIndices {
       const now = Date.now();
       if (globalIndicesCache && (now - globalCacheTimestamp) < GLOBAL_CACHE_DURATION) {
         console.log(`📊 Using global cached indices data (${globalIndicesCache.length} indices, cached ${Math.round((now - globalCacheTimestamp) / 1000)}s ago)`);
+        console.log(`📊 Sample cached index names:`, globalIndicesCache.slice(0, 3).map(i => `${i.id}:"${i.name}"`));
         return globalIndicesCache;
       }
 
@@ -64,6 +65,8 @@ export class BlockchainIndices {
       
       try {
         const indices = await globalPendingRequest;
+        console.log(`📊 Fresh indices fetched! Count: ${indices.length}`);
+        console.log(`📊 Fresh index names:`, indices.slice(0, 5).map(i => `${i.id}:"${i.name}"`));
         
         // Cache the results globally
         globalIndicesCache = indices;

@@ -127,6 +127,10 @@ export class BlockchainService {
     return this.indices.getAllIndices();
   }
 
+  clearIndicesCache(): void {
+    this.indices.clearCache();
+  }
+
   async getIndexValue(indexId: number): Promise<{value: number, timestamp: number}> {
     return this.indices.getIndexValue(indexId);
   }
