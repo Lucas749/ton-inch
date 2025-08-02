@@ -446,17 +446,37 @@ export default function IndexDetailPage({ params }: { params: { id: string } }) 
     // Extract blockchain index ID from the URL parameter
     const blockchainId = params.id.replace('blockchain_', '');
     
+    // Generate blockchain index data with proper names and info
+    const blockchainIndexInfo: Record<string, any> = {
+      '0': { name: "Inflation Rate", symbol: "$INFL", avatar: "📈", color: "bg-red-600", currentValue: "3.20%", exampleCondition: "Execute when inflation > 4%", category: "Economics" },
+      '1': { name: "Elon Followers", symbol: "$ELON", avatar: "🐦", color: "bg-blue-500", currentValue: "150.0M", exampleCondition: "Execute when Elon > 160M followers", category: "Intelligence" },
+      '2': { name: "BTC Price", symbol: "$BTC", avatar: "₿", color: "bg-orange-500", currentValue: "$43,000", exampleCondition: "Execute when BTC < $40,000", category: "Crypto" },
+      '3': { name: "VIX Index", symbol: "$VIX", avatar: "⚡", color: "bg-gray-500", currentValue: "22.57", exampleCondition: "Execute when VIX > 25", category: "Indices" },
+      '4': { name: "Unemployment", symbol: "$UNEMP", avatar: "👥", color: "bg-gray-600", currentValue: "3.70%", exampleCondition: "Execute when unemployment > 4%", category: "Economics" },
+      '5': { name: "Tesla Stock", symbol: "$TSLA", avatar: "🚗", color: "bg-red-500", currentValue: "$248.00", exampleCondition: "Execute when Tesla > $250", category: "Stocks" }
+    };
+    
+    const indexInfo = blockchainIndexInfo[blockchainId] || {
+      name: `Custom Index ${blockchainId}`,
+      symbol: `$IDX${blockchainId}`,
+      avatar: "🔗",
+      color: "bg-purple-600",
+      currentValue: "N/A",
+      exampleCondition: "User-defined condition",
+      category: "Custom"
+    };
+
     // Generate blockchain index data
     indexData = {
       id: `blockchain_${blockchainId}`,
-      name: `Blockchain Index ${blockchainId}`,
-      symbol: `IDX${blockchainId}`,
-      handle: `@blockchain_${blockchainId}`,
-      description: `Blockchain index ${blockchainId} with live oracle data`,
-      avatar: "⛓️",
-      color: "bg-purple-600",
+      name: indexInfo.name,
+      symbol: indexInfo.symbol,
+      handle: `@${indexInfo.name.toLowerCase().replace(/\s+/g, '_')}`,
+      description: `${indexInfo.name} with live oracle data • Current: ${indexInfo.currentValue} • ${indexInfo.exampleCondition}`,
+      avatar: indexInfo.avatar,
+      color: indexInfo.color,
       currentValue: 10000,
-      price: "$100.00",
+      price: indexInfo.currentValue,
       change: "+1.25%",
       changeValue: "+1.23",
       isPositive: true,
@@ -473,10 +493,10 @@ export default function IndexDetailPage({ params }: { params: { id: string } }) 
       socialFeed: [
         {
           id: 1,
-          user: "Blockchain Analyst",
-          handle: "@blockchainanalyst",
+          user: "Oracle Analyst",
+          handle: "@oracleanalyst",
           time: "Aug 02",
-          content: `Blockchain index ${blockchainId} showing strong fundamentals with live oracle data integration.`,
+          content: `${indexInfo.name} showing strong fundamentals. ${indexInfo.exampleCondition.toLowerCase()} for optimal trading conditions.`,
           likes: "234",
           replies: "45",
           retweets: "12",
@@ -484,7 +504,9 @@ export default function IndexDetailPage({ params }: { params: { id: string } }) 
         }
       ],
       isBlockchainIndex: true,
-      blockchainIndexId: parseInt(blockchainId)
+      blockchainIndexId: parseInt(blockchainId),
+      category: indexInfo.category,
+      exampleCondition: indexInfo.exampleCondition
     };
   }
   

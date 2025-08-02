@@ -57,6 +57,8 @@ export interface CustomIndex {
   symbol?: string;
   alphaVantageSymbol?: string;
   category?: string;
+  currentValue?: string;
+  exampleCondition?: string;
 }
 
 export interface SwapOrder {

@@ -87,16 +87,18 @@ export class BlockchainIndices {
   private async fetchAllIndices(): Promise<CustomIndex[]> {
     const indices: CustomIndex[] = [];
 
-    // First, load predefined indices (0-3) from the blockchain - these map to Alpha Vantage data
-    console.log("🔍 Loading predefined indices (0-3) from blockchain...");
-    const predefinedNames: Record<number, { name: string, symbol: string, description: string, alphaVantageSymbol: string, category: string }> = {
-      0: { name: "Apple Stock", symbol: "AAPL", description: "Apple Inc. stock price", alphaVantageSymbol: "AAPL", category: "Stocks" },
-      1: { name: "Tesla Stock", symbol: "TSLA", description: "Tesla Inc. stock price", alphaVantageSymbol: "TSLA", category: "Stocks" },
-      2: { name: "VIX Volatility Index", symbol: "VIX", description: "CBOE Volatility Index", alphaVantageSymbol: "VIX", category: "Indices" },
-      3: { name: "Bitcoin Price", symbol: "BTC", description: "Bitcoin price in USD", alphaVantageSymbol: "BTC", category: "Crypto" }
+    // First, load predefined indices (0-5) from the blockchain - these represent various economic and financial indicators
+    console.log("🔍 Loading predefined indices (0-5) from blockchain...");
+    const predefinedNames: Record<number, { name: string, symbol: string, description: string, alphaVantageSymbol?: string, category: string, currentValue: string, exampleCondition: string }> = {
+      0: { name: "Inflation Rate", symbol: "INFL", description: "US Consumer Price Index inflation rate", category: "Economics", currentValue: "3.20%", exampleCondition: "Execute when inflation > 4%" },
+      1: { name: "Elon Followers", symbol: "ELON", description: "Elon Musk's Twitter follower count", category: "Intelligence", currentValue: "150.0M", exampleCondition: "Execute when Elon > 160M followers" },
+      2: { name: "BTC Price", symbol: "BTC", description: "Bitcoin price in USD", alphaVantageSymbol: "BTC", category: "Crypto", currentValue: "$43,000", exampleCondition: "Execute when BTC < $40,000" },
+      3: { name: "VIX Index", symbol: "VIX", description: "CBOE Volatility Index", alphaVantageSymbol: "VIX", category: "Indices", currentValue: "22.57", exampleCondition: "Execute when VIX > 25" },
+      4: { name: "Unemployment", symbol: "UNEMP", description: "US unemployment rate", category: "Economics", currentValue: "3.70%", exampleCondition: "Execute when unemployment > 4%" },
+      5: { name: "Tesla Stock", symbol: "TSLA", description: "Tesla Inc. stock price", alphaVantageSymbol: "TSLA", category: "Stocks", currentValue: "$248.00", exampleCondition: "Execute when Tesla > $250" }
     };
 
-    for (let id = 0; id <= 3; id++) {
+    for (let id = 0; id <= 5; id++) {
       try {
         const result = await retryWithBackoff(async () => {
           return await this.oracle.methods.getIndexValue(id).call();
@@ -115,7 +117,9 @@ export class BlockchainIndices {
             createdAt: 0,
             symbol: predefinedInfo.symbol,
             alphaVantageSymbol: predefinedInfo.alphaVantageSymbol,
-            category: predefinedInfo.category
+            category: predefinedInfo.category,
+            currentValue: predefinedInfo.currentValue,
+            exampleCondition: predefinedInfo.exampleCondition
           });
           console.log(`✅ Loaded predefined ${predefinedInfo.name}: ${Number(result[0])} basis points`);
         }

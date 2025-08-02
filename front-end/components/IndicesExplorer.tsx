@@ -26,7 +26,7 @@ interface ExtendedRealIndexData extends RealIndexData {
   onChain?: boolean;
 }
 
-const categories = ["All", "Stocks", "Crypto", "Commodities", "Forex", "ETFs", "Indices", "Economics", "Intelligence"];
+const categories = ["All", "Stocks", "Crypto", "Commodities", "Forex", "ETFs", "Indices", "Economics", "Intelligence", "Custom"];
 
 export function IndicesExplorer() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -145,6 +145,17 @@ export function IndicesExplorer() {
     return matchesSearch && matchesCategory && isNotAvailableContract;
   });
 
+  // Filter blockchain indices by category as well
+  const filteredContractIndices = availableContractIndices.filter(index => {
+    const matchesSearch = index.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         index.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         index.description.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesCategory = selectedCategory === "All" || index.category === selectedCategory;
+    
+    return matchesSearch && matchesCategory;
+  });
+
   const handleViewIndex = (index: RealIndexData) => {
     router.push(`/index/${index.id.toLowerCase()}`);
   };
@@ -253,7 +264,7 @@ export function IndicesExplorer() {
       )}
 
       {/* Available Contract Indices Section */}
-      {!isLoading && availableContractIndices.length > 0 && (
+      {!isLoading && filteredContractIndices.length > 0 && (
         <div className="space-y-4">
           <div className="text-center">
             <h3 className="text-2xl font-bold text-gray-900 mb-2">Available Contract Indices</h3>
@@ -263,8 +274,8 @@ export function IndicesExplorer() {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Show market data indices that are available */}
-          {availableContractIndices.map((index) => (
+          {/* Show filtered blockchain indices that are available */}
+          {filteredContractIndices.map((index) => (
             <Card 
               key={index.id} 
               className="hover:shadow-lg transition-all duration-200 cursor-pointer border border-gray-200 rounded-xl"
@@ -437,7 +448,7 @@ export function IndicesExplorer() {
 
 
       {/* No Results */}
-      {!isLoading && filteredIndices.length === 0 && availableContractIndices.length === 0 && (
+      {!isLoading && filteredIndices.length === 0 && filteredContractIndices.length === 0 && (
         <Card>
           <CardContent className="text-center py-12">
             <Search className="w-12 h-12 text-gray-400 mx-auto mb-4" />
