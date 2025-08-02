@@ -42,7 +42,10 @@ export default function Dashboard() {
     }
   };
   
-  const { isConnected, indices: blockchainIndices, refreshIndices } = useBlockchain();
+  const { isConnected, indices: blockchainIndices, refreshIndices, walletAddress } = useBlockchain();
+
+  // Debug connection state
+  console.log('📱 Dashboard connection state:', { isConnected, walletAddress, indiceCount: blockchainIndices.length });
   const { orders } = useOrders();
   const router = useRouter();
 
