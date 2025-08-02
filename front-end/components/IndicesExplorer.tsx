@@ -31,6 +31,45 @@ interface ExtendedRealIndexData extends RealIndexData {
 
 const categories = ["All", "Stocks", "Crypto", "Commodities", "Forex", "ETFs", "Indices", "Economics", "Intelligence", "Custom"];
 
+/**
+ * Create proper Alpha Vantage URL based on index type
+ */
+function createAlphaVantageUrl(index: RealIndexData): string {
+  const apiKey = process.env.NEXT_PUBLIC_ALPHAVANTAGE;
+  
+  // Handle different index categories with their respective Alpha Vantage functions
+  switch (index.category) {
+    case 'Commodities':
+      // Commodities use their symbol as the function name
+      return `https://www.alphavantage.co/query?function=${index.symbol}&apikey=${apiKey}`;
+      
+    case 'Crypto':
+      // Crypto uses DIGITAL_CURRENCY_DAILY
+      return `https://www.alphavantage.co/query?function=DIGITAL_CURRENCY_DAILY&symbol=${index.symbol}&market=USD&apikey=${apiKey}`;
+      
+    case 'Forex':
+      // Forex uses FX_DAILY with from/to currency
+      const fromCurrency = index.symbol.substring(0, 3);
+      const toCurrency = index.symbol.substring(3, 6);
+      return `https://www.alphavantage.co/query?function=FX_DAILY&from_symbol=${fromCurrency}&to_symbol=${toCurrency}&apikey=${apiKey}`;
+      
+    case 'Economics':
+      // Economic indicators use their symbol as function name
+      return `https://www.alphavantage.co/query?function=${index.symbol}&apikey=${apiKey}`;
+      
+    case 'Intelligence':
+      // Intelligence data uses TOP_GAINERS_LOSERS
+      return `https://www.alphavantage.co/query?function=TOP_GAINERS_LOSERS&apikey=${apiKey}`;
+      
+    case 'Stocks':
+    case 'ETFs':
+    case 'Indices':
+    default:
+      // Stocks, ETFs, and Indices use GLOBAL_QUOTE
+      return `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${index.symbol}&apikey=${apiKey}`;
+  }
+}
+
 export function IndicesExplorer() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -195,7 +234,11 @@ export function IndicesExplorer() {
 
       // Use the current Alpha Vantage price as initial value
       const initialValue = Math.floor(index.price || 0);
-      const sourceUrl = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${index.symbol}&apikey=${process.env.NEXT_PUBLIC_ALPHAVANTAGE}`;
+      
+      // Create proper Alpha Vantage URL based on index category
+      const sourceUrl = createAlphaVantageUrl(index);
+      
+      console.log('📊 Created Alpha Vantage URL for oracle:', sourceUrl);
 
       const response = await fetch('/api/oracle', {
         method: 'POST',

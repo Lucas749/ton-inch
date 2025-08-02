@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
         // Estimate gas
         const gasEstimate = await contract.methods
           .createCustomIndex(
-            initialValue,
+            initialValue.toString(),
             sourceUrl,
             ORACLE_TYPES.CHAINLINK, // Use Chainlink oracle type
             '0x0000000000000000000000000000000000000000' // null address for chainlink oracle
@@ -61,17 +61,18 @@ export async function POST(request: NextRequest) {
 
         // Build transaction
         const tx = contract.methods.createCustomIndex(
-          initialValue,
+          initialValue.toString(),
           sourceUrl,
           ORACLE_TYPES.CHAINLINK,
           '0x0000000000000000000000000000000000000000'
         );
 
+        const gasPrice = await web3.eth.getGasPrice();
         const txData = {
           to: CONTRACTS.IndexOracle,
           data: tx.encodeABI(),
-          gas: Math.floor(gasEstimate * 1.2),
-          gasPrice: await web3.eth.getGasPrice(),
+          gas: Math.floor(Number(gasEstimate) * 1.2), // Convert BigInt to Number
+          gasPrice: gasPrice.toString(), // Convert BigInt to string
         };
 
         // Sign and send transaction
