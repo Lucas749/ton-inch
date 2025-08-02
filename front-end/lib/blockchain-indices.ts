@@ -87,97 +87,55 @@ export class BlockchainIndices {
   private async fetchAllIndices(): Promise<CustomIndex[]> {
     const indices: CustomIndex[] = [];
 
-    // First, load the 4 predefined indices (Apple=0, Tesla=1, VIX=2, BTC=3)
-    console.log("🔍 Loading predefined indices (0-3)...");
-    const predefinedIndices = [
-      { id: 0, name: "Apple Stock", symbol: "AAPL", description: "Apple Inc. stock price" },
-      { id: 1, name: "Tesla Stock", symbol: "TSLA", description: "Tesla Inc. stock price" },
-      { id: 2, name: "VIX Volatility Index", symbol: "VIX", description: "CBOE Volatility Index" },
-      { id: 3, name: "Bitcoin Price", symbol: "BTC", description: "Bitcoin price in USD" }
-    ];
-
-    for (const predefined of predefinedIndices) {
-      try {
-        const result = await retryWithBackoff(async () => {
-          return await this.oracle.methods.getIndexValue(predefined.id).call();
-        });
-        
-        if (result && result[0]) {
-          indices.push({
-            id: predefined.id,
-            name: predefined.name,
-            description: predefined.description,
-            value: Number(result[0]),
-            timestamp: Number(result[1]) || Date.now(),
-            active: true,
-            creator: CONTRACTS.IndexOracle,
-            createdAt: 0
-          });
-          console.log(`✅ Loaded ${predefined.name}: ${Number(result[0])} basis points`);
-        }
-        
-        // Add small delay between requests
-        await delay(100);
-      } catch (error) {
-        console.warn(`⚠️ Could not load predefined index ${predefined.name}:`, error);
-        // Still add the index with default values so it shows up
-        indices.push({
-          id: predefined.id,
-          name: predefined.name,
-          description: predefined.description,
-          value: 0,
-          timestamp: 0,
-          active: false,
-          creator: CONTRACTS.IndexOracle,
-          createdAt: 0
-        });
-      }
-    }
-
-    // Then load any custom indices (starting from ID 4)
-    console.log("🔍 Loading custom indices (4+)...");
+    // Load all custom indices directly from the oracle
+    console.log("🔍 Loading all custom indices from blockchain...");
     try {
       const customIndicesArray = await this.oracle.methods.getAllCustomIndices().call();
-      console.log("📊 Found custom indices:", customIndicesArray);
+      console.log("📊 Raw blockchain response:", customIndicesArray);
       
-      for (let i = 0; i < customIndicesArray.length; i++) {
-        const indexId = customIndicesArray[i];
-        const id = Number(indexId);
+      if (customIndicesArray && customIndicesArray.indexIds && customIndicesArray.values) {
+        const indexIds = customIndicesArray.indexIds;
+        const values = customIndicesArray.values;
+        const timestamps = customIndicesArray.timestamps;
+        const activeStates = customIndicesArray.activeStates;
         
-        // Skip if it's one of the predefined indices we already loaded
-        if (id < 4) continue;
+        console.log(`📋 Found ${indexIds.length} blockchain indices:`, indexIds.map(id => Number(id)));
         
-        try {
-          const result = await retryWithBackoff(async () => {
-            return await this.oracle.methods.getIndexValue(id).call();
+        // Map known indices to friendly names
+        const knownIndices: Record<number, { name: string, symbol: string, description: string }> = {
+          6: { name: "Apple Stock", symbol: "AAPL", description: "Apple Inc. stock price" },
+          7: { name: "Tesla Stock", symbol: "TSLA", description: "Tesla Inc. stock price" },
+          8: { name: "VIX Volatility Index", symbol: "VIX", description: "CBOE Volatility Index" },
+          9: { name: "Bitcoin Price", symbol: "BTC", description: "Bitcoin price in USD" }
+        };
+        
+        for (let i = 0; i < indexIds.length; i++) {
+          const id = Number(indexIds[i]);
+          const value = Number(values[i]);
+          const timestamp = Number(timestamps[i]);
+          const active = Boolean(activeStates[i]);
+          
+          const knownIndex = knownIndices[id];
+          
+          indices.push({
+            id,
+            name: knownIndex?.name || `Custom Index ${id}`,
+            description: knownIndex?.description || `User-created index #${id}`,
+            value,
+            timestamp,
+            active,
+            creator: CONTRACTS.IndexOracle,
+            createdAt: timestamp
           });
           
-          if (result && result[0]) {
-            indices.push({
-              id,
-              name: `Custom Index ${id}`,
-              description: `User-created index #${id}`,
-              value: Number(result[0]),
-              timestamp: Number(result[1]),
-              active: true,
-              creator: "Unknown",
-              createdAt: Number(result[1])
-            });
-            console.log(`✅ Loaded custom index ${id}: ${Number(result[0])}`);
-          }
-          
-          // Add delay between requests
-          if (i < customIndicesArray.length - 1) {
-            await delay(200);
-          }
-        } catch (e) {
-          console.warn(`⚠️ Failed to load custom index ${indexId}:`, e);
-          continue;
+          console.log(`✅ Loaded ${knownIndex?.name || `Index ${id}`}: ${value} basis points (active: ${active})`);
         }
       }
     } catch (error) {
-      console.warn("Could not get custom indices list:", error);
+      console.error("❌ Error loading custom indices:", error);
     }
+
+
 
     console.log(`✅ Loaded ${indices.length} total indices`);
     return indices.sort((a, b) => a.id - b.id);

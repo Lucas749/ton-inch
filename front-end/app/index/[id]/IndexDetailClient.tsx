@@ -66,13 +66,13 @@ const getAlphaVantageSymbol = (indexId: string): string => {
   return symbolMap[indexId] || 'IBM'; // Default to IBM if not found
 };
 
-// Map index IDs to blockchain index IDs
+// Map index IDs to blockchain index IDs (updated with actual blockchain IDs)
 const getBlockchainIndexId = (indexId: string): number | null => {
   const indexMap: Record<string, number> = {
-    'aapl_stock': 0,   // Apple
-    'tsla_stock': 1,   // Tesla  
-    'vix_index': 2,    // VIX
-    'btc_price': 3     // Bitcoin
+    'aapl_stock': 6,   // Apple (actual blockchain ID)
+    'tsla_stock': 7,   // Tesla (actual blockchain ID)
+    'vix_index': 8,    // VIX (actual blockchain ID)
+    'btc_price': 9     // Bitcoin (actual blockchain ID)
   };
   return indexMap[indexId] ?? null;
 };

@@ -64,6 +64,9 @@ export function IndicesExplorer() {
   // Available contract indices that should not appear in market indices
   const availableIndicesSymbols = ['AAPL', 'TSLA', 'VIX', 'BTCUSD'];
   
+  // Map blockchain indices to the available contract indices we want to show
+  const availableBlockchainIds = [6, 7, 8, 9]; // The actual blockchain IDs for Apple, Tesla, VIX, Bitcoin
+  
   const filteredIndices = indices.filter(index => {
     const matchesSearch = index.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          index.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -77,9 +80,14 @@ export function IndicesExplorer() {
     return matchesSearch && matchesCategory && isNotAvailableContract;
   });
 
-  // Get available contract indices data from market data
+  // Get available contract indices from both market data AND blockchain indices
   const availableContractIndices = indices.filter(index => 
     availableIndicesSymbols.includes(index.symbol)
+  );
+  
+  // Also include the blockchain indices that are available
+  const availableBlockchainIndices = blockchainIndices.filter(index => 
+    availableBlockchainIds.includes(index.id)
   );
 
   const handleViewIndex = (index: RealIndexData) => {
@@ -190,7 +198,7 @@ export function IndicesExplorer() {
       )}
 
       {/* Available Contract Indices Section */}
-      {!isLoading && availableContractIndices.length > 0 && (
+      {!isLoading && (availableContractIndices.length > 0 || availableBlockchainIndices.length > 0) && (
         <div className="space-y-4">
           <div className="text-center">
             <h3 className="text-2xl font-bold text-gray-900 mb-2">Available Contract Indices</h3>
@@ -200,6 +208,7 @@ export function IndicesExplorer() {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Show market data indices that are available */}
           {availableContractIndices.map((index) => (
             <Card 
               key={index.id} 
