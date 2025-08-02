@@ -85,23 +85,40 @@ function validateResponseData(data: any, functionName: string): void {
       }
       break;
 
-    case 'TIME_SERIES_INTRADAY':
-    case 'TIME_SERIES_DAILY':
-    case 'TIME_SERIES_WEEKLY':
-    case 'TIME_SERIES_MONTHLY':
-      // For time series, just check that we have metadata and at least one data point
-      if (!data["Meta Data"]) {
-        throw new Error(`Invalid Time Series response: Missing "Meta Data"`);
-      }
-      const timeSeriesKeys = Object.keys(data).filter(key => key.includes('Time Series'));
-      if (timeSeriesKeys.length === 0) {
-        throw new Error('Invalid Time Series response: No time series data found');
-      }
-      const timeSeriesData = data[timeSeriesKeys[0]];
-      if (!timeSeriesData || typeof timeSeriesData !== 'object' || Object.keys(timeSeriesData).length === 0) {
-        throw new Error('Invalid Time Series response: Empty or invalid time series data');
-      }
-      break;
+          case 'TIME_SERIES_INTRADAY':
+      case 'TIME_SERIES_DAILY':
+      case 'TIME_SERIES_WEEKLY':
+      case 'TIME_SERIES_MONTHLY':
+        // For time series, just check that we have metadata and at least one data point
+        if (!data["Meta Data"]) {
+          throw new Error(`Invalid Time Series response: Missing "Meta Data"`);
+        }
+        const timeSeriesKeys = Object.keys(data).filter(key => key.includes('Time Series'));
+        if (timeSeriesKeys.length === 0) {
+          throw new Error('Invalid Time Series response: No time series data found');
+        }
+        const timeSeriesData = data[timeSeriesKeys[0]];
+        if (!timeSeriesData || typeof timeSeriesData !== 'object' || Object.keys(timeSeriesData).length === 0) {
+          throw new Error('Invalid Time Series response: Empty or invalid time series data');
+        }
+        break;
+
+      case 'DIGITAL_CURRENCY_DAILY':
+      case 'DIGITAL_CURRENCY_WEEKLY':
+      case 'DIGITAL_CURRENCY_MONTHLY':
+        // For crypto time series, check that we have metadata and crypto data
+        if (!data["Meta Data"]) {
+          throw new Error(`Invalid Crypto Time Series response: Missing "Meta Data"`);
+        }
+        const cryptoTimeSeriesKeys = Object.keys(data).filter(key => key.includes('Time Series (Digital Currency'));
+        if (cryptoTimeSeriesKeys.length === 0) {
+          throw new Error('Invalid Crypto Time Series response: No crypto time series data found');
+        }
+        const cryptoTimeSeriesData = data[cryptoTimeSeriesKeys[0]];
+        if (!cryptoTimeSeriesData || typeof cryptoTimeSeriesData !== 'object' || Object.keys(cryptoTimeSeriesData).length === 0) {
+          throw new Error('Invalid Crypto Time Series response: Empty or invalid crypto time series data');
+        }
+        break;
 
     default:
       // For unknown functions, just do basic validation

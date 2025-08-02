@@ -122,36 +122,52 @@ export class RealIndicesService {
 
   async getCryptoData(symbol: string, indexConfig: any): Promise<RealIndexData> {
     try {
-      // For crypto, we'll use the quote endpoint as it's more reliable for current prices
-      const quote = await this.alphaVantageService.getQuote(`${symbol}USD`);
+      // Use the proper crypto time series API
+      const cryptoData = await this.alphaVantageService.getCryptoTimeSeries(symbol, "USD", "daily");
       
       // Validate response structure
-      if (!quote || !quote["Global Quote"] || typeof quote["Global Quote"] !== 'object') {
-        throw new Error(`Invalid crypto quote response structure for ${symbol}`);
+      if (!cryptoData || !cryptoData["Meta Data"] || typeof cryptoData["Meta Data"] !== 'object') {
+        throw new Error(`Invalid crypto response structure for ${symbol}`);
       }
       
-      const globalQuote = quote["Global Quote"];
+      // Find the crypto time series data
+      const timeSeriesKey = Object.keys(cryptoData).find(key => key.includes('Time Series (Digital Currency'));
+      if (!timeSeriesKey || !(cryptoData as any)[timeSeriesKey]) {
+        throw new Error(`Missing crypto time series data for ${symbol}`);
+      }
       
-      // Validate required fields exist and are not N/A
-      const requiredFields = ["05. price", "09. change", "10. change percent"] as const;
-      for (const field of requiredFields) {
-        if (!(globalQuote as any)[field] || (globalQuote as any)[field] === "" || (globalQuote as any)[field] === "N/A") {
-          throw new Error(`Missing or invalid field "${field}" in crypto quote response for ${symbol}`);
+      const timeSeriesData = (cryptoData as any)[timeSeriesKey];
+      const dates = Object.keys(timeSeriesData).sort().reverse(); // Most recent first
+      
+      if (dates.length === 0) {
+        throw new Error(`No crypto data available for ${symbol}`);
+      }
+      
+      const latestDate = dates[0];
+      const latestData = timeSeriesData[latestDate];
+      const previousDate = dates[1];
+      const previousData = previousDate ? timeSeriesData[previousDate] : null;
+      
+      // Extract current price (close price in USD)
+      const price = parseFloat(latestData["4a. close (USD)"]);
+      if (isNaN(price) || price <= 0) {
+        throw new Error(`Invalid price data for ${symbol}`);
+      }
+      
+      // Calculate change from previous day
+      let change = 0;
+      let changePercent = "0.00%";
+      if (previousData) {
+        const previousPrice = parseFloat(previousData["4a. close (USD)"]);
+        if (!isNaN(previousPrice) && previousPrice > 0) {
+          change = price - previousPrice;
+          const changePercentNum = (change / previousPrice) * 100;
+          changePercent = `${changePercentNum >= 0 ? '+' : ''}${changePercentNum.toFixed(2)}%`;
         }
       }
       
-      const price = parseFloat(globalQuote["05. price"]);
-      const change = parseFloat(globalQuote["09. change"]);
-      const changePercent = globalQuote["10. change percent"];
-      const volume = globalQuote["06. volume"] || "0";
-      
-      // Validate parsed numbers
-      if (isNaN(price) || isNaN(change)) {
-        throw new Error(`Invalid numeric values in crypto quote response for ${symbol}`);
-      }
-      
       const formattedChange = this.formatChange(change, changePercent);
-      const sparklineData = this.generateSparklineData(price, parseFloat(changePercent.replace('%', '')));
+      const sparklineData = this.generateSparklineData(price, parseFloat(changePercent.replace(/[+%]/g, '')));
       
       return {
         ...indexConfig,
@@ -160,8 +176,8 @@ export class RealIndicesService {
         price,
         ...formattedChange,
         sparklineData,
-        volume24h: this.formatPrice(parseFloat(volume) || 0, 0),
-        lastUpdated: globalQuote["07. latest trading day"] || new Date().toISOString().split('T')[0]
+        volume24h: latestData["5. volume"] || "N/A",
+        lastUpdated: latestDate
       };
     } catch (error) {
       console.error(`Error fetching crypto data for ${symbol}:`, error);
