@@ -69,6 +69,7 @@ export default function Dashboard() {
     
     // Load all cached orders immediately on page load
     loadAllOrders();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConnected, blockchainIndices]);
 
   // Auto-clear success/error messages
@@ -122,7 +123,7 @@ export default function Dashboard() {
       setAllOrders(allCachedOrders);
       
       // Categorize orders into three sections
-      const open = allCachedOrders.filter(order => order.status === 'active');
+      const open = allCachedOrders.filter(order => order.status === 'active' || order.status === 'submitted');
       const closed = allCachedOrders.filter(order => order.status === 'cancelled' || order.status === 'filled');
       // For now, swap orders are empty - this could be expanded later for regular swaps
       const swaps: Order[] = [];
@@ -183,7 +184,20 @@ export default function Dashboard() {
     }
   };
 
-  // Always load the dashboard, but show wallet connection prompt for portfolio features
+  if (!isConnected) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Navbar />
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center py-12">
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">Portfolio Dashboard</h1>
+            <p className="text-gray-600 mb-8">Connect your wallet to view your portfolio and manage orders</p>
+            <WalletConnect />
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -191,34 +205,11 @@ export default function Dashboard() {
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {!isConnected ? (
-          <>
-            {/* Wallet Connection Prompt */}
-            <div className="text-center py-6 mb-8">
-              <Card className="bg-yellow-50 border-yellow-200">
-                <CardContent className="p-6">
-                  <h1 className="text-2xl font-bold text-gray-900 mb-4">📊 Index Dashboard</h1>
-                  <p className="text-gray-600 mb-4">Browse all available blockchain indices below, or connect your wallet to manage orders and view your portfolio.</p>
-                  <WalletConnect compact />
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Show Index Manager without wallet connection */}
-            <div className="mb-8">
-              <Card>
-                <CardContent className="p-6">
-                  <h2 className="text-xl font-semibold mb-4 flex items-center">
-                    <Activity className="w-5 h-5 mr-2" />
-                    All Blockchain Indices
-                  </h2>
-                  <IndexManager 
-                    showCreateButton={false} 
-                    onIndexSelect={(index) => router.push(`/index/blockchain_${index.id}`)}
-                  />
-                </CardContent>
-              </Card>
-            </div>
-          </>
+          <div className="text-center py-12">
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">Portfolio Dashboard</h1>
+            <p className="text-gray-600 mb-8">Connect your wallet to view your portfolio and manage orders</p>
+            <WalletConnect />
+          </div>
         ) : (
           <>
             {/* Welcome Section */}
@@ -333,7 +324,7 @@ export default function Dashboard() {
                             <div>
                               <h4 className="font-semibold text-gray-900">{order.description}</h4>
                               <p className="text-sm text-gray-600 mt-1">
-                                Index {order.indexId} • {getOperatorName(order.operator)} {String(order.threshold)}
+                                Index {order.indexId} • {getOperatorName(String(order.operator))} {String(order.threshold)}
                               </p>
                             </div>
                             <Badge variant="default" className="bg-green-100 text-green-800">
@@ -348,7 +339,7 @@ export default function Dashboard() {
                             </div>
                             <div className="bg-purple-50 p-3 rounded-lg">
                               <p className="text-xs text-purple-600 font-medium">TO</p>
-                              <p className="font-semibold text-purple-900">{order.toAmount || order.expectedAmount || 'N/A'} {order.toToken}</p>
+                              <p className="font-semibold text-purple-900">{order.toAmount || 'N/A'} {order.toToken}</p>
                             </div>
                           </div>
                           
@@ -416,7 +407,7 @@ export default function Dashboard() {
                             <div>
                               <h4 className="font-medium text-gray-900">{order.description}</h4>
                               <p className="text-sm text-gray-600">
-                                Index {order.indexId} • {getOperatorName(order.operator)} {String(order.threshold)}
+                                Index {order.indexId} • {getOperatorName(String(order.operator))} {String(order.threshold)}
                               </p>
                             </div>
                             <Badge 
