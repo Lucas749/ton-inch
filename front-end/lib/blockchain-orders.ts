@@ -49,7 +49,6 @@ export class BlockchainOrders {
   private wallet: BlockchainWallet;
   private tokens: BlockchainTokens;
   private oneInchContract: any;
-  private sdk: any;
   private orderCache: Map<number, { orders: Order[], timestamp: number }> = new Map();
   private readonly CACHE_DURATION = 30000; // 30 seconds
 
@@ -58,7 +57,7 @@ export class BlockchainOrders {
     this.wallet = walletInstance;
     this.tokens = tokensInstance;
     this.initializeContracts();
-    this.initializeSDK();
+    // SDK will be initialized per-request like the backend
   }
 
   /**
@@ -73,18 +72,28 @@ export class BlockchainOrders {
   }
 
   /**
-   * Initialize 1inch SDK (matching backend pattern)
+   * Initialize 1inch SDK per-request (matching backend pattern)
    */
-  private initializeSDK(): void {
+  private initializeSDK(): any {
     try {
-      this.sdk = new Sdk({
-        authKey: process.env.NEXT_PUBLIC_ONEINCH_API_KEY || '', // API key for production
+      const apiKey = process.env.NEXT_PUBLIC_ONEINCH_API_KEY;
+      console.log('🔑 API Key available:', !!apiKey);
+      
+      if (!apiKey) {
+        throw new Error('NEXT_PUBLIC_ONEINCH_API_KEY environment variable not found');
+      }
+      
+      const sdk = new Sdk({
+        authKey: apiKey,
         networkId: CONFIG.CHAIN_ID,
         httpConnector: new FetchProviderConnector()
       });
-      console.log('✅ 1inch SDK initialized');
+      
+      console.log('✅ 1inch SDK initialized successfully');
+      return sdk;
     } catch (error) {
-      console.warn('⚠️ Failed to initialize 1inch SDK:', error);
+      console.error('❌ Failed to initialize 1inch SDK:', error);
+      throw error;
     }
   }
 
@@ -99,9 +108,9 @@ export class BlockchainOrders {
         throw new Error("Wallet not connected. Please connect your wallet first.");
       }
 
-      if (!this.sdk) {
-        throw new Error("1inch SDK not initialized");
-      }
+      // Initialize SDK per-request (matching backend pattern)
+      console.log('🚀 Initializing 1inch SDK...');
+      const sdk = this.initializeSDK();
 
       // Get token info
       const fromToken = this.getTokenInfo(params.fromToken);
@@ -144,7 +153,7 @@ export class BlockchainOrders {
       console.log('🔧 Creating order...');
 
       // Create order using 1inch SDK (matching backend pattern)
-      const order = await this.sdk.createOrder({
+      const order = await sdk.createOrder({
         makerAsset: new Address(fromToken.address),
         takerAsset: new Address(toToken.address),
         makingAmount: makingAmount,
