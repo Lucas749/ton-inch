@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     console.log('🏗️ ORACLE API:', { action, name, initialValue, sourceUrl, privateKey: privateKey ? '***PROVIDED***' : 'MISSING' });
 
     if (action === 'create-index') {
-      if (!name || !initialValue || !sourceUrl || !privateKey) {
+      if (!name || initialValue === undefined || initialValue === null || !sourceUrl || !privateKey) {
         return NextResponse.json({ 
           error: 'Missing required parameters: name, initialValue, sourceUrl, privateKey' 
         }, { status: 400 });
