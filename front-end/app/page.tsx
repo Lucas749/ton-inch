@@ -39,14 +39,7 @@ export default function Home() {
               Go to Dashboard
               <ArrowRight className="w-5 h-5 ml-2" />
             </Button>
-            <Button 
-              onClick={() => router.push('/alpha-vantage')}
-              variant="outline"
-              size="lg"
-              className="px-8 py-3"
-            >
-              Explore Market Data
-            </Button>
+
           </div>
         </div>
 
