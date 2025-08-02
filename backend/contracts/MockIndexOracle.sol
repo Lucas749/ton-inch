@@ -20,6 +20,7 @@ contract MockIndexOracle {
     struct IndexData {
         uint256 value;
         uint256 timestamp;
+        string sourceUrl;     // URL where this index data comes from
         bool isActive;
     }
     
@@ -28,8 +29,9 @@ contract MockIndexOracle {
     address public owner;
     uint256 public nextCustomIndexId = 6; // Start after predefined indices
     
-    event IndexUpdated(IndexType indexed indexType, uint256 value, uint256 timestamp);
-    event CustomIndexCreated(uint256 indexed indexId, uint256 value, uint256 timestamp);
+    event IndexUpdated(IndexType indexed indexType, uint256 value, uint256 timestamp, string sourceUrl);
+    event CustomIndexCreated(uint256 indexed indexId, uint256 value, uint256 timestamp, string sourceUrl);
+    event SourceUrlUpdated(uint256 indexed indexId, string oldUrl, string newUrl);
     
     modifier onlyOwner() {
         require(msg.sender == owner, "Not owner");
@@ -43,36 +45,42 @@ contract MockIndexOracle {
         indexData[IndexType.INFLATION_RATE] = IndexData({
             value: 320, // 3.20%
             timestamp: block.timestamp,
+            sourceUrl: "https://api.bls.gov/publicAPI/v2/timeseries/CUUR0000SA0",
             isActive: true
         });
         
         indexData[IndexType.ELON_FOLLOWERS] = IndexData({
             value: 150000000, // 150M followers
             timestamp: block.timestamp,
+            sourceUrl: "https://api.twitter.com/2/users/by/username/elonmusk",
             isActive: true
         });
         
         indexData[IndexType.BTC_PRICE] = IndexData({
             value: 43000 * 100, // $43,000 (scaled by 100)
             timestamp: block.timestamp,
+            sourceUrl: "https://api.coindesk.com/v1/bpi/currentprice.json",
             isActive: true
         });
         
         indexData[IndexType.VIX_INDEX] = IndexData({
             value: 1850, // 18.50
             timestamp: block.timestamp,
+            sourceUrl: "https://api.cboe.com/data/historical/VIX",
             isActive: true
         });
         
         indexData[IndexType.UNEMPLOYMENT_RATE] = IndexData({
             value: 370, // 3.70%
             timestamp: block.timestamp,
+            sourceUrl: "https://api.bls.gov/publicAPI/v2/timeseries/LNS14000000",
             isActive: true
         });
         
         indexData[IndexType.TESLA_STOCK] = IndexData({
             value: 248 * 100, // $248 (scaled by 100)
             timestamp: block.timestamp,
+            sourceUrl: "https://api.polygon.io/v2/last/trade/TSLA",
             isActive: true
         });
     }
@@ -149,7 +157,7 @@ contract MockIndexOracle {
         indexData[indexType].value = newValue;
         indexData[indexType].timestamp = block.timestamp;
         
-        emit IndexUpdated(indexType, newValue, block.timestamp);
+        emit IndexUpdated(indexType, newValue, block.timestamp, "");
     }
     
     /**
@@ -164,7 +172,7 @@ contract MockIndexOracle {
             indexData[indexTypes[i]].value = newValues[i];
             indexData[indexTypes[i]].timestamp = block.timestamp;
             
-            emit IndexUpdated(indexTypes[i], newValues[i], block.timestamp);
+            emit IndexUpdated(indexTypes[i], newValues[i], block.timestamp, "");
         }
     }
     
@@ -199,7 +207,7 @@ contract MockIndexOracle {
         }
         
         data.timestamp = block.timestamp;
-        emit IndexUpdated(indexType, data.value, block.timestamp);
+        emit IndexUpdated(indexType, data.value, block.timestamp, data.sourceUrl);
     }
     
     /**
@@ -246,16 +254,17 @@ contract MockIndexOracle {
      * @param initialValue Initial value for the index
      * @return indexId The ID of the created index
      */
-    function createCustomIndex(uint256 initialValue) external returns (uint256 indexId) {
+    function createCustomIndex(uint256 initialValue, string calldata sourceUrl) external returns (uint256 indexId) {
         indexId = nextCustomIndexId++;
         
         customIndexData[indexId] = IndexData({
             value: initialValue,
             timestamp: block.timestamp,
+            sourceUrl: sourceUrl,
             isActive: true
         });
         
-        emit CustomIndexCreated(indexId, initialValue, block.timestamp);
+        emit CustomIndexCreated(indexId, initialValue, block.timestamp, sourceUrl);
     }
     
     /**
@@ -276,14 +285,14 @@ contract MockIndexOracle {
             
             indexData[indexType].value = newValue;
             indexData[indexType].timestamp = block.timestamp;
-            emit IndexUpdated(indexType, newValue, block.timestamp);
+            emit IndexUpdated(indexType, newValue, block.timestamp, "");
         } else {
             // Handle custom indices
             require(customIndexData[indexId].isActive, "Index not active");
             customIndexData[indexId].value = newValue;
             customIndexData[indexId].timestamp = block.timestamp;
             
-            emit IndexUpdated(IndexType(0), newValue, block.timestamp); // Use dummy enum for event
+            emit IndexUpdated(IndexType(0), newValue, block.timestamp, ""); // Use dummy enum for event
         }
     }
     

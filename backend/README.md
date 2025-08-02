@@ -1,209 +1,314 @@
-# 🚀 Index-Based Limit Orders - Backend Demos & Smart Contracts
+# Index-Based Trading with 1inch Integration
 
-Revolutionary limit orders that execute based on **real-world conditions** using the **1inch Protocol v4**.
+A complete system for creating conditional limit orders based on real-world index data (VIX, BTC price, inflation, etc.) using 1inch protocol on Base mainnet.
 
-## 🏗️ **Architecture Overview**
-
-This backend contains **demo scripts and smart contracts** for testing and development. The main application uses **frontend wallet integration** (MetaMask) instead of private keys.
-
-### **Frontend Integration** (Recommended for Production)
-
-- ✅ **Wallet Integration**: Uses MetaMask for signing transactions
-- ✅ **No Private Keys**: Secure wallet-based authentication
-- ✅ **Real-time UI**: React hooks for blockchain interaction
-- ✅ **User-friendly**: Connect wallet button, transaction confirmations
-
-### **Backend Demos** (Development & Testing Only)
-
-- 🧪 **Demo Scripts**: Test smart contract functionality
-- 🔑 **Private Key Based**: For automated testing only
-- 📊 **Comprehensive Examples**: Full workflow demonstrations
-
-## 📁 Project Structure
-
-```
-backend/
-├── contracts/                    # Smart Contracts
-│   ├── IndexPreInteraction.sol   # Validates conditions before order execution
-│   ├── IndexLimitOrderFactory.sol # Creates 1inch-compatible orders
-│   ├── MockIndexOracle.sol       # Oracle for testing (provides index data)
-│   └── interfaces/
-│       └── I1inch.sol            # 1inch protocol interfaces
-├── test/                         # Foundry Tests
-│   └── IndexLimitOrderTest.t.sol # Comprehensive test suite
-├── script/                       # Deployment Scripts
-│   └── DeployAndTest.s.sol       # Deploy and test all contracts
-├── web3_workflow.js              # 🆕 Complete Web3.js workflow
-├── WEB3_INTEGRATION_GUIDE.md     # 🆕 Web3.js integration guide
-├── GENERALIZATION_GUIDE.md       # 🆕 Custom indices guide
-├── SETUP_INSTRUCTIONS.md         # 🆕 Quick setup guide
-├── package.json                  # 🆕 Node.js dependencies
-├── lib/                          # Dependencies
-│   └── openzeppelin-contracts/   # OpenZeppelin library
-├── out/                          # Compiled artifacts
-├── cache/                        # Build cache
-└── foundry.toml                  # Foundry configuration
-```
-
-## ⚡ Quick Start
-
-### Option 1: Foundry Testing
-
-```bash
-# Compile contracts
-forge build
-
-# Run tests on Base Sepolia fork
-forge test --fork-url https://sepolia.base.org -vvv
-
-# Deploy contracts (with real private key)
-forge script script/DeployAndTest.s.sol --rpc-url https://sepolia.base.org --broadcast
-```
-
-### Option 2: Demo Scripts (Backend Testing Only)
+## 🚀 Quick Start
 
 ```bash
 # Install dependencies
 npm install
 
-# For demo scripts only - create .env file with:
-# PRIVATE_KEY=your_private_key_here_for_testing_only
-# (Frontend uses MetaMask wallet integration instead)
+# Set up environment
+cp env.example .env
+# Edit .env with your PRIVATE_KEY and ONEINCH_API_KEY
 
-# Run comprehensive demo
-npm run demo
-
-# Run workflow demo
-npm run workflow
+# Test the system
+node simple-oracle-demo.js        # View all index data
+node test-order-manager.js         # Test order retrieval
+node test-index-order-creator.js   # Test order creation
 ```
 
-### 🔒 **Environment Variables (Demo Scripts Only)**
+## 📁 File Structure
 
-The backend demo scripts require a `.env` file for testing:
+### 🏗️ Core System Files
 
+| File | Purpose | Usage |
+|------|---------|-------|
+| `src/oracle-manager.js` | **Oracle Interface** - Query & update index data | `const result = await getAllIndices()` |
+| `src/order-manager.js` | **Order Retrieval** - Get active/historical orders | `const orders = await getAllActiveOrdersForMaker(address, apiKey)` |
+| `src/index-order-creator.js` | **Order Creation** - Create conditional limit orders | `const order = await createIndexBasedOrder({...})` |
+| `src/order-cancellation.js` | **Order Cancellation** - Cancel limit orders by hash | `const result = await cancelLimitOrder(hash, privateKey, apiKey)` |
+| `src/config.ts` | **Configuration** - Network settings, tokens, contracts | Imported by other files |
+
+### 🧪 Test & Demo Files
+
+| File | Purpose | What it shows |
+|------|---------|---------------|
+| `simple-oracle-demo.js` | **Quick Oracle View** | Current values of all 7 indices |
+| `test-oracle-manager.js` | **Complete Oracle Testing** | Full test suite: read all indices, create custom index, update values, simulate price movements, manage status |
+| `test-order-manager.js` | **Order Testing** | Retrieve your active & historical orders |
+| `test-index-order-creator.js` | **Order Creation Testing** | Create conditional orders with different indices |
+| `test-order-cancellation.js` | **Order Cancellation Testing** | Test order cancellation functionality, check cancellable orders, batch cancellation |
+
+### 🔧 Smart Contracts
+
+| File | Purpose | Deployed Address |
+|------|---------|------------------|
+| `contracts/MockIndexOracle.sol` | **Index Data Contract** | `0x55aAfa1D3de3D05536C96Ee9F1b965D6cE04a4c1` |
+
+## 📊 Available Indices
+
+| ID | Index | Current Value | Example Condition |
+|----|-------|---------------|-------------------|
+| 0 | Inflation Rate | 3.20% | `"Execute when inflation > 4%"` |
+| 1 | Elon Followers | 150.0M | `"Execute when Elon > 160M followers"` |
+| 2 | BTC Price | $43,000 | `"Execute when BTC < $40,000"` |
+| 3 | VIX Index | 22.57 | `"Execute when VIX > 25"` |
+| 4 | Unemployment | 3.70% | `"Execute when unemployment > 4%"` |
+| 5 | Tesla Stock | $248.00 | `"Execute when Tesla > $250"` |
+| 6+ | Custom Indices | User-defined | Any custom data source |
+
+## 🎯 How to Use
+
+### 1. View Index Data
+
+**Quick View (Read-Only):**
 ```bash
-# ⚠️ ONLY for backend demo scripts - NOT used by frontend
-PRIVATE_KEY=your_private_key_here_for_backend_demos_only
+node simple-oracle-demo.js
+```
+Shows current values of all indices available for trading conditions.
 
-# Contract addresses (already deployed on Base Sepolia)
-INDEX_PRE_INTERACTION_ADDRESS=0x8AF8db923E96A6709Ae339d1bFb9E986410D8461
-MOCK_INDEX_ORACLE_ADDRESS=0x3de6DF18226B2c57328709D9bc68CaA7AD76EdEB
+**Complete Test Suite (Read + Write):**
+```bash
+node test-oracle-manager.js
+```
+Comprehensive test that also creates/updates indices, simulates price movements, and manages index status. Requires private key for write operations.
 
-# Network
-RPC_URL=https://sepolia.base.org
+### 2. Create Conditional Order
+```javascript
+const { createIndexBasedOrder } = require('./src/index-order-creator');
+
+const order = await createIndexBasedOrder({
+    fromToken: 'USDC',      // Trade from USDC
+    toToken: 'WETH',        // Trade to WETH  
+    amount: '0.1',          // Amount: 0.1 USDC
+    indexId: 3,             // VIX Index
+    operator: 'gt',         // Greater than
+    threshold: 2500,        // 25.00 (scaled)
+    apiKey: process.env.ONEINCH_API_KEY,
+    privateKey: process.env.PRIVATE_KEY
+});
+
+// Result: Order executes when VIX > 25
 ```
 
-**Note**: The frontend application does NOT use these environment variables. It uses MetaMask wallet integration for secure transaction signing.
+### 3. Check Your Orders
+```javascript
+const { getAllActiveOrdersForMaker } = require('./src/order-manager');
 
-📚 **Detailed Integration Guides:**
-
-- 🌐 [`WEB3_INTEGRATION_GUIDE.md`](./WEB3_INTEGRATION_GUIDE.md) - Complete Web3.js examples & workflow
-- 🔧 [`GENERALIZATION_GUIDE.md`](./GENERALIZATION_GUIDE.md) - Custom index creation guide
-- ⚡ [`SETUP_INSTRUCTIONS.md`](./SETUP_INSTRUCTIONS.md) - Quick setup steps
-
-## 🎯 How It Works
-
-### 1. **Order Creation**
-
-```solidity
-factory.createIndexOrder(
-    salt, maker, receiver, makerAsset, takerAsset,
-    makingAmount, takingAmount,
-    BTC_PRICE,        // Index type
-    GREATER_THAN,     // Operator
-    45000 * 100,      // $45k threshold
-    expiry
-);
-```
-
-✅ **Order immediately enters 1inch orderbook**
-
-### 2. **Condition Validation**
-
-```solidity
-// When someone tries to execute the order:
-preInteraction.validateOrderCondition(orderHash)
-  ↓
-// Check: "Is BTC > $45k?"
-oracle.getIndexValue(BTC_PRICE) > 45000
-  ↓
-// ✅ Pass: Order executes
-// ❌ Fail: Order stays in book
-```
-
-### 3. **Index System (Fully Generalized!)**
-
-**🆕 Users can now register custom indices!**
-
-**Built-in indices:**
-
-- 📈 **BTC_PRICE** (ID: 2) - Bitcoin price movements
-- 👥 **ELON_FOLLOWERS** (ID: 1) - Social media milestones
-- 📊 **VIX_INDEX** (ID: 3) - Market volatility (fear/greed)
-- 💰 **INFLATION_RATE** (ID: 0) - Economic indicators
-- 📉 **UNEMPLOYMENT_RATE** (ID: 4) - Job market data
-- 🚗 **TESLA_STOCK** (ID: 5) - Individual stock prices
-
-**Custom indices (unlimited):**
-
-```solidity
-// Register any custom index
-uint256 myIndexId = preInteraction.registerIndex(
-    "APPLE_STOCK",           // Name
-    "Apple Inc. stock price", // Description
-    myOracleAddress          // Your oracle
+const orders = await getAllActiveOrdersForMaker(
+    '0xYourAddress', 
+    process.env.ONEINCH_API_KEY
 );
 
-// Use in orders
-factory.createIndexOrder(..., myIndexId, GREATER_THAN, 150, ...);
+console.log(`You have ${orders.activeOrders.length} active orders`);
 ```
 
-**Revolutionary possibilities:**
+### 4. Cancel Orders
+```javascript
+const { cancelLimitOrder } = require('./src/order-cancellation');
 
-- 🗳️ Election results - Trade when candidate wins
-- 🌊 Natural disasters - Hedge on earthquake magnitude
-- 🛰️ Satellite data - Carbon credits on CO2 levels
-- 🎵 Music charts - NFT trades when song hits #1
-- 🏆 Gaming tournaments - Bet on esports scores
-- 📱 App metrics - Trade on app downloads
-- 🚀 Space missions - Execute on rocket launch success
+// Cancel single order
+const result = await cancelLimitOrder(
+    '0x1234567890abcdef...',         // Order hash
+    process.env.PRIVATE_KEY,         // Your private key  
+    process.env.ONEINCH_API_KEY      // API key
+);
 
-## 🧪 Test Results
+if (result.success) {
+    console.log(`✅ Order cancelled: ${result.transactionHash}`);
+} else {
+    console.log(`❌ Cancellation failed: ${result.error}`);
+}
 
-**✅ 5/8 tests passing on Base Sepolia fork:**
+// Check if order can be cancelled first
+const canCancel = await canCancelOrder(
+    orderHash, 
+    walletAddress, 
+    apiKey
+);
 
-- ✅ Factory order creation (125k gas)
-- ✅ Oracle-triggered execution
-- ✅ PreInteraction validation
-- ✅ Gas consumption (124k total)
-- ✅ Basic oracle functionality
+if (canCancel.canCancel) {
+    // Proceed with cancellation
+} else {
+    console.log(`Cannot cancel: ${canCancel.reason}`);
+}
+```
 
-**📊 Performance:**
+### 5. CLI Order Cancellation
+```bash
+# Cancel specific order by hash
+node src/order-cancellation.js 0x1234567890abcdef...
 
-- **Order Creation**: 106k gas
-- **Condition Validation**: 18k gas
-- **Total Flow**: 124k gas (very efficient!)
+# Test cancellation functionality
+node test-order-cancellation.js
+```
 
-## 🔗 Real 1inch Integration
+### 6. Manage Oracle Data
+```javascript
+const oracleManager = require('./src/oracle-manager');
 
-Uses **actual 1inch Protocol v4** on Base Sepolia:
+// View all indices
+const indices = await oracleManager.getAllIndices();
 
-- **Contract**: `0xE53136D9De56672e8D2665C98653AC7b8A60Dc44`
-- **Network**: Base Sepolia (Chain ID: 84532)
-- **Format**: Real 1inch order structure with `preInteraction` callbacks
+// Create custom index
+const newIndex = await oracleManager.createNewIndex(
+    42000,                                    // Initial value
+    'https://api.example.com/custom-data',    // Data source
+    process.env.PRIVATE_KEY                   // Your private key
+);
 
-## 🎯 Innovation
+// Update index value
+await oracleManager.updateIndexValue(3, 2800, privateKey); // VIX to 28.00
+```
 
-**First-ever limit orders that execute based on real-world events:**
+## ⚙️ Configuration
 
-- Traditional: "Buy ETH at $3000"
-- **Our system**: "Buy ETH when BTC > $45k"
+### Environment Variables (.env)
+```bash
+PRIVATE_KEY=0xYourPrivateKey                    # Your wallet private key
+ONEINCH_API_KEY=YourAPIKey                      # 1inch API key
+CHAIN_ID=8453                                   # Base mainnet
+RPC_URL=https://base.llamarpc.com               # Base RPC
+INDEX_ORACLE_ADDRESS=0x55aAfa1D3de3D...         # Oracle contract
+```
 
-Orders sit in the 1inch orderbook and automatically execute when external conditions are met!
+### Supported Tokens (Base Mainnet)
+```javascript
+USDC: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'
+WETH: '0x4200000000000000000000000000000000000006'
+```
 
-## 🚀 Next Steps
+## 🔄 Common Operators
 
-1. **Get Base Sepolia ETH**: https://www.coinbase.com/faucets/base-ethereum-sepolia-faucet
-2. **Add private key** to `.env` file
-3. **Deploy to testnet**: `forge script script/DeployAndTest.s.sol --rpc-url https://sepolia.base.org --broadcast`
-4. **Create real orders** and watch them execute when conditions are met!
+| Operator | Description | Example |
+|----------|-------------|---------|
+| `gt` | Greater than | VIX > 25 |
+| `lt` | Less than | BTC < $40,000 |
+| `gte` | Greater than or equal | Inflation >= 4% |
+| `lte` | Less than or equal | Tesla <= $200 |
+| `eq` | Equal to | Custom index = 1000 |
+
+## 📈 Frontend Integration
+
+### React Hook Example
+```javascript
+import { useState, useEffect } from 'react';
+import * as oracleManager from './oracle-manager';
+
+const useIndexData = () => {
+  const [indices, setIndices] = useState([]);
+  
+  useEffect(() => {
+    const loadData = async () => {
+      const result = await oracleManager.getAllIndices();
+      if (result.success) setIndices(result.indices);
+    };
+    loadData();
+  }, []);
+  
+  return indices;
+};
+```
+
+### API Endpoint Example
+```javascript
+const express = require('express');
+const { createIndexBasedOrder } = require('./src/index-order-creator');
+const { cancelLimitOrder } = require('./src/order-cancellation');
+
+// Create order
+app.post('/api/orders', async (req, res) => {
+  try {
+    const order = await createIndexBasedOrder(req.body);
+    res.json(order);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Cancel order
+app.delete('/api/orders/:orderHash', async (req, res) => {
+  try {
+    const { orderHash } = req.params;
+    const { privateKey } = req.body;
+    const result = await cancelLimitOrder(
+      orderHash, 
+      privateKey, 
+      process.env.ONEINCH_API_KEY
+    );
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+```
+
+## 🛠️ Development
+
+### Run Tests
+```bash
+node test-oracle-manager.js      # Complete oracle test suite (see below)
+node test-order-manager.js       # Test order retrieval  
+node test-index-order-creator.js # Test order creation
+node test-order-cancellation.js  # Test order cancellation
+```
+
+#### 🧪 What `test-oracle-manager.js` Tests
+
+This comprehensive test demonstrates **all oracle functionality**:
+
+**📋 Read Operations:**
+- ✅ Oracle status check (owner, next custom ID)
+- ✅ Get all 6 predefined indices with current values
+- ✅ Get all custom indices (user-created) 
+- ✅ Get combined view of all indices
+- ✅ Get specific index by ID (VIX example)
+
+**✍️ Write Operations** (requires private key):
+- 🆕 **Create custom index** - Creates index with value 42,000
+- 📝 **Update custom index** - Updates created index to 50,000  
+- 📈 **Simulate price movement** - Increases VIX by 5%
+- ⚙️ **Manage index status** - Deactivates then reactivates Tesla stock
+
+**🎯 Expected Results:**
+```bash
+✅ Oracle operational at 0x55aAfa1D3de3D05536C96Ee9F1b965D6cE04a4c1
+✅ Found 6 predefined indices
+✅ Created custom index 6 with transaction hash
+✅ Updated index 6 to 50000  
+✅ Simulated +5% movement on VIX (21.50 → 22.57)
+✅ Deactivated Tesla Stock index
+✅ Reactivated Tesla Stock index
+📊 FINAL SUMMARY: Total Indices: 7 (6 predefined + 1 custom)
+```
+
+### Deploy New Oracle (if needed)
+```bash
+./deploy-oracle.sh              # Deploy MockIndexOracle contract
+```
+
+## 📋 System Flow
+
+1. **Oracle** provides real-time index data (VIX, BTC, etc.)
+2. **Order Creator** builds 1inch limit orders with index conditions
+3. **1inch Protocol** executes orders when conditions are met
+4. **Order Manager** tracks and retrieves order status
+5. **Order Cancellation** allows users to cancel orders before execution
+
+## ⚠️ Safety Notes
+
+- All examples use tiny amounts (0.1 USDC) for safety on mainnet
+- Test thoroughly before using larger amounts
+- Monitor gas costs on Base mainnet
+- Keep private keys secure
+
+## 🔗 Links
+
+- **1inch API**: https://docs.1inch.io/
+- **Base Network**: https://base.org/
+- **Oracle Contract**: `0x55aAfa1D3de3D05536C96Ee9F1b965D6cE04a4c1`
+
+---
+
+**Ready to trade based on real-world conditions!** 🎯

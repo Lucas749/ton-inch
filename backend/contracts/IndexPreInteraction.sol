@@ -32,6 +32,7 @@ contract IndexPreInteraction is IPreInteraction {
     struct IndexInfo {
         string name;
         string description;
+        string sourceUrl;     // URL or API endpoint where this index data comes from
         address oracle;
         address creator;
         bool isActive;
@@ -66,9 +67,10 @@ contract IndexPreInteraction is IPreInteraction {
     // Events
     event OrderConditionRegistered(bytes32 indexed orderHash, uint256 indexed indexId, ComparisonOperator operator, uint256 thresholdValue);
     event OrderConditionValidated(bytes32 indexed orderHash, bool isValid, uint256 currentValue);
-    event IndexRegistered(uint256 indexed indexId, string name, address indexed creator, address indexed oracle);
+    event IndexRegistered(uint256 indexed indexId, string name, address indexed creator, address indexed oracle, string sourceUrl);
     event OracleUpdated(uint256 indexed indexId, address indexed oldOracle, address indexed newOracle);
     event IndexDeactivated(uint256 indexed indexId, address indexed creator);
+    event SourceUrlUpdated(uint256 indexed indexId, string oldUrl, string newUrl, address indexed updater);
 
     // Errors
     error Unauthorized();
@@ -101,6 +103,7 @@ contract IndexPreInteraction is IPreInteraction {
         indexRegistry[INFLATION_RATE] = IndexInfo({
             name: "Inflation Rate",
             description: "Consumer Price Index inflation rate",
+            sourceUrl: "https://api.bls.gov/publicAPI/v2/timeseries/CUUR0000SA0",
             oracle: defaultOracle,
             creator: owner,
             isActive: true,
@@ -110,6 +113,7 @@ contract IndexPreInteraction is IPreInteraction {
         indexRegistry[ELON_FOLLOWERS] = IndexInfo({
             name: "Elon Musk Followers",
             description: "Twitter/X follower count for @elonmusk",
+            sourceUrl: "https://api.twitter.com/2/users/by/username/elonmusk",
             oracle: defaultOracle,
             creator: owner,
             isActive: true,
@@ -119,6 +123,7 @@ contract IndexPreInteraction is IPreInteraction {
         indexRegistry[BTC_PRICE] = IndexInfo({
             name: "Bitcoin Price",
             description: "Bitcoin USD price",
+            sourceUrl: "https://api.coindesk.com/v1/bpi/currentprice.json",
             oracle: defaultOracle,
             creator: owner,
             isActive: true,
@@ -128,6 +133,7 @@ contract IndexPreInteraction is IPreInteraction {
         indexRegistry[VIX_INDEX] = IndexInfo({
             name: "VIX Volatility Index",
             description: "CBOE Volatility Index",
+            sourceUrl: "https://api.cboe.com/data/historical/VIX",
             oracle: defaultOracle,
             creator: owner,
             isActive: true,
@@ -137,6 +143,7 @@ contract IndexPreInteraction is IPreInteraction {
         indexRegistry[UNEMPLOYMENT_RATE] = IndexInfo({
             name: "Unemployment Rate",
             description: "US unemployment rate",
+            sourceUrl: "https://api.bls.gov/publicAPI/v2/timeseries/LNS14000000",
             oracle: defaultOracle,
             creator: owner,
             isActive: true,
@@ -146,6 +153,7 @@ contract IndexPreInteraction is IPreInteraction {
         indexRegistry[TESLA_STOCK] = IndexInfo({
             name: "Tesla Stock Price",
             description: "Tesla Inc. stock price",
+            sourceUrl: "https://api.polygon.io/v2/last/trade/TSLA",
             oracle: defaultOracle,
             creator: owner,
             isActive: true,
@@ -193,6 +201,7 @@ contract IndexPreInteraction is IPreInteraction {
     function registerIndex(
         string calldata name,
         string calldata description,
+        string calldata sourceUrl,
         address oracle
     ) external returns (uint256 indexId) {
         if (bytes(name).length == 0) revert EmptyIndexName();
@@ -203,6 +212,7 @@ contract IndexPreInteraction is IPreInteraction {
         indexRegistry[indexId] = IndexInfo({
             name: name,
             description: description,
+            sourceUrl: sourceUrl,
             oracle: oracle,
             creator: msg.sender,
             isActive: true,
@@ -211,7 +221,7 @@ contract IndexPreInteraction is IPreInteraction {
         
         userIndices[msg.sender].push(indexId);
         
-        emit IndexRegistered(indexId, name, msg.sender, oracle);
+        emit IndexRegistered(indexId, name, msg.sender, oracle, sourceUrl);
     }
     
     /**
@@ -240,6 +250,36 @@ contract IndexPreInteraction is IPreInteraction {
         index.isActive = false;
         
         emit IndexDeactivated(indexId, index.creator);
+    }
+    
+    /**
+     * @dev Update source URL for an index (only creator or owner)
+     */
+    function updateSourceUrl(uint256 indexId, string calldata newSourceUrl) external {
+        IndexInfo storage index = indexRegistry[indexId];
+        if (!index.isActive) revert IndexNotActive(indexId);
+        if (msg.sender != index.creator && msg.sender != owner) revert Unauthorized();
+        
+        string memory oldUrl = index.sourceUrl;
+        index.sourceUrl = newSourceUrl;
+        
+        emit SourceUrlUpdated(indexId, oldUrl, newSourceUrl, msg.sender);
+    }
+    
+    /**
+     * @dev Get index information including source URL
+     */
+    function getIndexInfo(uint256 indexId) external view returns (IndexInfo memory) {
+        if (!indexRegistry[indexId].isActive) revert IndexNotActive(indexId);
+        return indexRegistry[indexId];
+    }
+    
+    /**
+     * @dev Get source URL for an index
+     */
+    function getSourceUrl(uint256 indexId) external view returns (string memory) {
+        if (!indexRegistry[indexId].isActive) revert IndexNotActive(indexId);
+        return indexRegistry[indexId].sourceUrl;
     }
 
     /**
@@ -284,9 +324,9 @@ contract IndexPreInteraction is IPreInteraction {
     }
     
     /**
-     * @dev Get index information
+     * @dev Get index information (tuple version for backward compatibility)
      */
-    function getIndexInfo(uint256 indexId) external view returns (
+    function getIndexInfoTuple(uint256 indexId) external view returns (
         string memory name,
         string memory description,
         address oracle,
