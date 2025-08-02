@@ -285,7 +285,7 @@ export default function CreateStrategy() {
                             <SelectValue placeholder="Select token to sell" />
                           </SelectTrigger>
                           <SelectContent>
-                            {TOKENS.map((token) => (
+                            {Object.values(TOKENS).map((token) => (
                               <SelectItem
                                 key={token.address}
                                 value={token.address}
@@ -314,7 +314,7 @@ export default function CreateStrategy() {
                             <SelectValue placeholder="Select token to buy" />
                           </SelectTrigger>
                           <SelectContent>
-                            {TOKENS.map((token) => (
+                            {Object.values(TOKENS).map((token) => (
                               <SelectItem
                                 key={token.address}
                                 value={token.address}
@@ -824,11 +824,11 @@ export default function CreateStrategy() {
                           <div className="flex justify-between">
                             <span className="text-gray-600">Token Pair:</span>
                             <span className="font-medium">
-                              {TOKENS.find(
+                              {Object.values(TOKENS).find(
                                 (t) => t.address === strategyData.tokenIn
                               )?.symbol || "N/A"}{" "}
                               →{" "}
-                              {TOKENS.find(
+                              {Object.values(TOKENS).find(
                                 (t) => t.address === strategyData.tokenOut
                               )?.symbol || "N/A"}
                             </span>

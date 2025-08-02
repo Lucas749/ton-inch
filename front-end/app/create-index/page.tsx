@@ -468,7 +468,7 @@ export default function CreateIndex() {
 
                 {/* Quick Swap Box */}
                 <SwapBox
-                  walletAddress={walletAddress}
+                  walletAddress={walletAddress || undefined}
                   apiKey={process.env.NEXT_PUBLIC_ONEINCH_API_KEY}
                                       rpcUrl={process.env.NEXT_PUBLIC_ALCHEMY_API_KEY
                       ? `https://base-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`
@@ -598,7 +598,7 @@ export default function CreateIndex() {
                           disabled={!isConnected}
                         >
                           <option value={CONTRACTS.USDC}>USDC ({CONTRACTS.USDC.slice(0,6)}...)</option>
-                          <option value={CONTRACTS.TestUSDC}>TestUSDC ({CONTRACTS.TestUSDC.slice(0,6)}...)</option>
+                          <option value={CONTRACTS.WETH}>WETH ({CONTRACTS.WETH.slice(0,6)}...)</option>
                         </select>
                       </div>
 

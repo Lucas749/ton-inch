@@ -1,6 +1,20 @@
 "use client";
 
 import { useState, useEffect } from "react";
+
+// Recharts data type definition
+interface DataPoint {
+  date: string;
+  close: number;
+  open?: number;
+  high?: number;
+  low?: number;
+  volume?: number;
+  sma_10?: number;
+  sma_20?: number;
+  rsi?: number;
+  [key: string]: any;
+}
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -387,14 +401,14 @@ export function AlphaVantageExplorer({ apiKey = "123" }: ExplorerProps) {
     if (selectedCategory === "stocks" || selectedCategory === "forex") {
       return (
         <ResponsiveContainer width="100%" height={400}>
-          <LineChart data={chartData}>
+          <LineChart<DataPoint> data={chartData}>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis
+            <XAxis<DataPoint>
               dataKey="date"
               tick={{ fontSize: 12 }}
               tickFormatter={(value) => new Date(value).toLocaleDateString()}
             />
-            <YAxis tick={{ fontSize: 12 }} />
+            <YAxis<DataPoint> tick={{ fontSize: 12 }} />
             <Tooltip
               labelFormatter={(value) => new Date(value).toLocaleDateString()}
               formatter={(value: number) => [value.toFixed(2), "Price"]}
@@ -416,14 +430,14 @@ export function AlphaVantageExplorer({ apiKey = "123" }: ExplorerProps) {
     if (selectedCategory === "technical") {
       return (
         <ResponsiveContainer width="100%" height={400}>
-          <LineChart data={chartData}>
+          <LineChart<DataPoint> data={chartData}>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis
+            <XAxis<DataPoint>
               dataKey="date"
               tick={{ fontSize: 12 }}
               tickFormatter={(value) => new Date(value).toLocaleDateString()}
             />
-            <YAxis tick={{ fontSize: 12 }} />
+            <YAxis<DataPoint> tick={{ fontSize: 12 }} />
             <Tooltip
               labelFormatter={(value) => new Date(value).toLocaleDateString()}
             />

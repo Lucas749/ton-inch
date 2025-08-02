@@ -15,9 +15,8 @@ import {
   LimitOrder, 
   MakerTraits, 
   Address, 
-  Sdk, 
+  Api, 
   randBigInt, 
-  FetchProviderConnector, 
   ExtensionBuilder 
 } from '@1inch/limit-order-sdk';
 import { ethers } from 'ethers';
@@ -73,18 +72,17 @@ export class BlockchainOrders {
   }
 
   /**
-   * Initialize 1inch SDK
+   * Initialize 1inch API
    */
   private initializeSDK(): void {
     try {
-      this.sdk = new Sdk({
+      this.sdk = new Api({
         networkId: CONFIG.CHAIN_ID,
-        httpConnector: new FetchProviderConnector(),
-        // authKey will be provided when needed
+        // authKey will be provided when needed for production
       });
-      console.log('✅ 1inch SDK initialized');
+      console.log('✅ 1inch API initialized');
     } catch (error) {
-      console.warn('⚠️ Failed to initialize 1inch SDK:', error);
+      console.warn('⚠️ Failed to initialize 1inch API:', error);
     }
   }
 
@@ -109,9 +107,9 @@ export class BlockchainOrders {
       
       console.log(`📊 Trading: ${params.fromAmount} ${fromToken.symbol} → ${params.toAmount} ${toToken.symbol}`);
 
-      // Parse amounts
-      const makingAmount = ethers.utils.parseUnits(params.fromAmount.toString(), fromToken.decimals);
-      const takingAmount = ethers.utils.parseUnits(params.toAmount.toString(), toToken.decimals);
+      // Parse amounts (ethers v6 syntax)
+      const makingAmount = ethers.parseUnits(params.fromAmount.toString(), fromToken.decimals);
+      const takingAmount = ethers.parseUnits(params.toAmount.toString(), toToken.decimals);
 
       // Create index predicate
       console.log('🔮 Creating index predicate...');
@@ -143,15 +141,17 @@ export class BlockchainOrders {
 
       console.log('🔧 Creating order...');
 
-      // Create order using SDK
-      const order = await this.sdk.createOrder({
+      // Create order using 1inch SDK
+      const order = new LimitOrder({
+        salt: randBigInt(2n ** 256n - 1n),
+        maker: new Address(this.wallet.currentAccount),
+        receiver: new Address(this.wallet.currentAccount),
         makerAsset: new Address(fromToken.address),
         takerAsset: new Address(toToken.address),
         makingAmount: makingAmount,
         takingAmount: takingAmount,
-        maker: new Address(this.wallet.currentAccount),
-        extension: extension.encode()
-      }, makerTraits);
+        makerTraits: makerTraits.build(),
+      }, extension);
 
       const orderHash = order.getOrderHash();
       console.log(`✅ Order created: ${orderHash}`);
@@ -164,16 +164,16 @@ export class BlockchainOrders {
       const signature = await this.wallet.signTypedDataV4(typedData);
       console.log('✅ Order signed');
 
-      // Submit order to 1inch
-      console.log('📤 Submitting to 1inch...');
+      // Submit order to 1inch (optional - for now just create locally)
+      console.log('📤 Order created locally (1inch API submission requires auth key)');
       let submitResult = null;
-      try {
-        submitResult = await this.sdk.submitOrder(order, signature);
-        console.log('✅ Order submitted successfully!');
-      } catch (error) {
-        console.log(`⚠️ Submit failed: ${error.message}`);
-        console.log('Order created locally but not submitted to 1inch API');
-      }
+      // Note: submitOrder would require 1inch API key for production
+      // try {
+      //   submitResult = await this.sdk.submitOrder(order, signature);
+      //   console.log('✅ Order submitted successfully!');
+      // } catch (error) {
+      //   console.log(`⚠️ Submit failed: ${error.message}`);
+      // }
 
       // Clear cache so new order appears
       this.clearOrderCache(params.indexId);
@@ -252,15 +252,15 @@ export class BlockchainOrders {
     console.log(`   Operator: ${condition.operator}`);
     console.log(`   Threshold: ${condition.threshold}`);
     
-    // Oracle call encoding
-    const getIndexValueSelector = ethers.utils.id('getIndexValue(uint256)').slice(0, 10);
-    const oracleCallData = ethers.utils.defaultAbiCoder.encode(
+    // Oracle call encoding (ethers v6 syntax)
+    const getIndexValueSelector = ethers.id('getIndexValue(uint256)').slice(0, 10);
+    const oracleCallData = ethers.AbiCoder.defaultAbiCoder().encode(
       ['bytes4', 'uint256'],
       [getIndexValueSelector, condition.indexId]
     );
     
     // Predicate structure: operator(threshold, arbitraryStaticCall(oracle, callData))
-    const arbitraryStaticCallData = ethers.utils.defaultAbiCoder.encode(
+    const arbitraryStaticCallData = ethers.AbiCoder.defaultAbiCoder().encode(
       ['address', 'bytes'],
       [CONFIG.INDEX_ORACLE_ADDRESS, oracleCallData]
     );
@@ -271,34 +271,34 @@ export class BlockchainOrders {
     switch (condition.operator) {
       case 'gt':
       case 'gte': // Treat >= as > for simplicity
-        predicateData = ethers.utils.defaultAbiCoder.encode(
+        predicateData = ethers.AbiCoder.defaultAbiCoder().encode(
           ['uint256', 'bytes'],
           [condition.threshold, arbitraryStaticCallData]
         );
         break;
       case 'lt':
       case 'lte': // Treat <= as < for simplicity
-        predicateData = ethers.utils.defaultAbiCoder.encode(
+        predicateData = ethers.AbiCoder.defaultAbiCoder().encode(
           ['uint256', 'bytes'],
           [condition.threshold, arbitraryStaticCallData]
         );
         break;
       case 'eq':
-        predicateData = ethers.utils.defaultAbiCoder.encode(
+        predicateData = ethers.AbiCoder.defaultAbiCoder().encode(
           ['uint256', 'bytes'],
           [condition.threshold, arbitraryStaticCallData]
         );
         break;
       default:
         // Default to gt
-        predicateData = ethers.utils.defaultAbiCoder.encode(
+        predicateData = ethers.AbiCoder.defaultAbiCoder().encode(
           ['uint256', 'bytes'],
           [condition.threshold, arbitraryStaticCallData]
         );
     }
     
-    // Complete predicate with protocol address
-    const completePredicate = ethers.utils.solidityPack(
+    // Complete predicate with protocol address (ethers v6 syntax)
+    const completePredicate = ethers.solidityPacked(
       ['address', 'bytes'],
       [CONFIG.LIMIT_ORDER_PROTOCOL, predicateData]
     );

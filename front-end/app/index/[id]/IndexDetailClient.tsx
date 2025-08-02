@@ -444,7 +444,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
           <div className="space-y-6">
             {/* Quick Swap Box */}
             <SwapBox 
-              walletAddress={walletAddress}
+              walletAddress={walletAddress || undefined}
               apiKey={process.env.NEXT_PUBLIC_ONEINCH_API_KEY}
                                   rpcUrl={process.env.NEXT_PUBLIC_ALCHEMY_API_KEY
                       ? `https://base-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`
