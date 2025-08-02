@@ -40,6 +40,7 @@ export interface UseBlockchainReturn {
   ) => Promise<number>;
   updateIndex: (indexId: number, newValue: number) => Promise<boolean>;
   refreshIndices: () => Promise<void>;
+  clearIndexCache: () => Promise<void>;
   validateCondition: (condition: OrderCondition) => Promise<boolean>;
   getTokenBalance: (tokenAddress: string) => Promise<string>;
   switchToBaseMainnet: () => Promise<boolean>;
@@ -206,6 +207,34 @@ export function useBlockchain(): UseBlockchainReturn {
     }
   }, [checkOwnership, isConnected, walletAddress]);
 
+  // Clear index cache and force refresh from blockchain
+  const clearIndexCache = useCallback(async () => {
+    try {
+      console.log('🗑️ useBlockchain: Clearing index cache and forcing refresh...');
+      console.log('🔍 useBlockchain: Wallet connected:', isConnected);
+      console.log('🔍 useBlockchain: Wallet address:', walletAddress);
+      
+      // Clear the global cache in blockchain service
+      blockchainService.clearIndicesCache();
+      
+      // Now fetch fresh data from blockchain (this will bypass cache)
+      const allIndices = await blockchainService.getAllIndices();
+      
+      console.log('🔍 useBlockchain: Loaded fresh indices from blockchain:', allIndices);
+      setIndices(allIndices);
+      
+      // Only check ownership if wallet is connected
+      if (isConnected && walletAddress) {
+        await checkOwnership();
+      }
+      
+      console.log('✅ useBlockchain: Index cache cleared and refreshed successfully');
+    } catch (err) {
+      console.error("❌ Failed to clear cache and refresh indices:", err);
+      setError(err instanceof Error ? err.message : "Failed to refresh indices from blockchain");
+    }
+  }, [checkOwnership, isConnected, walletAddress]);
+
   // Validate order condition
   const validateCondition = useCallback(
     async (condition: OrderCondition): Promise<boolean> => {
@@ -348,6 +377,7 @@ export function useBlockchain(): UseBlockchainReturn {
     createIndex,
     updateIndex,
     refreshIndices,
+    clearIndexCache,
     validateCondition,
     getTokenBalance,
     switchToBaseMainnet,

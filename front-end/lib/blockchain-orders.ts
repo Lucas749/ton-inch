@@ -164,14 +164,12 @@ export class BlockchainOrders {
         throw new Error(result.message || result.error || 'Order creation failed');
       }
 
-      console.log('✅ Order created successfully via backend:', result.orderHash);
-      console.log('🔍 DEBUG - Backend result keys:', Object.keys(result));
-      console.log('🔍 DEBUG - Has typedData?', !!result.typedData);
-      console.log('🔍 DEBUG - typedData content:', result.typedData);
-
+      console.log('✅ Order structure created by backend:', result.orderHash);
+      console.log('⏳ Order not yet submitted - requires MetaMask signing...');
+      
       // Check if we need to sign the order with MetaMask
       if (result.typedData) {
-        console.log('📝 Order requires MetaMask signature...');
+        console.log('📝 Prompting MetaMask for signature...');
         
         try {
           // Request user signature via MetaMask
@@ -217,20 +215,27 @@ export class BlockchainOrders {
             }
 
             const submitResult = await submitResponse.json();
-            console.log('✅ Order successfully submitted to 1inch:', submitResult);
+            console.log('✅ Order successfully submitted to 1inch API:', submitResult);
+            console.log('🎉 LIMIT ORDER CREATED SUCCESSFULLY!');
             
           } catch (submitError) {
             console.error('❌ Failed to submit order to 1inch:', submitError);
-            // Don't fail the whole process - order is created and signed, just submission failed
-            console.log('⚠️ Order was created and signed but not submitted to 1inch. You can submit manually.');
+            throw new Error(`Order signed but 1inch submission failed: ${(submitError as Error).message}`);
           }
           
         } catch (signError) {
           console.error('❌ User rejected signing or signing failed:', signError);
           throw new Error('Order signing cancelled or failed');
         }
+      } else {
+        console.error('❌ No typedData returned from backend - cannot sign order');
+        throw new Error('Backend did not return signing data');
       }
 
+      // If we get here, the order was successfully signed and submitted to 1inch
+      // Now save to persistent cache
+      console.log('💾 Order successfully submitted - saving to cache...');
+      
       // Create order object for caching
       const newOrder = {
         hash: result.orderHash,
@@ -259,7 +264,7 @@ export class BlockchainOrders {
 
       // Save to persistent localStorage cache
       try {
-        console.log('💾 Saving order to persistent localStorage cache');
+        console.log('💾 Saving successfully submitted order to persistent localStorage cache');
         
         const fromTokenInfo = this.getTokenInfo(params.fromToken);
         const toTokenInfo = this.getTokenInfo(params.toToken);
@@ -308,14 +313,14 @@ export class BlockchainOrders {
         };
         
         OrderCacheService.saveOrder(savedOrder);
-        console.log('✅ Saved new order to persistent localStorage cache');
+        console.log('✅ Order successfully submitted to 1inch and saved to cache');
         
       } catch (cacheError) {
         console.error('⚠️ Failed to save order to persistent cache:', cacheError);
         // Don't fail the whole operation if persistent cache save fails
       }
 
-      // Return the cached order object
+      // Return the cached order object (only if successfully submitted)
       return newOrder;
 
     } catch (error) {

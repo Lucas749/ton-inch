@@ -1020,7 +1020,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
         expiry: "24"
       });
 
-      alert(`🎉 Order created successfully! It will execute when ${realIndexData.name} ${getOperatorSymbol(orderForm.operator)} ${orderForm.threshold}`);
+      alert(`🎉 Limit order signed and submitted to 1inch! It will execute when ${realIndexData.name} ${getOperatorSymbol(orderForm.operator)} ${orderForm.threshold}`);
       
     } catch (error) {
       console.error("❌ Error creating order:", error);

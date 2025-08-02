@@ -38,7 +38,7 @@ export default function Dashboard() {
   const [cancelSuccess, setCancelSuccess] = useState<string | null>(null);
   const [cancelError, setCancelError] = useState<string | null>(null);
   
-  const { isConnected, indices: blockchainIndices, refreshIndices, isOwner, walletAddress } = useBlockchain();
+  const { isConnected, indices: blockchainIndices, refreshIndices, clearIndexCache, isOwner, walletAddress } = useBlockchain();
   const { orders, cancelOrder } = useOrders();
   const router = useRouter();
 
@@ -245,20 +245,31 @@ export default function Dashboard() {
                   <h2 className="text-2xl font-bold text-gray-900">Portfolio Overview</h2>
                   <p className="text-gray-600 mt-1">Your conditional orders and trading activity</p>
                 </div>
-                <Button 
-                  onClick={loadAllOrders}
-                  variant="outline"
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Loading...
-                    </>
-                  ) : (
-                    "Refresh Orders"
-                  )}
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={clearIndexCache}
+                    variant="outline"
+                    disabled={isLoading}
+                    title="Clear index cache and refresh from blockchain"
+                  >
+                    <TrendingUp className="w-4 h-4 mr-2" />
+                    Refresh Indices
+                  </Button>
+                  <Button 
+                    onClick={loadAllOrders}
+                    variant="outline"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Loading...
+                      </>
+                    ) : (
+                      "Refresh Orders"
+                    )}
+                  </Button>
+                </div>
               </div>
 
               {/* Cancel Status Messages */}
