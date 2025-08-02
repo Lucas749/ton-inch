@@ -193,25 +193,10 @@ export default function Home() {
           </div>
         </div>
       </section>
-      
-      <main className="container mx-auto px-4 py-6">
-        {!isConnected ? (
-          <div className="text-center py-16">
-            <div className="max-w-md mx-auto">
-              <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Zap className="w-10 h-10 text-white" />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Connect Wallet to See Dashboard</h2>
-              <p className="text-gray-600 mb-8">
-                Connect your wallet to view your custom indices, manage orders, and access the full trading platform.
-              </p>
-              <WalletConnect />
-            </div>
-          </div>
-        ) : (
-          <>
-            {/* Featured Blockchain Indices Section */}
-            <div className="mb-8">
+              
+        <main className="container mx-auto px-4 py-6">
+         {/* Featured Blockchain Indices Section */}
+         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold text-gray-900 flex items-center">
               <Sparkles className="w-5 h-5 mr-2 text-blue-500" />
@@ -458,11 +443,9 @@ export default function Home() {
           <div className="text-center">
             <div className="text-2xl font-bold text-gray-900">99.9%</div>
             <div className="text-sm text-gray-500">Uptime</div>
+                      </div>
           </div>
-        </div>
-          </>
-        )}
-      </main>
+        </main>
     </div>
   );
 }
