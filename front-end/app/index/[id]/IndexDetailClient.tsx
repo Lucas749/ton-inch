@@ -522,32 +522,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
               </CardContent>
             </Card>
 
-            {/* Community Sentiment */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Community Sentiment</CardTitle>
-                <div className="text-sm text-gray-500">{index.communityData.totalCalls}</div>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center space-x-4 mb-4">
-                  <div className="flex items-center space-x-2">
-                    <TrendingUp className="w-4 h-4 text-green-600" />
-                    <span className="text-green-600 font-medium">{index.communityData.positivePercent}%</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <TrendingDown className="w-4 h-4 text-red-600" />
-                    <span className="text-red-600 font-medium">{index.communityData.negativePercent}%</span>
-                  </div>
-                </div>
-                
-                <div className="w-full bg-gray-200 rounded-full h-3">
-                  <div 
-                    className="bg-green-500 h-3 rounded-l-full" 
-                    style={{ width: `${index.communityData.positivePercent}%` }}
-                  ></div>
-                </div>
-              </CardContent>
-            </Card>
+
           </div>
 
           {/* Right Column - Trading & Social Feed */}
