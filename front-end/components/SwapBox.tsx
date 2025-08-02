@@ -76,8 +76,8 @@ export function SwapBox({
         );
         
         if (validTokens.length >= 2) {
-          setFromToken(validTokens[1]); // Usually USDC
-          setToToken(validTokens[0]); // Usually WETH
+          setFromToken(validTokens[0]); // ETH (native)
+          setToToken(validTokens[1]); // WETH (wrapped)
         }
       }
     } catch (error) {

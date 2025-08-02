@@ -77,8 +77,8 @@ export function SwapInterface({
   useEffect(() => {
     const popularTokens = tokenService.getPopularTokens();
     if (popularTokens.length >= 2 && !fromToken && !toToken) {
-      setFromToken(popularTokens[0]); // WETH
-      setToToken(popularTokens[1]); // USDC
+      setFromToken(popularTokens[0]); // ETH
+      setToToken(popularTokens[1]); // WETH
     }
   }, [fromToken, toToken]);
 
