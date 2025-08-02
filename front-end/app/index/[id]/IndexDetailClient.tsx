@@ -1590,7 +1590,7 @@ This matches the backend test-index-order-creator.js values exactly!`);
                     </Select>
                   </div>
 
-                                    <div className="flex space-x-3">
+                  <div className="flex space-x-3">
                     <Button
                       onClick={handleCreateOrder}
                       disabled={!isConnected || isCreatingOrder || isApprovingToken || !orderForm.threshold || !orderForm.fromAmount || !fromToken || !toToken}
