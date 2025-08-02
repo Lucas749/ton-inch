@@ -187,8 +187,20 @@ function validateOrderParams(params: any) {
  * Get token information by symbol or address
  */
 function getTokenInfo(tokenInput: string) {
-  // If it's already an address
+  // If it's already an address, do reverse lookup
   if (tokenInput.startsWith('0x')) {
+    const address = tokenInput.toLowerCase();
+    
+    // Search through all tokens to find matching address
+    for (const [symbol, tokenInfo] of Object.entries(CONFIG.TOKENS as any)) {
+      if (tokenInfo.address.toLowerCase() === address) {
+        console.log(`🔍 Found token by address: ${address} → ${symbol} (${tokenInfo.decimals} decimals)`);
+        return tokenInfo;
+      }
+    }
+    
+    // If no match found, return default (but log warning)
+    console.warn(`⚠️ Unknown token address: ${tokenInput}, using defaults`);
     return {
       address: tokenInput,
       decimals: 18, // Default
@@ -569,22 +581,16 @@ async function createIndexBasedOrderStandalone(params: any) {
       }
     }
     
-    // Submit order
-    console.log('📤 Submitting to 1inch...');
-    let submitResult = null;
-    let submitError = null;
+    // Skip 1inch submission for now - return order data for client-side signing and submission
+    console.log('📝 Order created successfully - ready for client-side signing');
+    console.log('ℹ️  Client will handle signing with MetaMask and submission to 1inch');
     
-    try {
-      submitResult = await sdk.submitOrder(order, signature);
-      console.log('✅ Order submitted successfully!');
-    } catch (error: any) {
-      submitError = error.message;
-      console.log(`⚠️ Submit failed: ${error.message}`);
-    }
+    let submitResult = 'Order created - pending client-side signing';
+    let submitError = null;
     
     // Return comprehensive result
     const result = {
-      success: submitResult !== null,
+      success: true, // Order creation successful
       orderHash: order.getOrderHash(),
       order: {
         fromToken: fromToken.symbol,
@@ -601,7 +607,7 @@ async function createIndexBasedOrderStandalone(params: any) {
         currentValue: (INDICES as any)[Object.keys(INDICES).find(key => (INDICES as any)[key].id === params.condition.indexId)]?.currentValue
       },
       submission: {
-        submitted: submitResult !== null,
+        submitted: false, // Will be handled client-side
         result: submitResult,
         error: submitError
       },
