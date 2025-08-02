@@ -76,9 +76,9 @@ export class BlockchainOrders {
       await this.tokens.approveToken(params.fromToken, CONTRACTS.IndexLimitOrderFactory, makingAmount);
       console.log("✅ Token approval successful");
 
-      // Now create the order
+      // Now create the order using the new createIndexOrder function
       console.log("🔄 Creating index order...");
-      const tx = await this.factory.methods
+      const result = await this.factory.methods
         .createIndexOrder(
           salt, maker, receiver, makerAsset, takerAsset,
           makingAmount, takingAmount, indexId, operator, threshold, expiry
@@ -88,14 +88,21 @@ export class BlockchainOrders {
           gas: "500000",
         });
 
-      console.log("✅ Order created!", tx.transactionHash);
+      console.log("✅ Order created!", result.transactionHash);
+
+      // Extract the order hash from the IndexOrderCreated event
+      let orderHash = result.transactionHash; // fallback
+      if (result.events && result.events.IndexOrderCreated) {
+        orderHash = result.events.IndexOrderCreated.returnValues.orderHash;
+        console.log("📋 Order hash from event:", orderHash);
+      }
 
       // Clear cache for this index so new order appears immediately
       this.clearOrderCache(params.indexId);
 
       // Return order object
       return {
-        hash: tx.transactionHash,
+        hash: orderHash,
         indexId: params.indexId,
         operator: params.operator,
         threshold: params.threshold,
@@ -113,7 +120,7 @@ export class BlockchainOrders {
         expiry,
         status: "active",
         createdAt: Date.now(),
-        transactionHash: tx.transactionHash,
+        transactionHash: result.transactionHash,
       };
 
     } catch (error) {
@@ -123,7 +130,7 @@ export class BlockchainOrders {
   }
 
   /**
-   * Cancel an existing order
+   * Cancel an existing order using 1inch protocol
    */
   async cancelOrder(orderHash: string): Promise<boolean> {
     try {
@@ -131,12 +138,24 @@ export class BlockchainOrders {
         throw new Error("Wallet not connected. Please connect your wallet first.");
       }
 
-      const tx = await this.factory.methods.cancelOrder(orderHash).send({
+      // Use 1inch protocol directly for canceling orders
+      const oneInchContract = new this.web3.eth.Contract(
+        ABIS.OneInchProtocol,
+        CONTRACTS.OneInchProtocol
+      );
+
+      console.log(`🔄 Canceling order ${orderHash} via 1inch protocol...`);
+      
+      const tx = await oneInchContract.methods.cancelOrder(orderHash).send({
         from: this.wallet.currentAccount,
         gas: "150000",
       });
 
       console.log("✅ Order cancelled:", tx.transactionHash);
+      
+      // Clear all cache since order status changed
+      this.clearOrderCache();
+      
       return true;
     } catch (error) {
       console.error("❌ Error cancelling order:", error);

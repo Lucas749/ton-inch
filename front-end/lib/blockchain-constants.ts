@@ -12,14 +12,19 @@ export const OPERATORS = {
   EQ: 4, // Equal
 };
 
-// Contract addresses from comprehensive demo
+// Contract addresses - Base Mainnet
 export const CONTRACTS = {
+  // TODO: Update these addresses after mainnet deployment
   IndexPreInteraction: "0x8AF8db923E96A6709Ae339d1bFb9E986410D8461",
-  IndexLimitOrderFactory: "0x0312Af95deFE475B89852ec05Eab5A785f647e73",
+  IndexLimitOrderFactory: "0x0312Af95deFE475B89852ec05Eab5A785f647e73", 
   MockIndexOracle: "0x3de6DF18226B2c57328709D9bc68CaA7AD76EdEB",
-  USDC: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-  TestUSDC: "0x2026c63430A1B526638bEF55Fea7174220cD3965",
-  WETH: "0x4200000000000000000000000000000000000006",
+  
+  // Base Mainnet token addresses
+  USDC: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // Base Mainnet USDC
+  WETH: "0x4200000000000000000000000000000000000006", // Base Mainnet WETH
+  
+  // 1inch Protocol v4 on Base Mainnet
+  OneInchProtocol: "0x111111125421cA6dc452d289314280a0f8842A65", // 1inch v4 router
 };
 
 // Simplified ABIs for frontend use
@@ -112,6 +117,35 @@ export const ABIS = {
         { name: "description", type: "string" },
         { name: "oracle", type: "address" },
       ],
+      outputs: [{ name: "indexId", type: "uint256" }],
+      stateMutability: "nonpayable",
+    },
+    {
+      type: "function",
+      name: "updateIndexOracle",
+      inputs: [
+        { name: "indexId", type: "uint256" },
+        { name: "newOracle", type: "address" },
+      ],
+      outputs: [],
+      stateMutability: "nonpayable",
+    },
+    {
+      type: "function",
+      name: "deactivateIndex",
+      inputs: [{ name: "indexId", type: "uint256" }],
+      outputs: [],
+      stateMutability: "nonpayable",
+    },
+    {
+      type: "function",
+      name: "registerOrderCondition",
+      inputs: [
+        { name: "orderHash", type: "bytes32" },
+        { name: "indexId", type: "uint256" },
+        { name: "operator", type: "uint8" },
+        { name: "thresholdValue", type: "uint256" },
+      ],
       outputs: [],
       stateMutability: "nonpayable",
     },
@@ -131,13 +165,37 @@ export const ABIS = {
     },
     {
       type: "function",
-      name: "validateOrder",
-      inputs: [
+      name: "getOrderCondition",
+      inputs: [{ name: "orderHash", type: "bytes32" }],
+      outputs: [
         { name: "indexId", type: "uint256" },
         { name: "operator", type: "uint8" },
-        { name: "threshold", type: "uint256" },
+        { name: "thresholdValue", type: "uint256" },
       ],
+      stateMutability: "view",
+    },
+    {
+      type: "function",
+      name: "getIndexValue",
+      inputs: [{ name: "indexId", type: "uint256" }],
+      outputs: [
+        { name: "value", type: "uint256" },
+        { name: "timestamp", type: "uint256" },
+      ],
+      stateMutability: "view",
+    },
+    {
+      type: "function",
+      name: "validateOrderCondition",
+      inputs: [{ name: "orderHash", type: "bytes32" }],
       outputs: [{ name: "", type: "bool" }],
+      stateMutability: "view",
+    },
+    {
+      type: "function",
+      name: "getUserIndices",
+      inputs: [{ name: "user", type: "address" }],
+      outputs: [{ name: "", type: "uint256[]" }],
       stateMutability: "view",
     },
   ],
@@ -271,6 +329,36 @@ export const ABIS = {
       ],
       name: "IndexOrderCreated",
       type: "event"
+    },
+    {
+      inputs: [
+        { name: "orderHash", type: "bytes32" }
+      ],
+      name: "cancelOrder",
+      outputs: [{ name: "", type: "bool" }],
+      stateMutability: "nonpayable",
+      type: "function"
+    }
+  ],
+  // 1inch Protocol v4 Functions for order management
+  OneInchProtocol: [
+    {
+      inputs: [
+        { name: "orderHash", type: "bytes32" }
+      ],
+      name: "cancelOrder",
+      outputs: [],
+      stateMutability: "nonpayable",
+      type: "function"
+    },
+    {
+      inputs: [
+        { name: "orderHash", type: "bytes32" }
+      ],
+      name: "remaining",
+      outputs: [{ name: "", type: "uint256" }],
+      stateMutability: "view",
+      type: "function"
     }
   ]
 };

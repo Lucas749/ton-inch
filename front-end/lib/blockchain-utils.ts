@@ -103,12 +103,12 @@ export function formatTokenAmount(amount: string, decimals: number): string {
 export function getRpcUrl(): string {
   // Check for Alchemy API key first (premium tier)
   if (process.env.NEXT_PUBLIC_ALCHEMY_API_KEY) {
-    return `https://base-sepolia.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`;
+    return `https://base-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`;
   }
   
-  // Fallback to public Base Sepolia RPC
+  // Fallback to public Base mainnet RPC
   console.warn("⚠️ No Alchemy API key found, using public RPC (may have rate limits)");
-  return "https://sepolia.base.org";
+  return "https://mainnet.base.org";
 }
 
 /**
@@ -116,6 +116,6 @@ export function getRpcUrl(): string {
  */
 export function getRpcDescription(url: string): string {
   if (url.includes('alchemy')) return 'Alchemy (Premium - Recommended)';
-  if (url.includes('sepolia.base.org')) return 'Base Sepolia (Public - Limited)';
+  if (url.includes('mainnet.base.org')) return 'Base Mainnet (Public - Limited)';
   return 'Custom RPC';
 }
