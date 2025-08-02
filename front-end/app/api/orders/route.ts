@@ -547,6 +547,7 @@ async function createIndexBasedOrderStandalone(params: any) {
     const result = {
       success: true, // Order creation successful
       orderHash: order.getOrderHash(CONFIG.CHAIN_ID),
+      typedData: typedData, // Include typed data for MetaMask signing
       order: {
         fromToken: fromToken.symbol,
         toToken: toToken.symbol,

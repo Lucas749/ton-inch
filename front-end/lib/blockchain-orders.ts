@@ -166,6 +166,34 @@ export class BlockchainOrders {
 
       console.log('✅ Order created successfully via backend:', result.orderHash);
 
+      // Check if we need to sign the order with MetaMask
+      if (result.typedData) {
+        console.log('📝 Order requires MetaMask signature...');
+        
+        try {
+          // Request user signature via MetaMask
+          const provider = (window as any).ethereum;
+          if (!provider) {
+            throw new Error('MetaMask not installed');
+          }
+
+          const signature = await provider.request({
+            method: 'eth_signTypedData_v4',
+            params: [this.wallet.currentAccount, JSON.stringify(result.typedData)],
+          });
+
+          console.log('✅ Order signed by user:', signature);
+          
+          // TODO: Submit signed order to 1inch
+          // For now, just log that we have the signature
+          console.log('📤 Ready to submit signed order to 1inch (implementation pending)');
+          
+        } catch (signError) {
+          console.error('❌ User rejected signing or signing failed:', signError);
+          throw new Error('Order signing cancelled or failed');
+        }
+      }
+
       // Create order object for caching
       const newOrder = {
         hash: result.orderHash,
