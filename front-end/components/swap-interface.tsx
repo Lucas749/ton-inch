@@ -456,15 +456,6 @@ export function SwapInterface({
         <div className="space-y-2">
           <Label htmlFor="to-amount">To</Label>
           <div className="flex space-x-2">
-            <div className="flex-1">
-              <Input
-                id="to-amount"
-                type="number"
-                placeholder="0.0"
-                value={toAmount}
-                disabled
-              />
-            </div>
             <div className="w-32">
               <TokenSelector
                 selectedToken={toToken}
@@ -473,6 +464,16 @@ export function SwapInterface({
                 disabled={isSwapping}
                 excludeTokens={fromToken ? [fromToken.address] : []}
                 className="w-full"
+              />
+            </div>
+            <div className="flex-1">
+              <Input
+                id="to-amount"
+                type="number"
+                placeholder="0.0"
+                value={toAmount}
+                disabled
+                className="h-12"
               />
             </div>
           </div>
