@@ -87,7 +87,7 @@ export class BlockchainIndices {
   private async fetchAllIndices(): Promise<CustomIndex[]> {
     const indices: CustomIndex[] = [];
 
-    // Load all custom indices directly from the oracle
+    // Load all custom indices from the oracle and get their details
     console.log("🔍 Loading all custom indices from blockchain...");
     try {
       const customIndicesArray = await this.oracle.methods.getAllCustomIndices().call();
@@ -101,29 +101,46 @@ export class BlockchainIndices {
         
         console.log(`📋 Found ${indexIds.length} blockchain indices:`, indexIds.map(id => Number(id)));
         
-        // Map known indices to friendly names - expand to cover all 7 indices
-        const knownIndices: Record<number, { name: string, symbol: string, description: string }> = {
-          6: { name: "Apple Stock", symbol: "AAPL", description: "Apple Inc. stock price" },
-          7: { name: "Tesla Stock", symbol: "TSLA", description: "Tesla Inc. stock price" },
-          8: { name: "VIX Volatility Index", symbol: "VIX", description: "CBOE Volatility Index" },
-          9: { name: "Bitcoin Price", symbol: "BTC", description: "Bitcoin price in USD" },
-          10: { name: "Tesla Stock 2", symbol: "TSLA2", description: "Tesla Inc. stock price (duplicate)" },
-          11: { name: "VIX Volatility Index 2", symbol: "VIX2", description: "CBOE Volatility Index (duplicate)" },
-          12: { name: "Bitcoin Price 2", symbol: "BTC2", description: "Bitcoin price in USD (duplicate)" }
-        };
-        
+        // For each index, get its detailed information from the oracle
         for (let i = 0; i < indexIds.length; i++) {
           const id = Number(indexIds[i]);
           const value = Number(values[i]);
           const timestamp = Number(timestamps[i]);
           const active = Boolean(activeStates[i]);
           
-          const knownIndex = knownIndices[id];
+          let indexDetails = null;
+          try {
+            // Try to get custom index details (for IDs > 5)
+            if (id > 5) {
+              indexDetails = await this.oracle.methods.customIndexData(id).call();
+              console.log(`📄 Custom index ${id} details:`, indexDetails);
+            } else {
+              // For predefined indices (0-5), use indexData
+              indexDetails = await this.oracle.methods.indexData(id).call();
+              console.log(`📄 Predefined index ${id} details:`, indexDetails);
+            }
+          } catch (error) {
+            console.warn(`⚠️ Could not get details for index ${id}:`, error);
+          }
+          
+          // Extract name from sourceUrl or use default naming
+          let name = `Custom Index ${id}`;
+          let description = `User-created index #${id}`;
+          
+          if (indexDetails && indexDetails.length >= 3) {
+            const sourceUrl = indexDetails[2]; // sourceUrl is typically the 3rd element
+            if (sourceUrl && sourceUrl.includes('_')) {
+              // Parse sourceUrl for meaningful names (e.g., "AAPL_STOCK" -> "Apple Stock")
+              const parts = sourceUrl.split('_');
+              name = parts.map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()).join(' ');
+              description = `${name} price tracked in real-time`;
+            }
+          }
           
           indices.push({
             id,
-            name: knownIndex?.name || `Custom Index ${id}`,
-            description: knownIndex?.description || `User-created index #${id}`,
+            name,
+            description,
             value,
             timestamp,
             active,
@@ -131,7 +148,10 @@ export class BlockchainIndices {
             createdAt: timestamp
           });
           
-          console.log(`✅ Loaded ${knownIndex?.name || `Index ${id}`}: ${value} basis points (active: ${active})`);
+          console.log(`✅ Loaded ${name}: ${value} basis points (active: ${active})`);
+          
+          // Add delay between requests
+          await delay(100);
         }
       }
     } catch (error) {
