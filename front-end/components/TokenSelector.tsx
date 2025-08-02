@@ -53,6 +53,9 @@ export function TokenSelector({
   walletAddress,
   excludeTokens = []
 }: TokenSelectorProps) {
+  // Memoize excludeTokens to prevent unnecessary re-renders
+  const memoizedExcludeTokens = useMemo(() => excludeTokens, [excludeTokens]);
+  
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Token[]>([]);
@@ -62,15 +65,26 @@ export function TokenSelector({
   const [tokenDetails, setTokenDetails] = useState<Record<string, TokenDetails>>({});
   const [apiTokensLoaded, setApiTokensLoaded] = useState(false);
 
-  // Load top 25 popular tokens from API on mount
+  // Load top 25 popular tokens from API on mount ONCE
   useEffect(() => {
+    let isMounted = true; // Prevent state updates if component unmounts
+    
     const loadPopularTokens = async () => {
+      // Prevent multiple simultaneous calls
+      if (apiTokensLoaded || isLoading) {
+        console.log('🔒 Tokens already loaded or loading, skipping...');
+        return;
+      }
+      
       try {
         setIsLoading(true);
         setError(null);
-        console.log('🚀 Loading top 25 popular tokens...');
+        console.log('🚀 Loading top 25 popular tokens (once)...');
         
         const popularTokens = await tokenService.getTop25PopularTokens();
+        
+        // Check if component is still mounted
+        if (!isMounted) return;
         
         // Safety check - ensure we have valid tokens array
         if (!Array.isArray(popularTokens)) {
@@ -82,14 +96,16 @@ export function TokenSelector({
           typeof token === 'object' && 
           token.address && 
           token.symbol && 
-          !excludeTokens.includes(token.address.toLowerCase())
+          !memoizedExcludeTokens.includes(token.address.toLowerCase())
         );
         
         setPopularTokens(filtered);
         setSearchResults(filtered);
         setApiTokensLoaded(true);
-        console.log(`✅ Loaded ${filtered.length} popular tokens`);
+        console.log(`✅ Loaded ${filtered.length} popular tokens (done)`);
       } catch (error) {
+        if (!isMounted) return;
+        
         console.error('❌ Failed to load popular tokens:', error);
         
         // Safe fallback to hardcoded tokens
@@ -100,11 +116,12 @@ export function TokenSelector({
             typeof token === 'object' && 
             token.address && 
             token.symbol &&
-            !excludeTokens.includes(token.address.toLowerCase())
+            !memoizedExcludeTokens.includes(token.address.toLowerCase())
           );
           
           setPopularTokens(safeTokens);
           setSearchResults(safeTokens);
+          setApiTokensLoaded(true);
           setError(safeTokens.length > 0 ? 'Using fallback tokens' : 'No tokens available');
         } catch (fallbackError) {
           console.error('❌ Fallback failed:', fallbackError);
@@ -113,12 +130,21 @@ export function TokenSelector({
           setError('Failed to load tokens');
         }
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
-    loadPopularTokens();
-  }, [excludeTokens]);
+    // Only load if not already loaded
+    if (!apiTokensLoaded) {
+      loadPopularTokens();
+    }
+
+    return () => {
+      isMounted = false; // Cleanup flag
+    };
+  }, []); // Empty dependency array - load only once on mount
 
   // Search tokens - only call API when user searches by address
   const searchTokens = useCallback(async (query: string) => {
@@ -139,7 +165,7 @@ export function TokenSelector({
         console.log(`🔍 Searching API for token address: ${query}`);
         const results = await tokenService.searchTokens(query, 10);
         const filtered = results.filter(token => 
-          !excludeTokens.includes(token.address.toLowerCase())
+          !memoizedExcludeTokens.includes(token.address.toLowerCase())
         );
         setSearchResults(filtered);
         
