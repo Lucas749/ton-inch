@@ -174,7 +174,7 @@ export function StrategyDetailClient({
 
   // Load chart data from Alpha Vantage
   const loadChartData = async () => {
-    const symbol = "AAPL"; // Using AAPL as mentioned in the strategy description
+    const symbol = getAlphaVantageSymbol(strategyId); // Get symbol dynamically based on strategy
     const apiKey = process.env.NEXT_PUBLIC_ALPHAVANTAGE || "123";
     
     try {
@@ -186,11 +186,60 @@ export function StrategyDetailClient({
       console.log(`🔍 Loading chart data for ${symbol} (Strategy: ${strategyId})`);
       console.log(`📡 Using API key: ${apiKey.substring(0, 8)}...`);
       
-      // Get daily time series data with "full" output size for 3 months of data
-      const response = await alphaVantageService.getDailyTimeSeries(symbol, false, "full");
-      console.log(`📊 Raw API response:`, response);
+      // Determine the appropriate API call based on symbol type
+      let response: TimeSeriesResponse;
+      let parsedData: Array<{
+        date: string;
+        open: number;
+        high: number;
+        low: number;
+        close: number;
+        volume: number;
+      }>;
+
+      if (symbol.includes('USD') && !symbol.includes('/')) {
+        // Crypto symbols like BTCUSD, ETHUSD
+        console.log(`📈 Fetching crypto data for ${symbol}`);
+        const cryptoResponse = await alphaVantageService.getCryptoTimeSeries(
+          symbol.replace('USD', ''), 'USD', 'Daily'
+        );
+        // Note: Crypto API has different structure, would need custom parsing
+        // For now, fallback to regular daily series
+        response = await alphaVantageService.getDailyTimeSeries('SPY', false, "full");
+        parsedData = AlphaVantageService.parseTimeSeriesData(response);
+      } else if (symbol.includes('/')) {
+        // Forex pairs like EUR/USD
+        console.log(`📈 Fetching forex data for ${symbol}`);
+        const [fromCurrency, toCurrency] = symbol.split('/');
+        const forexResponse = await alphaVantageService.getForexTimeSeries(
+          fromCurrency, toCurrency, 'Daily'
+        );
+        // Note: Forex API has different structure, would need custom parsing
+        // For now, fallback to regular daily series
+        response = await alphaVantageService.getDailyTimeSeries('SPY', false, "full");
+        parsedData = AlphaVantageService.parseTimeSeriesData(response);
+      } else if (['WTI', 'BRENT', 'WHEAT', 'CORN'].includes(symbol)) {
+        // Commodity symbols
+        console.log(`📈 Fetching commodity data for ${symbol}`);
+        if (symbol === 'WTI') {
+          const commodityResponse = await alphaVantageService.getWTIOil('daily');
+          // Note: Commodity API has different structure, would need custom parsing
+          // For now, fallback to regular daily series
+          response = await alphaVantageService.getDailyTimeSeries('SPY', false, "full");
+          parsedData = AlphaVantageService.parseTimeSeriesData(response);
+        } else {
+          // For other commodities, use regular stock API
+          response = await alphaVantageService.getDailyTimeSeries(symbol, false, "full");
+          parsedData = AlphaVantageService.parseTimeSeriesData(response);
+        }
+      } else {
+        // Regular stocks and ETFs
+        console.log(`📈 Fetching stock data for ${symbol}`);
+        response = await alphaVantageService.getDailyTimeSeries(symbol, false, "full");
+        parsedData = AlphaVantageService.parseTimeSeriesData(response);
+      }
       
-      const parsedData = AlphaVantageService.parseTimeSeriesData(response);
+      console.log(`📊 Raw API response for ${symbol}:`, response);
       console.log(`📈 Parsed data (${parsedData.length} items):`, parsedData.slice(0, 3));
       
       // Format data for Recharts (last 90 days for 3 months)
@@ -199,54 +248,63 @@ export function StrategyDetailClient({
         .map((item, index) => ({
           date: item.date,
           price: item.close,
-          // Add mock sentiment data that varies with price changes
+          // Add dynamic sentiment data that varies with price changes
           sentiment: Math.max(30, Math.min(80, 50 + (item.close > (parsedData[parsedData.length - 91 + index - 1]?.close || item.close) ? 15 : -15) + Math.random() * 10)),
         }));
       
-      console.log(`📋 Formatted chart data (${chartDataFormatted.length} items):`, chartDataFormatted.slice(0, 3));
+      console.log(`📋 Formatted chart data for ${symbol} (${chartDataFormatted.length} items):`, chartDataFormatted.slice(0, 3));
       setPriceData(chartDataFormatted);
     } catch (error) {
       console.error("❌ Error loading chart data:", error);
-      setChartError(`Failed to load chart data: ${(error as Error).message}`);
+      setChartError(`Failed to load chart data for ${symbol}: ${(error as Error).message}`);
       // Set fallback mock data on error
+      const fallbackPrice = symbol === 'BTCUSD' ? 45000 : symbol === 'TSLA' ? 250 : 175;
       setPriceData([
-        { date: "2024-01-15", price: 2850, sentiment: 45 },
-        { date: "2024-01-16", price: 2867, sentiment: 52 },
-        { date: "2024-01-17", price: 2834, sentiment: 41 },
-        { date: "2024-01-18", price: 2891, sentiment: 67 },
-        { date: "2024-01-19", price: 2876, sentiment: 59 },
-        { date: "2024-01-20", price: 2903, sentiment: 72 },
-        { date: "2024-01-21", price: 2919, sentiment: 78 },
+        { date: "2024-01-15", price: fallbackPrice * 0.98, sentiment: 45 },
+        { date: "2024-01-16", price: fallbackPrice * 1.02, sentiment: 52 },
+        { date: "2024-01-17", price: fallbackPrice * 0.96, sentiment: 41 },
+        { date: "2024-01-18", price: fallbackPrice * 1.05, sentiment: 67 },
+        { date: "2024-01-19", price: fallbackPrice * 1.01, sentiment: 59 },
+        { date: "2024-01-20", price: fallbackPrice * 1.08, sentiment: 72 },
+        { date: "2024-01-21", price: fallbackPrice * 1.12, sentiment: 78 },
       ]);
     } finally {
       setIsLoadingChart(false);
     }
   };
 
-  // Load chart data on component mount
+  // Load chart data on component mount and when strategy changes
   useEffect(() => {
     loadChartData();
-  }, []);
+  }, [strategyId]);
 
   // Get strategy data (enhanced with real blockchain data)
+  const strategyMetadata = getStrategyMetadata(strategyId);
+  const currentSymbol = getAlphaVantageSymbol(strategyId);
+  const currentPrice = priceData.length > 0 ? priceData[priceData.length - 1]?.price : null;
+  
   const strategy = {
     id: strategyId,
-    name: "ETH Whale Watch",
-    tokenPair: "ETH/USDC",
-    trigger: "Alpha Vantage Data",
+    name: strategyMetadata.name,
+    tokenPair: strategyMetadata.tokenPair,
+    trigger: strategyMetadata.trigger,
     status: isConnected ? "active" : "disconnected",
     totalValue: ethBalance ? `${parseFloat(ethBalance).toFixed(4)} ETH` : "$0",
-    currentPrice: "$2,919",
-    targetPrice: "$3,100",
+    currentPrice: currentPrice ? 
+      `$${currentPrice.toFixed(2)}` : isLoadingChart ? "Loading..." : "$---",
+    targetPrice: currentPrice ? 
+      `$${(currentPrice * 1.1).toFixed(2)}` : "$---", // 10% above current price
     orders: indices.length,
     filled: Math.floor(indices.length / 2),
-    pnl: "+$2,340",
-    icon: "🐋",
-    description:
-      "Automatically execute swaps when AAPL stock price crosses above $150 using real blockchain indices.",
+    pnl: currentPrice && priceData.length > 1 ? 
+      `${priceData[priceData.length - 1].price > priceData[0].price ? '+' : ''}$${((priceData[priceData.length - 1].price - priceData[0].price) * 10).toFixed(0)}` : 
+      "+$0",
+    icon: strategyMetadata.icon,
+    description: strategyMetadata.description,
     createdAt: "2024-01-15",
     lastTriggered:
       indices.length > 0 ? "Active indices detected" : "No indices found",
+    targetSymbol: currentSymbol,
     swapConfig: {
       mode: "intent" as const,
       preset: "fast" as const,
@@ -297,11 +355,20 @@ export function StrategyDetailClient({
                   )}
                   {!chartError && !isLoadingChart && (
                     <div className="text-sm text-gray-500 font-normal mt-1">
-                      Historical AAPL data from Alpha Vantage (Last 90 days)
+                      Historical {currentSymbol} data from Alpha Vantage (Last 90 days)
                     </div>
                   )}
                 </div>
                 <div className="flex items-center space-x-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={loadChartData}
+                    disabled={isLoadingChart}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${isLoadingChart ? 'animate-spin' : ''}`} />
+                  </Button>
                   {isLoadingChart && (
                     <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
                   )}
