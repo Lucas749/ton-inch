@@ -216,6 +216,9 @@ export class BlockchainOrders {
           date: new Date(newOrder.createdAt).toISOString(),
           status: 'submitted' as const, // New orders start as submitted
           
+          // Use the meaningful order description from the form (e.g., "bitcoin", "vix")
+          description: params.description,
+          
           fromToken: {
             address: params.fromToken,
             symbol: fromTokenInfo.symbol,
@@ -449,6 +452,9 @@ export class BlockchainOrders {
                 date: new Date(cancelledOrder.cancelledAt || Date.now()).toISOString(),
                 status: 'cancelled' as const,
                 
+                // Preserve the meaningful description (e.g., "bitcoin", "vix")
+                description: cancelledOrder.description,
+                
                 fromToken: {
                   address: cancelledOrder.fromToken,
                   symbol: fromTokenInfo.symbol,
@@ -553,7 +559,8 @@ export class BlockchainOrders {
         indexId: 0, // Default index for persistent orders without specific index
         operator: 1, // Default operator
         threshold: 0, // Default threshold
-        description: `${persistentOrder.fromToken.symbol} → ${persistentOrder.toToken.symbol}`,
+        // Use the stored meaningful description (e.g., "bitcoin") or fallback to token symbols
+        description: persistentOrder.description || `${persistentOrder.fromToken.symbol} → ${persistentOrder.toToken.symbol}`,
         makerAsset: persistentOrder.fromToken.address,
         takerAsset: persistentOrder.toToken.address,
         makingAmount: persistentOrder.fromAmount,

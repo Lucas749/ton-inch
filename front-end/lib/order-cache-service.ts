@@ -10,6 +10,7 @@ export interface SavedOrder {
   status: 'submitted' | 'filled' | 'cancelled' | 'expired' | 'pending' | 'completed';
   
   // Order details
+  description?: string; // Meaningful order name (e.g., "bitcoin", "vix")
   fromToken: {
     address: string;
     symbol: string;

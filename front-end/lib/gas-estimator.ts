@@ -13,24 +13,24 @@ import Web3 from 'web3';
 const BASE_CONFIG = {
   CHAIN_ID: 8453,
   RPC_URL: 'https://base.llamarpc.com',
-  MAX_GAS_PRICE_GWEI: 0.1, // 0.1 gwei cap for Base network
-  SAFETY_MARGIN: 1.1, // 10% safety margin for gas estimates (reduced for Base network)
+  MAX_GAS_PRICE_GWEI: 0.005, // 0.005 gwei cap for Base network (extremely low fees)
+  SAFETY_MARGIN: 1.05, // 5% safety margin for gas estimates (Base is very predictable)
   
   // Contract addresses
   LIMIT_ORDER_PROTOCOL: '0x111111125421cA6dc452d289314280a0f8842A65',
   INDEX_ORACLE_ADDRESS: '0x8a585F9B2359Ef093E8a2f5432F387960e953BD2',
 };
 
-// Gas limit estimates for common operations (optimized for Base network)
+// Gas limit estimates for common operations (heavily optimized for Base network's efficiency)
 const GAS_ESTIMATES = {
-  ERC20_APPROVE: 60000,          // Conservative estimate for ERC20 approval
-  ERC20_TRANSFER: 65000,         // Standard ERC20 transfer
-  ORDER_CREATION: 90000,         // 1inch limit order creation (reduced from 150k)
-  ORDER_CANCELLATION: 65000,     // 1inch limit order cancellation (reduced from 100k)
-  ORACLE_UPDATE: 100000,         // Oracle index update
-  ORACLE_CREATE_INDEX: 200000,   // Create new oracle index
-  SWAP_TRANSACTION: 300000,      // Complex swap transaction
-  COMPLEX_TRANSACTION: 500000,   // Very complex operations
+  ERC20_APPROVE: 50000,          // ERC20 approval on Base (reduced)
+  ERC20_TRANSFER: 21000,         // Standard ERC20 transfer (minimum)
+  ORDER_CREATION: 70000,         // 1inch limit order creation (further reduced)
+  ORDER_CANCELLATION: 50000,     // 1inch limit order cancellation (further reduced)
+  ORACLE_UPDATE: 80000,          // Oracle index update (reduced)
+  ORACLE_CREATE_INDEX: 150000,   // Create new oracle index (reduced)
+  SWAP_TRANSACTION: 200000,      // Complex swap transaction (reduced)
+  COMPLEX_TRANSACTION: 300000,   // Very complex operations (reduced)
 };
 
 export interface GasEstimate {
@@ -94,11 +94,11 @@ export async function getOptimizedGasPrice(): Promise<{
     
   } catch (error) {
     console.warn('⚠️ Failed to fetch gas price, using fallback');
-    const fallbackGasPrice = ethers.utils.parseUnits('0.001', 'gwei'); // Very low fallback for Base
+    const fallbackGasPrice = ethers.utils.parseUnits('0.002', 'gwei'); // Ultra-low fallback for Base network
     
     return {
       gasPrice: fallbackGasPrice.toString(),
-      gasPriceGwei: '0.001',
+      gasPriceGwei: '0.002',
       isOptimized: true
     };
   }
