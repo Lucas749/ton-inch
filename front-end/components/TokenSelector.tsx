@@ -173,9 +173,13 @@ export function TokenSelector({
               alt={token.symbol}
               className="w-8 h-8 rounded-full"
               onError={(e) => {
-                // Fallback to a generic token icon
-                (e.target as HTMLImageElement).src = 
-                  'https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/32/generic.png';
+                const img = e.target as HTMLImageElement;
+                // Prevent infinite loops by checking if we already set the fallback
+                if (!img.dataset.fallbackSet) {
+                  img.dataset.fallbackSet = 'true';
+                  // Use a base64 encoded generic token icon
+                  img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTYiIGZpbGw9IiM2MzY2RjEiLz4KPHN2ZyB4PSI4IiB5PSI4IiB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSI+CjxjaXJjbGUgY3g9IjEyIiBjeT0iMTIiIHI9IjMiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xMiAxdjJtMCAxOHYybTExLTEyaC0ybS0xOCAwaDIiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+Cjwvc3ZnPgo8L3N2Zz4K';
+                }
               }}
             />
             {isStable && (
@@ -239,8 +243,13 @@ export function TokenSelector({
                   alt={selectedToken.symbol}
                   className="w-6 h-6 rounded-full"
                   onError={(e) => {
-                    (e.target as HTMLImageElement).src = 
-                      'https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/32/generic.png';
+                    const img = e.target as HTMLImageElement;
+                    // Prevent infinite loops by checking if we already set the fallback
+                    if (!img.dataset.fallbackSet) {
+                      img.dataset.fallbackSet = 'true';
+                      // Use a base64 encoded generic token icon
+                      img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTYiIGZpbGw9IiM2MzY2RjEiLz4KPHN2ZyB4PSI4IiB5PSI4IiB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSI+CjxjaXJjbGUgY3g9IjEyIiBjeT0iMTIiIHI9IjMiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xMiAxdjJtMCAxOHYybTExLTEyaC0ybS0xOCAwaDIiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+Cjwvc3ZnPgo8L3N2Zz4K';
+                    }
                   }}
                 />
                 <span className="font-medium">{selectedToken.symbol}</span>
