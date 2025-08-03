@@ -37,22 +37,52 @@ export default function Home() {
     }
     
     // Category-based icon fallbacks
-    switch (index.category?.toLowerCase()) {
-      case 'crypto': return "🪙";
-      case 'stocks': return "📊";
-      case 'economics': return "🏛️";
-      case 'intelligence': return "🧠";
-      case 'indices': return "📈";
-      case 'commodities': return "🥇";
-      case 'forex': return "💱";
-      default: return "🔵";
+    const categoryIcon = (() => {
+      switch (index.category?.toLowerCase()) {
+        case 'crypto': return "🪙";
+        case 'stocks': return "📊";
+        case 'economics': return "🏛️";
+        case 'intelligence': return "🧠";
+        case 'indices': return "📈";
+        case 'commodities': return "🥇";
+        case 'forex': return "💱";
+        default: return "🔵";
+      }
+    })();
+    
+    // DEBUG: Log icon selection for index 15
+    if (index.id === 15) {
+      console.log('🎯 DEBUG: Icon for index 15:', {
+        indexId: index.id,
+        category: index.category,
+        iconMapHit: !!iconMap[index.id],
+        selectedIcon: categoryIcon,
+        hasAvatar: !!(index as any).avatar,
+        avatar: (index as any).avatar
+      });
     }
+    
+    return categoryIcon;
   };
 
   // Custom blockchain indices - exclude featured (0-2) and sort by most recent
   const customBlockchainIndices = blockchainIndices
     .filter(index => index.id > 2) // Exclude featured indices 0-2
     .sort((a, b) => b.id - a.id); // Sort by most recent (highest ID first)
+
+  // DEBUG: Log index 15 data
+  const index15 = blockchainIndices.find(idx => idx.id === 15);
+  if (index15) {
+    console.log('🌽 DEBUG: Index 15 data in main page:', {
+      id: index15.id,
+      name: index15.name,
+      symbol: index15.symbol,
+      category: index15.category,
+      active: index15.active,
+      avatar: (index15 as any).avatar,
+      sourceUrl: (index15 as any).sourceUrl || 'NO_SOURCE_URL'
+    });
+  }
 
   // Top AlphaVantage categories
   const topStocks = [
