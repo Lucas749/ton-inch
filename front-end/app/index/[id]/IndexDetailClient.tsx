@@ -31,6 +31,7 @@ import { useOrders, OPERATORS } from "@/hooks/useOrders";
 import { blockchainService, CONTRACTS } from "@/lib/blockchain-service";
 import AlphaVantageService, { TimeSeriesResponse } from "@/lib/alphavantage-service";
 import { RealIndicesService, RealIndexData } from "@/lib/real-indices-service";
+import { formatIndexValueForDisplay, getIndexTypeInfo } from "@/lib/blockchain-utils";
 import { SwapBox } from "@/components/SwapBox";
 import { AdminBox } from "@/components/AdminBox";
 import { TokenSelector } from "@/components/TokenSelector";
@@ -664,11 +665,13 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
         setRealIndexData((prev: any) => ({
           ...prev,
           price: currentPrice,
-          valueLabel: currentPrice! >= 1000 ? 
-            `$${(currentPrice! / 1000).toFixed(1)}K` :
-            currentPrice! >= 1 ?
-            `$${currentPrice!.toFixed(2)}` :
-            `$${currentPrice!.toFixed(4)}`,
+          valueLabel: blockchainIndexId !== null 
+            ? formatIndexValueForDisplay(blockchainIndexId, currentPrice!)
+            : currentPrice! >= 1000 ? 
+              `$${(currentPrice! / 1000).toFixed(1)}K` :
+              currentPrice! >= 1 ?
+              `$${currentPrice!.toFixed(2)}` :
+              `$${currentPrice!.toFixed(4)}`,
           change: priceChange ? 
             (isPositive ? `+${priceChange}%` : `${priceChange}%`) : 
             'N/A',
@@ -1535,13 +1538,16 @@ This matches the backend test-index-order-creator.js values exactly!`);
                         <YAxis 
                           yAxisId="left"
                           tick={{ fontSize: 12, fill: '#3b82f6' }}
-                          tickFormatter={(value) => 
-                            realIndexData.category === 'Forex' 
+                          tickFormatter={(value) => {
+                            if (blockchainIndexId !== null) {
+                              return formatIndexValueForDisplay(blockchainIndexId, value);
+                            }
+                            return realIndexData.category === 'Forex' 
                               ? value.toFixed(4)
                               : value >= 1000 
                                 ? `$${(value / 1000).toFixed(1)}K`
-                                : `$${value.toFixed(2)}`
-                          }
+                                : `$${value.toFixed(2)}`;
+                          }}
                         />
                         {/* Right Y-axis for token prices */}
                         {((fromToken && !shouldSkipToken(fromToken.symbol)) || (toToken && !shouldSkipToken(toToken.symbol))) && (
@@ -1567,7 +1573,11 @@ This matches the backend test-index-order-creator.js values exactly!`);
                           })}
                           formatter={(value: number, name: string) => [
                             name === 'price' ? 
-                              (realIndexData.category === 'Forex' ? value.toFixed(4) : `$${value.toFixed(2)}`) :
+                              (blockchainIndexId !== null 
+                                ? formatIndexValueForDisplay(blockchainIndexId, value)
+                                : realIndexData.category === 'Forex' 
+                                  ? value.toFixed(4) 
+                                  : `$${value.toFixed(2)}`) :
                             name === 'fromTokenPrice' ? `$${value.toFixed(2)}` :
                             name === 'toTokenPrice' ? `$${value.toFixed(2)}` :
                               `$${value.toFixed(2)}`,
