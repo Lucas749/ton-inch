@@ -1018,6 +1018,8 @@ export async function POST(request: NextRequest) {
         console.log('📤 Submitting signed order to 1inch via SDK');
         console.log('🔍 Order Hash:', orderHash);
         console.log('✍️ Signature provided:', signature ? 'YES' : 'NO');
+        console.log('🔍 OrderData received:', JSON.stringify(orderData, null, 2));
+        console.log('🔍 makerTraits type:', typeof orderData.makerTraits, orderData.makerTraits);
 
         // Initialize SDK
         const sdk = new Sdk({
