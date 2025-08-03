@@ -1207,7 +1207,7 @@ export async function POST(request: NextRequest) {
           console.log(`⚠️ Submit failed: ${error.message}`);
         }
 
-        // Return comprehensive result (exact same as backend)
+        // Return comprehensive result (exact same as backend, with BigInt conversion for JSON)
         const result = {
           success: submitResult !== null,
           orderHash: order.getOrderHash(),
@@ -1227,7 +1227,8 @@ export async function POST(request: NextRequest) {
           },
           submission: {
             submitted: submitResult !== null,
-            error: submitError
+            error: submitError,
+            result: submitResult
           },
           technical: {
             orderHash: order.getOrderHash(),
@@ -1243,7 +1244,12 @@ export async function POST(request: NextRequest) {
         console.log(`Hash: ${result.orderHash}`);
         console.log(`Condition: ${result.condition.index?.name} ${condition.operator === 'gt' ? '>' : condition.operator === 'lt' ? '<' : condition.operator} ${condition.threshold}`);
 
-        return NextResponse.json(result, {
+        // Convert BigInt values to strings for JSON serialization
+        const jsonSafeResult = JSON.parse(JSON.stringify(result, (key, value) =>
+          typeof value === 'bigint' ? value.toString() : value
+        ));
+
+        return NextResponse.json(jsonSafeResult, {
           headers: {
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
