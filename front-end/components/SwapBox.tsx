@@ -55,21 +55,62 @@ export function SwapBox({
   const [success, setSuccess] = useState<string>("");
   const [txHash, setTxHash] = useState<string>("");
   
-  // Get blockchain data for real balances
-  const { ethBalance, getTokenBalance } = useBlockchain();
+  // Get blockchain data for real balances and wallet connection
+  const { ethBalance, getTokenBalance, isConnected, walletAddress: connectedWalletAddress } = useBlockchain();
+
+  // Use connected wallet address instead of prop
+  const actualWalletAddress = connectedWalletAddress || walletAddress;
+
+  // Debug wallet connection state
+  useEffect(() => {
+    console.log('🔍 [SwapBox] Wallet state:', {
+      isConnected,
+      connectedWalletAddress,
+      propWalletAddress: walletAddress,
+      actualWalletAddress,
+      ethBalance,
+      hasApiKey: !!apiKey,
+      hasRpcUrl: !!rpcUrl
+    });
+  }, [isConnected, connectedWalletAddress, walletAddress, actualWalletAddress, ethBalance, apiKey, rpcUrl]);
 
   const oneInchService =
-    apiKey && rpcUrl && walletAddress
+    apiKey && rpcUrl && actualWalletAddress
       ? new OneInchService({
           apiKey,
           rpcUrl,
-          walletAddress,
+          walletAddress: actualWalletAddress,
         })
       : null;
 
-  const isConfigured = !!oneInchService;
+  const isConfigured = !!oneInchService && isConnected;
+
+  // Debug service configuration
+  useEffect(() => {
+    console.log('🔍 [SwapBox] Service state:', {
+      hasOneInchService: !!oneInchService,
+      isConfigured,
+      configRequirements: {
+        hasApiKey: !!apiKey,
+        hasRpcUrl: !!rpcUrl,
+        hasWalletAddress: !!actualWalletAddress,
+        isConnected
+      }
+    });
+  }, [oneInchService, isConfigured, apiKey, rpcUrl, actualWalletAddress, isConnected]);
 
 
+
+  // Component mount logging
+  useEffect(() => {
+    console.log('🎯 [SwapBox] Component mounted with props:', {
+      indexName,
+      className,
+      propWalletAddress: walletAddress,
+      propApiKey: apiKey ? 'PROVIDED' : 'MISSING',
+      propRpcUrl: rpcUrl ? 'PROVIDED' : 'MISSING'
+    });
+  }, []); // Only run on mount
 
   // Initialize with popular tokens (crash-safe)
   useEffect(() => {
@@ -82,6 +123,10 @@ export function SwapBox({
         );
         
         if (validTokens.length >= 2) {
+          console.log('🪙 [SwapBox] Initializing with tokens:', {
+            fromToken: validTokens[0].symbol,
+            toToken: validTokens[1].symbol
+          });
           setFromToken(validTokens[0]); // ETH (native)
           setToToken(validTokens[1]); // WETH (wrapped)
         }
@@ -113,6 +158,15 @@ export function SwapBox({
   }, [fromAmount, fromToken, toToken, slippage, swapMode, isConfigured]);
 
   const getQuote = async () => {
+    console.log('📊 [SwapBox] Getting classic quote:', {
+      hasOneInchService: !!oneInchService,
+      fromAmount,
+      fromToken: fromToken?.symbol,
+      toToken: toToken?.symbol,
+      actualWalletAddress,
+      isConnected
+    });
+
     if (
       !oneInchService ||
       !fromAmount ||
@@ -135,7 +189,7 @@ export function SwapBox({
         src: fromToken.address,
         dst: toToken.address,
         amount,
-        from: walletAddress!,
+        from: actualWalletAddress!,
         slippage,
       });
 
@@ -155,6 +209,15 @@ export function SwapBox({
   };
 
   const getIntentQuote = async () => {
+    console.log('📊 [SwapBox] Getting intent quote:', {
+      hasOneInchService: !!oneInchService,
+      fromAmount,
+      fromToken: fromToken?.symbol,
+      toToken: toToken?.symbol,
+      actualWalletAddress,
+      isConnected
+    });
+
     if (
       !oneInchService ||
       !fromAmount ||
@@ -177,7 +240,7 @@ export function SwapBox({
         srcToken: fromToken.address,
         dstToken: toToken.address,
         amount,
-        walletAddress: walletAddress!,
+        walletAddress: actualWalletAddress!,
         preset: "fast",
       });
 
@@ -215,12 +278,21 @@ export function SwapBox({
   };
 
   const handleClassicSwap = async () => {
-
+    console.log('🚀 [SwapBox] Starting classic swap:', {
+      hasOneInchService: !!oneInchService,
+      fromAmount,
+      hasQuote: !!quote,
+      fromToken: fromToken?.symbol,
+      toToken: toToken?.symbol,
+      actualWalletAddress,
+      isConnected
+    });
 
     if (!oneInchService || !fromAmount || !quote || !fromToken || !toToken)
       return;
 
-    if (!walletAddress) {
+    if (!actualWalletAddress) {
+      console.error('❌ [SwapBox] No wallet address available for swap');
       setError("Wallet address is required for swaps");
       return;
     }
@@ -259,7 +331,7 @@ export function SwapBox({
         src: fromToken.address,
         dst: toToken.address,
         amount,
-        from: walletAddress,
+        from: actualWalletAddress,
         slippage,
       });
 
@@ -267,7 +339,7 @@ export function SwapBox({
         src: fromToken.address,
         dst: toToken.address,
         amount,
-        from: walletAddress,
+        from: actualWalletAddress,
         slippage,
       });
 
@@ -287,6 +359,16 @@ export function SwapBox({
   };
 
   const handleIntentSwap = async () => {
+    console.log('🚀 [SwapBox] Starting intent swap:', {
+      hasOneInchService: !!oneInchService,
+      fromAmount,
+      hasIntentQuote: !!intentQuote,
+      fromToken: fromToken?.symbol,
+      toToken: toToken?.symbol,
+      actualWalletAddress,
+      isConnected
+    });
+
     if (
       !oneInchService ||
       !fromAmount ||
@@ -310,7 +392,7 @@ export function SwapBox({
         srcToken: fromToken.address,
         dstToken: toToken.address,
         amount,
-        walletAddress: walletAddress!,
+        walletAddress: actualWalletAddress!,
         preset: "fast",
       });
 
@@ -343,10 +425,21 @@ export function SwapBox({
         <CardContent className="space-y-3">
           <div className="text-center p-4 bg-gray-50 rounded-lg">
             <TrendingUp className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-            <p className="text-sm text-gray-600">Connect wallet to enable swaps</p>
-            <p className="text-xs text-gray-500 mt-1">
-              Swap tokens while tracking {indexName}
-            </p>
+            {!isConnected ? (
+              <>
+                <p className="text-sm text-gray-600">Connect wallet to enable swaps</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Use the wallet connection above to get started
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-gray-600">1inch API configuration required</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Configure API key to enable swaps
+                </p>
+              </>
+            )}
           </div>
         </CardContent>
       </Card>

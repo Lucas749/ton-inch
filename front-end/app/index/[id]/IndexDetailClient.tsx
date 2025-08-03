@@ -38,6 +38,7 @@ import { TokenSelector } from "@/components/TokenSelector";
 import { Token, tokenService } from "@/lib/token-service";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { WalletConnect } from "@/components/WalletConnect";
 import { ethers } from "ethers";
 
 interface IndexDetailClientProps {
@@ -151,7 +152,17 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
     expiry: "24" // hours
   });
   
-  const { isConnected, walletAddress, indices: blockchainIndices, ethBalance, getTokenBalance, getTokenAllowance, isTokenApproved, approveToken, connectWallet } = useBlockchain();
+  const { isConnected, walletAddress, indices: blockchainIndices, ethBalance, getTokenBalance, connectWallet } = useBlockchain();
+
+  // Debug wallet connection state
+  useEffect(() => {
+    console.log('🔍 [IndexDetailClient] Wallet state:', {
+      isConnected,
+      walletAddress,
+      ethBalance,
+      blockchainIndicesCount: blockchainIndices?.length || 0
+    });
+  }, [isConnected, walletAddress, ethBalance, blockchainIndices]);
 
   // Auto-populate order description with index name when component loads
   useEffect(() => {
@@ -292,42 +303,52 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Check token approval status using our fixed service
+  // Check token approval status
   const checkTokenApproval = async (tokenAddress: string, amount: string) => {
-    console.log('🔍 [IndexDetailClient] checkTokenApproval called');
-    console.log('🔍 [IndexDetailClient] Params:', { tokenAddress, amount, isConnected, walletAddress });
-    
-    if (!isConnected || !walletAddress) {
-      console.log('❌ [IndexDetailClient] Wallet not connected');
-      return false;
-    }
+    if (!isConnected || !walletAddress) return false;
     
     try {
-      // Get token decimals first to convert amount to wei
-      const tokenBalance = await getTokenBalance(tokenAddress); // This gets decimals internally
+      // Get the token contract
+      const provider = (window as any).ethereum;
+      const web3 = new (await import('web3')).Web3(provider);
       
-      // Calculate required amount in smallest unit
-      // For now, let's use 18 decimals as default, but this should be improved
-      const requiredAmountWei = ethers.utils.parseUnits(amount, 18).toString();
+      const tokenContract = new web3.eth.Contract([
+        {
+          "constant": true,
+          "inputs": [{"name": "_owner", "type": "address"}, {"name": "_spender", "type": "address"}],
+          "name": "allowance",
+          "outputs": [{"name": "", "type": "uint256"}],
+          "type": "function"
+        },
+        {
+          "constant": true,
+          "inputs": [],
+          "name": "decimals",
+          "outputs": [{"name": "", "type": "uint8"}],
+          "type": "function"
+        }
+      ], tokenAddress);
       
-      console.log('🔍 [IndexDetailClient] Required amount in wei:', requiredAmountWei);
+      const allowance = await tokenContract.methods.allowance(
+        walletAddress,
+        '0x111111125421cA6dc452d289314280a0f8842A65' // 1inch Limit Order Protocol
+      ).call();
       
-      const ONEINCH_PROTOCOL = '0x111111125421cA6dc452d289314280a0f8842A65';
-      const approved = await isTokenApproved(tokenAddress, ONEINCH_PROTOCOL, requiredAmountWei);
+      // Get token decimals
+      const decimals = await tokenContract.methods.decimals().call();
+      const requiredAmount = ethers.utils.parseUnits(amount, Number(decimals));
       
-      console.log('✅ [IndexDetailClient] Approval check result:', approved);
-      return approved;
+      return ethers.BigNumber.from(String(allowance)).gte(requiredAmount);
       
     } catch (error) {
-      console.error('❌ [IndexDetailClient] Error checking approval:', error);
+      console.error('Error checking approval:', error);
       return false;
     }
   };
 
-  // Approve token spending using our fixed service
-  const approveTokenForOrder = async (tokenAddress: string, amount: string) => {
-    console.log('🔍 [IndexDetailClient] approveTokenForOrder called');
-    console.log('🔍 [IndexDetailClient] Approve Token Debug:', { isConnected, walletAddress, tokenAddress });
+  // Approve token spending
+  const approveToken = async (tokenAddress: string, amount: string) => {
+    console.log('🔍 Approve Token Debug:', { isConnected, walletAddress, tokenAddress });
     
     if (!isConnected) {
       alert('Please connect your wallet first');
@@ -342,21 +363,45 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
     setIsApprovingToken(true);
     
     try {
-      const ONEINCH_PROTOCOL = '0x111111125421cA6dc452d289314280a0f8842A65';
+      const provider = (window as any).ethereum;
+      const web3 = new (await import('web3')).Web3(provider);
       
-      // Use max approval to avoid future approvals
-      const maxApproval = '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
+      const tokenContract = new web3.eth.Contract([
+        {
+          "constant": false,
+          "inputs": [{"name": "_spender", "type": "address"}, {"name": "_value", "type": "uint256"}],
+          "name": "approve",
+          "outputs": [{"name": "", "type": "bool"}],
+          "type": "function"
+        },
+        {
+          "constant": true,
+          "inputs": [],
+          "name": "decimals",
+          "outputs": [{"name": "", "type": "uint8"}],
+          "type": "function"
+        }
+      ], tokenAddress);
       
-      console.log('🔍 [IndexDetailClient] Calling approveToken service...');
-      const txHash = await approveToken(tokenAddress, ONEINCH_PROTOCOL, maxApproval);
+      // Get token decimals and approve max amount to avoid future approvals
+      const decimals = await tokenContract.methods.decimals().call();
+      const maxApproval = '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'; // Max uint256
       
-      console.log('✅ [IndexDetailClient] Token approval successful:', txHash);
+      const tx = await tokenContract.methods.approve(
+        '0x111111125421cA6dc452d289314280a0f8842A65', // 1inch Limit Order Protocol
+        maxApproval
+      ).send({
+        from: walletAddress,
+        gas: '25000' // MetaMask-aggressive gas limit for Base L2
+      });
+      
+      console.log('✅ Token approval successful:', tx.transactionHash);
       setApprovalStatus(prev => ({ ...prev, [tokenAddress]: true }));
       return true;
       
     } catch (error) {
-      console.error('❌ [IndexDetailClient] Token approval failed:', error);
-      alert(`Token approval failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('❌ Token approval failed:', error);
+      alert('Token approval failed: ' + (error as Error).message);
       return false;
     } finally {
       setIsApprovingToken(false);
@@ -1030,7 +1075,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
         
         if (!isApproved) {
           console.log('⏳ Requesting token approval...');
-          const approvalSuccess = await approveTokenForOrder(fromToken.address, orderForm.fromAmount);
+          const approvalSuccess = await approveToken(fromToken.address, orderForm.fromAmount);
           
           if (!approvalSuccess) {
             alert('❌ Token approval failed. Cannot create order without approval.');
@@ -1717,17 +1762,32 @@ This matches the backend test-index-order-creator.js values exactly!`);
               </Card>
             )}
 
-            {/* Connection Warning */}
+            {/* Wallet Connection */}
             {!isConnected && (
-              <Card className="border-yellow-200 bg-yellow-50">
+              <WalletConnect 
+                className="border-blue-200 bg-blue-50"
+                showBalance={true}
+                showNetwork={true}
+                compact={false}
+              />
+            )}
+
+            {/* Connection Status for Connected Users */}
+            {isConnected && (
+              <Card className="border-green-200 bg-green-50">
                 <CardContent className="p-4">
                   <div className="flex items-center space-x-2">
-                    <Activity className="w-5 h-5 text-yellow-600" />
+                    <Activity className="w-5 h-5 text-green-600" />
                     <div>
-                      <h4 className="font-medium text-yellow-800">Connect Wallet</h4>
-                      <p className="text-sm text-yellow-700">
-                        Connect your wallet to add this index to your portfolio.
+                      <h4 className="font-medium text-green-800">Wallet Connected</h4>
+                      <p className="text-sm text-green-700">
+                        {walletAddress ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}` : 'Connected'}
                       </p>
+                      {ethBalance && (
+                        <p className="text-xs text-green-600">
+                          Balance: {parseFloat(ethBalance).toFixed(4)} ETH
+                        </p>
+                      )}
                     </div>
                   </div>
                 </CardContent>

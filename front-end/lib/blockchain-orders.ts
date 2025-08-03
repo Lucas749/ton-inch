@@ -67,22 +67,96 @@ export class BlockchainOrders {
   // Using 1inch SDK directly for order creation and management
 
   /**
-   * Check if browser wallet is available and connected (like 1inch-service.ts)
+   * Check if browser wallet is available and connected (enhanced version)
    */
   private isWalletAvailable(): boolean {
-    return typeof window !== "undefined" && 
-           !!window.ethereum && 
-           !!window.ethereum.selectedAddress;
+    const hasWindow = typeof window !== "undefined";
+    const hasEthereum = hasWindow && !!window.ethereum;
+    
+    console.log('🔍 [BlockchainOrders] isWalletAvailable check:', {
+      hasWindow,
+      hasEthereum,
+      selectedAddress: hasEthereum ? window.ethereum?.selectedAddress : null,
+      isMetaMask: hasEthereum ? (window.ethereum as any)?.isMetaMask : false,
+      isPhantom: hasEthereum ? (window.ethereum as any)?.isPhantom : false
+    });
+
+    // Check if browser environment and ethereum is available
+    if (!hasWindow || !hasEthereum) {
+      console.log('❌ [BlockchainOrders] No window or ethereum available');
+      return false;
+    }
+
+    return true; // If ethereum is available, we can try to connect
   }
 
   /**
-   * Get current wallet address
+   * Request wallet connection (preferring MetaMask)
    */
-  private getCurrentWalletAddress(): string | null {
+  private async requestWalletConnection(): Promise<void> {
+    try {
+      // If both wallets present, try to connect to MetaMask specifically
+      const ethereum = window.ethereum as any;
+      if (ethereum?.isMetaMask && ethereum?.isPhantom && ethereum?.providers) {
+        const metamaskProvider = ethereum.providers.find((p: any) => p.isMetaMask && !p.isPhantom);
+        if (metamaskProvider) {
+          console.log('🔄 [BlockchainOrders] Requesting MetaMask connection...');
+          await metamaskProvider.request({ method: 'eth_requestAccounts' });
+          return;
+        }
+      }
+      
+      // Default connection request
+      console.log('🔄 [BlockchainOrders] Requesting wallet connection...');
+      await window.ethereum!.request({ method: 'eth_requestAccounts' });
+    } catch (error) {
+      console.error('❌ [BlockchainOrders] Failed to connect wallet:', error);
+      throw new Error('Failed to connect wallet. Please ensure MetaMask is installed and unlock your wallet.');
+    }
+  }
+
+  /**
+   * Get current wallet address (enhanced async version)
+   */
+  private async getCurrentWalletAddress(): Promise<string | null> {
     if (!this.isWalletAvailable()) {
+      console.log('❌ [BlockchainOrders] Wallet not available');
       return null;
     }
-    return window.ethereum!.selectedAddress || null;
+
+    try {
+      // First check selectedAddress
+      if (window.ethereum!.selectedAddress) {
+        console.log('✅ [BlockchainOrders] Found selectedAddress:', window.ethereum!.selectedAddress);
+        return window.ethereum!.selectedAddress;
+      }
+
+      // If no selectedAddress, try to get accounts
+      console.log('🔍 [BlockchainOrders] No selectedAddress, checking eth_accounts...');
+      const accounts = await window.ethereum!.request({ method: 'eth_accounts' });
+      
+      if (accounts && accounts.length > 0) {
+        console.log('✅ [BlockchainOrders] Found account via eth_accounts:', accounts[0]);
+        return accounts[0];
+      }
+
+      // If still no account, try to request connection
+      console.log('⚠️ [BlockchainOrders] No wallet address found, attempting to connect...');
+      await this.requestWalletConnection();
+      
+      // Try again after connection
+      const newAccounts = await window.ethereum!.request({ method: 'eth_accounts' });
+      if (newAccounts && newAccounts.length > 0) {
+        console.log('✅ [BlockchainOrders] Connected and found account:', newAccounts[0]);
+        return newAccounts[0];
+      }
+
+      console.log('❌ [BlockchainOrders] No wallet address found even after connection attempt');
+      return null;
+    } catch (error) {
+      console.error('❌ [BlockchainOrders] Error getting wallet address:', error);
+      return null;
+    }
   }
 
   /**
@@ -96,7 +170,7 @@ export class BlockchainOrders {
         throw new Error("Wallet not connected. Please connect your wallet first.");
       }
 
-      const currentAccount = this.getCurrentWalletAddress();
+      const currentAccount = await this.getCurrentWalletAddress();
       if (!currentAccount) {
         throw new Error("No wallet address available");
       }
@@ -386,7 +460,7 @@ export class BlockchainOrders {
         throw new Error("Wallet not connected. Please connect your wallet first.");
       }
 
-      const currentAccount = this.getCurrentWalletAddress();
+      const currentAccount = await this.getCurrentWalletAddress();
       if (!currentAccount) {
         throw new Error("No wallet address available");
       }
@@ -500,11 +574,17 @@ export class BlockchainOrders {
         orderHash
       });
 
+      // Get current wallet address
+      const fromAddress = await this.getCurrentWalletAddress();
+      if (!fromAddress) {
+        throw new Error("No wallet address available for transaction");
+      }
+
       // Send transaction via MetaMask
       const txHash = await window.ethereum.request({
         method: 'eth_sendTransaction',
         params: [{
-          from: this.getCurrentWalletAddress(),
+          from: fromAddress,
           to: CONFIG.LIMIT_ORDER_PROTOCOL,
           data: calldata,
           // Let MetaMask estimate gas
@@ -609,7 +689,8 @@ export class BlockchainOrders {
       const persistentOrders = OrderCacheService.getAllOrders();
       
       // Filter persistent orders to only include those for the current wallet
-      const walletAddress = this.getCurrentWalletAddress()?.toLowerCase();
+      const currentWallet = await this.getCurrentWalletAddress();
+      const walletAddress = currentWallet?.toLowerCase();
       const walletPersistentOrders = walletAddress ? 
         persistentOrders.filter(order => order.walletAddress.toLowerCase() === walletAddress) : [];
       
