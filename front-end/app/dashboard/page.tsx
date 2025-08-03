@@ -5,7 +5,7 @@ import { Navbar } from "@/components/navbar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { WalletConnect } from "@/components/WalletConnect";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { 
   Plus, 
   TrendingUp, 
@@ -192,7 +192,9 @@ export default function Dashboard() {
           <div className="text-center py-12">
             <h1 className="text-2xl font-bold text-gray-900 mb-4">Portfolio Dashboard</h1>
             <p className="text-gray-600 mb-8">Connect your wallet to view your portfolio and manage orders</p>
-            <WalletConnect />
+            <div className="flex justify-center">
+              <ConnectButton />
+            </div>
           </div>
         </main>
       </div>
@@ -208,7 +210,9 @@ export default function Dashboard() {
           <div className="text-center py-12">
             <h1 className="text-2xl font-bold text-gray-900 mb-4">Portfolio Dashboard</h1>
             <p className="text-gray-600 mb-8">Connect your wallet to view your portfolio and manage orders</p>
-            <WalletConnect />
+            <div className="flex justify-center">
+              <ConnectButton />
+            </div>
           </div>
         ) : (
           <>
