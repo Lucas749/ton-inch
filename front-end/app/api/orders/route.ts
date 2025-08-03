@@ -7,6 +7,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import path from 'path';
+import { TOKENS } from '@/lib/constants';
+import { INDICES as BLOCKCHAIN_INDICES } from '@/lib/blockchain-constants';
 
 // 1inch SDK imports for standalone order creation
 import { LimitOrder, MakerTraits, Address, Sdk, randBigInt, FetchProviderConnector, ExtensionBuilder } from '@1inch/limit-order-sdk';
@@ -619,7 +621,7 @@ async function createIndexBasedOrderStandalone(params: any) {
         salt: order.salt.toString(), // Store SDK-generated salt (already aligned with extension)
         receiver: order.receiver.toString(),
         expiration: expiration.toString(),
-        makerTraits: order.makerTraits.build ? order.makerTraits.build().toString() : (order.makerTraits.value || order.makerTraits).toString(),
+        makerTraits: order.makerTraits.toString(),
         nonce: nonce.toString(),
         extension: extension ? extension.encode() : null // Store the EXACT encoded extension used in order creation
       },
@@ -677,8 +679,8 @@ async function createIndexBasedOrderStandalone(params: any) {
         result.success = true;
                   result.submission = {
             submitted: true,
-            method: 'SDK submitOrder (backend approach)',
-            result: submitResult
+            result: String(submitResult),
+            error: null
           };
         result.technical.signature = params.signature;
         
@@ -689,8 +691,8 @@ async function createIndexBasedOrderStandalone(params: any) {
         console.error('❌ Order submission failed:', submitError);
                   result.submission = {
             submitted: false,
-            error: submitError.message,
-            method: 'SDK submitOrder (backend approach)'
+            result: '',
+            error: submitError.message
           };
       }
     }
@@ -1046,7 +1048,7 @@ export async function POST(request: NextRequest) {
         });
 
         // Recreate MakerTraits from stored value (exact match)
-        const makerTraits = MakerTraits.from(BigInt(orderData.makerTraits));
+        const makerTraits = new MakerTraits(BigInt(orderData.makerTraits));
 
         // DON'T recreate the order - use manual LimitOrder with EXACT original data
         // The SDK can't recreate orders with custom salts - it breaks alignment
@@ -1078,7 +1080,7 @@ export async function POST(request: NextRequest) {
         console.log('📤 Submitting to 1inch orderbook via SDK...');
 
         // Submit order using SDK (this is the backend approach)
-        const submitResult = await sdk.submitOrder(order, signature);
+        const submitResult = await sdk.submitOrder(order as any, signature);
         
         console.log('✅ Order submitted successfully via SDK!');
         console.log('📋 Submit result:', submitResult);
@@ -1143,8 +1145,8 @@ export async function POST(request: NextRequest) {
         });
 
         // Get tokens (exact same as backend)
-        const fromTokenInfo = TOKENS.find(t => t.address.toLowerCase() === fromToken.toLowerCase());
-        const toTokenInfo = TOKENS.find(t => t.address.toLowerCase() === toToken.toLowerCase());
+        const fromTokenInfo = Object.values(TOKENS).find((t: any) => t.address.toLowerCase() === fromToken.toLowerCase());
+        const toTokenInfo = Object.values(TOKENS).find((t: any) => t.address.toLowerCase() === toToken.toLowerCase());
 
         if (!fromTokenInfo || !toTokenInfo) {
           throw new Error('Token not found');
@@ -1159,16 +1161,39 @@ export async function POST(request: NextRequest) {
 
         // Create index predicate (exact same as backend)
         console.log('🔮 Creating index predicate...');
-        const predicate = new Address(INDEX_ORACLE_ADDRESS).call(
-          'b4fed844', // checkCondition selector
-          condition.indexId.toString().padStart(64, '0'),
-          condition.operator.toString().padStart(64, '0'),
-          condition.threshold.toString().padStart(64, '0')
+        console.log('   Index:', condition.indexId);
+        console.log('   Operator:', condition.operator);  
+        console.log('   Threshold:', condition.threshold);
+
+        // Create oracle call data for checkCondition(uint256 indexId, uint8 operator, uint256 threshold)
+        const oracleCallData = ethers.utils.defaultAbiCoder.encode(
+          ['uint256', 'uint8', 'uint256'],
+          [condition.indexId, condition.operator, condition.threshold]
         );
+
+        // Predicate structure: operator(threshold, arbitraryStaticCall(oracle, callData))
+        const arbitraryStaticCallData = ethers.utils.defaultAbiCoder.encode(
+          ['address', 'bytes'],
+          [CONFIG.INDEX_ORACLE_ADDRESS, oracleCallData]
+        );
+
+        let predicateData;
+
+        // Map our operator to 1inch methods (only gt, lt, eq are commonly supported)
+        switch (condition.operator) {
+          case 'gt':
+            predicateData = ethers.utils.defaultAbiCoder.encode(
+              ['uint256', 'bytes'],
+              [condition.threshold, arbitraryStaticCallData]
+            );
+            break;
+          default:
+            throw new Error(`Unsupported operator: ${condition.operator}`);
+        }
 
         // Create extension with predicate (exact same as backend)
         const extension = new ExtensionBuilder()
-          .withPredicate(predicate)
+          .withPredicate(predicateData)
           .build();
         console.log('✅ Extension created with predicate');
 
@@ -1188,16 +1213,22 @@ export async function POST(request: NextRequest) {
         console.log('🔧 Creating order...');
 
         // Create order (exact same as backend - let SDK handle salt)
-        const order = await sdk.createOrder({
+        const orderParams = {
           makerAsset: new Address(fromTokenInfo.address),
           takerAsset: new Address(toTokenInfo.address),
           makingAmount: makingAmount,
           takingAmount: takingAmount,
-          maker: new Address(walletAddress),
-          extension: extension.encode()
-        }, makerTraits);
+          maker: new Address(walletAddress)
+        };
 
-        console.log(`✅ Order created: ${order.getOrderHash()}`);
+        // Add extension if available
+        if (extension) {
+          (orderParams as any).extension = extension.encode();
+        }
+
+        const order = await sdk.createOrder(orderParams, makerTraits);
+
+        console.log(`✅ Order created: ${order.getOrderHash(CONFIG.CHAIN_ID)}`);
 
         // Submit order (exact same as backend)
         console.log('📤 Submitting to 1inch...');
@@ -1216,7 +1247,7 @@ export async function POST(request: NextRequest) {
         // Return comprehensive result (exact same as backend, with BigInt conversion for JSON)
         const result = {
           success: submitResult !== null,
-          orderHash: order.getOrderHash(),
+          orderHash: order.getOrderHash(CONFIG.CHAIN_ID),
           order: {
             fromToken: fromTokenInfo.symbol,
             toToken: toTokenInfo.symbol,
@@ -1226,10 +1257,10 @@ export async function POST(request: NextRequest) {
             expiration: new Date(Number(expiration) * 1000).toISOString()
           },
           condition: {
-            index: INDICES[Object.keys(INDICES).find(key => INDICES[key].id === condition.indexId)],
+            index: Object.values(BLOCKCHAIN_INDICES).find((index: any) => index.id === condition.indexId),
             operator: condition.operator,
             threshold: condition.threshold,
-            currentValue: INDICES[Object.keys(INDICES).find(key => INDICES[key].id === condition.indexId)]?.currentValue
+            currentValue: Object.values(BLOCKCHAIN_INDICES).find((index: any) => index.id === condition.indexId)?.currentValue
           },
           submission: {
             submitted: submitResult !== null,
@@ -1237,10 +1268,10 @@ export async function POST(request: NextRequest) {
             result: submitResult // Will be converted to JSON-safe format below
           },
           technical: {
-            orderHash: order.getOrderHash(),
+            orderHash: order.getOrderHash(CONFIG.CHAIN_ID),
             salt: order.salt.toString(),
             signature: signature,
-            predicate: predicate.substring(0, 40) + '...'
+            predicate: predicateData.substring(0, 40) + '...'
           }
         };
 
