@@ -122,6 +122,18 @@ export class BlockchainService {
     return this.tokens.getTestUSDCBalance();
   }
 
+  async getTokenAllowance(tokenAddress: string, spenderAddress: string, walletAddress?: string | null): Promise<string> {
+    return this.tokens.getTokenAllowance(tokenAddress, spenderAddress, walletAddress);
+  }
+
+  async isTokenApproved(tokenAddress: string, spenderAddress: string, requiredAmount: string, walletAddress?: string | null): Promise<boolean> {
+    return this.tokens.isTokenApproved(tokenAddress, spenderAddress, requiredAmount, walletAddress);
+  }
+
+  async approveToken(tokenAddress: string, spenderAddress: string, amount: string, walletAddress?: string | null): Promise<string> {
+    return this.tokens.approveToken(tokenAddress, spenderAddress, amount, walletAddress);
+  }
+
   // === INDEX OPERATIONS ===
 
   async getAllIndices(): Promise<CustomIndex[]> {

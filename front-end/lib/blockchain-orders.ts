@@ -16,7 +16,33 @@ import { OrderCacheService } from "./order-cache-service";
 // 1inch SDK imports for direct usage
 import { LimitOrder, MakerTraits, Address, Sdk, randBigInt, FetchProviderConnector, ExtensionBuilder } from '@1inch/limit-order-sdk';
 
+// Type for extended ethereum object
+type ExtendedEthereum = {
+  request: (args: { method: string; params?: any[] }) => Promise<any>;
+  selectedAddress?: string | null;
+  isMetaMask?: boolean;
+  isPhantom?: boolean;
+  providers?: any[];
+  on: (event: string, callback: (...args: any[]) => void) => void;
+  removeListener: (event: string, callback: (...args: any[]) => void) => void;
+};
+
 // Using direct SDK approach like the working backend
+
+// Token info interface
+interface TokenInfo {
+  address: string;
+  decimals: number;
+  symbol: string;
+}
+
+// Index condition interface
+interface IndexCondition {
+  indexId: number;
+  operator: string;
+  threshold: number;
+  description: string;
+}
 
 // Configuration matching backend
 const CONFIG = {
@@ -31,14 +57,14 @@ const CONFIG = {
       address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
       decimals: 6,
       symbol: 'USDC'
-    },
+    } as TokenInfo,
     WETH: {
       address: '0x4200000000000000000000000000000000000006',
       decimals: 18,
       symbol: 'WETH'
-    }
+    } as TokenInfo
   }
-};
+} as const;
 
 export class BlockchainOrders {
   private web3: Web3;
@@ -75,12 +101,14 @@ export class BlockchainOrders {
     const hasWindow = typeof window !== "undefined";
     const hasEthereum = hasWindow && !!window.ethereum;
     
+    const ethereum = window.ethereum as ExtendedEthereum | undefined;
+    
     console.log('🔍 [BlockchainOrders] isWalletAvailable check:', {
       hasWindow,
       hasEthereum,
-      selectedAddress: hasEthereum ? window.ethereum?.selectedAddress : null,
-      isMetaMask: hasEthereum ? (window.ethereum as any)?.isMetaMask : false,
-      isPhantom: hasEthereum ? (window.ethereum as any)?.isPhantom : false
+      selectedAddress: hasEthereum ? ethereum?.selectedAddress : null,
+      isMetaMask: hasEthereum ? ethereum?.isMetaMask : false,
+      isPhantom: hasEthereum ? ethereum?.isPhantom : false
     });
 
     // Check if browser environment and ethereum is available
@@ -98,7 +126,7 @@ export class BlockchainOrders {
   private async requestWalletConnection(): Promise<void> {
     try {
       // If both wallets present, try to connect to MetaMask specifically
-      const ethereum = window.ethereum as any;
+      const ethereum = window.ethereum as ExtendedEthereum | undefined;
       if (ethereum?.isMetaMask && ethereum?.isPhantom && ethereum?.providers) {
         const metamaskProvider = ethereum.providers.find((p: any) => p.isMetaMask && !p.isPhantom);
         if (metamaskProvider) {
@@ -110,7 +138,8 @@ export class BlockchainOrders {
       
       // Default connection request
       console.log('🔄 [BlockchainOrders] Requesting wallet connection...');
-      await window.ethereum!.request({ method: 'eth_requestAccounts' });
+      const defaultEthereum = window.ethereum as ExtendedEthereum;
+      await defaultEthereum.request({ method: 'eth_requestAccounts' });
     } catch (error) {
       console.error('❌ [BlockchainOrders] Failed to connect wallet:', error);
       throw new Error('Failed to connect wallet. Please ensure MetaMask is installed and unlock your wallet.');
@@ -127,15 +156,17 @@ export class BlockchainOrders {
     }
 
     try {
+      const ethereum = window.ethereum as ExtendedEthereum;
+      
       // First check selectedAddress
-      if (window.ethereum!.selectedAddress) {
-        console.log('✅ [BlockchainOrders] Found selectedAddress:', window.ethereum!.selectedAddress);
-        return window.ethereum!.selectedAddress;
+      if (ethereum.selectedAddress) {
+        console.log('✅ [BlockchainOrders] Found selectedAddress:', ethereum.selectedAddress);
+        return ethereum.selectedAddress;
       }
 
       // If no selectedAddress, try to get accounts
       console.log('🔍 [BlockchainOrders] No selectedAddress, checking eth_accounts...');
-      const accounts = await window.ethereum!.request({ method: 'eth_accounts' });
+      const accounts = await ethereum.request({ method: 'eth_accounts' });
       
       if (accounts && accounts.length > 0) {
         console.log('✅ [BlockchainOrders] Found account via eth_accounts:', accounts[0]);
@@ -147,7 +178,7 @@ export class BlockchainOrders {
       await this.requestWalletConnection();
       
       // Try again after connection
-      const newAccounts = await window.ethereum!.request({ method: 'eth_accounts' });
+      const newAccounts = await ethereum.request({ method: 'eth_accounts' });
       if (newAccounts && newAccounts.length > 0) {
         console.log('✅ [BlockchainOrders] Connected and found account:', newAccounts[0]);
         return newAccounts[0];
@@ -252,7 +283,8 @@ export class BlockchainOrders {
       const typedData = order.getTypedData(CONFIG.CHAIN_ID);
       
       // Request signature from MetaMask (like 1inch-service.ts)
-      const signature = await window.ethereum!.request({
+      const ethereum = window.ethereum as ExtendedEthereum;
+      const signature = await ethereum.request({
         method: 'eth_signTypedData_v4',
         params: [currentAccount, JSON.stringify(typedData)],
       });
@@ -359,15 +391,16 @@ export class BlockchainOrders {
   /**
    * Get token info helper
    */
-  private getTokenInfo(tokenAddress: string) {
+  private getTokenInfo(tokenAddress: string): TokenInfo {
     // Check if it's a symbol or address
-    const tokenKey = Object.keys(CONFIG.TOKENS).find(key => 
-      (CONFIG.TOKENS as any)[key].address.toLowerCase() === tokenAddress.toLowerCase() ||
-      key === tokenAddress.toUpperCase()
-    );
+    const tokenKey = Object.keys(CONFIG.TOKENS).find(key => {
+      const token = CONFIG.TOKENS[key as keyof typeof CONFIG.TOKENS];
+      return token.address.toLowerCase() === tokenAddress.toLowerCase() ||
+             key === tokenAddress.toUpperCase();
+    });
     
     if (tokenKey) {
-      return (CONFIG.TOKENS as any)[tokenKey];
+      return CONFIG.TOKENS[tokenKey as keyof typeof CONFIG.TOKENS];
     }
     
     // Default fallback for unknown tokens
@@ -396,7 +429,7 @@ export class BlockchainOrders {
   /**
    * Create index predicate (matching backend logic)
    */
-  private createIndexPredicate(condition: { indexId: number, operator: string, threshold: number }): string {
+  private createIndexPredicate(condition: IndexCondition): string {
     console.log(`   Index ID: ${condition.indexId}`);
     console.log(`   Operator: ${condition.operator}`);
     console.log(`   Threshold: ${condition.threshold}`);
@@ -551,6 +584,8 @@ export class BlockchainOrders {
       if (typeof window === "undefined" || !window.ethereum) {
         throw new Error("MetaMask not available");
       }
+      
+      const ethereum = window.ethereum as ExtendedEthereum;
 
       // Contract ABI for cancelOrder function
       const cancelOrderABI = [
@@ -586,7 +621,7 @@ export class BlockchainOrders {
       }
 
       // Send transaction via MetaMask
-      const txHash = await window.ethereum.request({
+      const txHash = await ethereum.request({
         method: 'eth_sendTransaction',
         params: [{
           from: fromAddress,
@@ -618,7 +653,8 @@ export class BlockchainOrders {
     
     while (attempts < maxAttempts) {
       try {
-        const receipt = await window.ethereum?.request({
+        const ethereum = window.ethereum as ExtendedEthereum | undefined;
+        const receipt = await ethereum?.request({
           method: 'eth_getTransactionReceipt',
           params: [txHash],
         });
