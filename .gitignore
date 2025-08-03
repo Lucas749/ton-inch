@@ -3,7 +3,6 @@ out/
 
 # Dependencies  
 node_modules/
-lib/
 1inch_contracts/
 
 # Environment files

@@ -152,8 +152,23 @@ export async function GET(request: NextRequest) {
   // Use server-side API key from environment
   const apikey = process.env.NEXT_ALPHAVANTAGE;
   
+  // Debug logging for deployment
+  console.log('🔑 API Key check:', {
+    hasApiKey: !!apikey,
+    apiKeyLength: apikey?.length || 0,
+    envKeys: Object.keys(process.env).filter(key => key.includes('ALPHA')),
+    function: function_
+  });
+  
   if (!function_ || !apikey) {
-    return NextResponse.json({ error: 'Missing required parameters or API key not configured' }, { status: 400 });
+    return NextResponse.json({ 
+      error: 'Missing required parameters or API key not configured',
+      debug: {
+        hasFunction: !!function_,
+        hasApiKey: !!apikey,
+        envKeys: Object.keys(process.env).filter(key => key.includes('ALPHA'))
+      }
+    }, { status: 400 });
   }
 
   // Check if we should use cached data
