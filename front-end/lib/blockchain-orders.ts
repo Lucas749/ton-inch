@@ -1,6 +1,7 @@
 /**
  * 📋 Blockchain Orders Service
- * Handles order operations like creating, canceling, and tracking orders using 1inch SDK
+ * Handles order operations like creating, canceling, and tracking orders using 1inch SDK directly
+ * Updated to use SDK directly instead of backend API calls
  */
 
 import { Web3 } from "web3";
@@ -12,7 +13,39 @@ import type { BlockchainWallet } from "./blockchain-wallet";
 import type { BlockchainTokens } from "./blockchain-tokens";
 import { OrderCacheService } from "./order-cache-service";
 
-// Note: 1inch SDK imports removed - now using backend API
+// 1inch SDK imports for direct usage
+import { LimitOrder, MakerTraits, Address, Sdk, randBigInt, FetchProviderConnector, ExtensionBuilder } from '@1inch/limit-order-sdk';
+
+// Type for extended ethereum object
+type ExtendedEthereum = {
+  request: (args: { method: string; params?: any[] }) => Promise<any>;
+  selectedAddress?: string | null;
+  isMetaMask?: boolean;
+  isPhantom?: boolean;
+  providers?: any[];
+  on: (event: string, callback: (...args: any[]) => void) => void;
+  removeListener: (event: string, callback: (...args: any[]) => void) => void;
+};
+
+// Using direct SDK approach like the working backend
+
+// Token info interface
+interface TokenInfo {
+  address: string;
+  decimals: number;
+  symbol: string;
+}
+
+// Index condition interface
+interface IndexCondition {
+  indexId: number;
+  operator: string;
+  threshold: number;
+  description: string;
+}
+
+// Base URL for backend API
+const API_BASE_URL = 'https://ton-inch-production.up.railway.app';
 
 // Configuration matching backend
 const CONFIG = {
@@ -27,14 +60,14 @@ const CONFIG = {
       address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
       decimals: 6,
       symbol: 'USDC'
-    },
+    } as TokenInfo,
     WETH: {
       address: '0x4200000000000000000000000000000000000006',
       decimals: 18,
       symbol: 'WETH'
-    }
+    } as TokenInfo
   }
-};
+} as const;
 
 export class BlockchainOrders {
   private web3: Web3;
@@ -49,45 +82,6 @@ export class BlockchainOrders {
     this.wallet = walletInstance;
     this.tokens = tokensInstance;
     this.initializeContracts();
-    // SDK will be initialized per-request like the backend
-    
-    // Pre-populate with user's existing successful order
-    this.addExistingSuccessfulOrder();
-  }
-
-  /**
-   * Add the user's existing successful order that was created before caching was fixed
-   */
-  private addExistingSuccessfulOrder() {
-    const existingOrder = {
-      hash: '0x1c163afb0d50e5db8596bf442d064b014c4370af97fdbc495f6e641fb50ad5a1',
-      indexId: 2, // VIX Volatility Index
-      operator: 1, // GT (greater than)
-      threshold: 18000,
-      description: 'Buy WETH when VIX Volatility Index > 180',
-      makerAsset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // USDC
-      takerAsset: '0x4200000000000000000000000000000000000006', // WETH
-      makingAmount: '100000', // 0.1 USDC (6 decimals)
-      takingAmount: '30000000000000', // 0.00003 WETH (18 decimals)
-      fromToken: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
-      toToken: '0x4200000000000000000000000000000000000006',
-      fromAmount: '0.1',
-      toAmount: '0.00003',
-      maker: '0x2fd13180574f0a81eec90a6e021f6eb7dc1a9b9b', // User's actual wallet
-      receiver: '0x2fd13180574f0a81eec90a6e021f6eb7dc1a9b9b',
-      expiry: Math.floor(Date.now() / 1000) + (2 * 3600), // 2 hours from now
-      status: "cancelled" as const, // Updated to reflect that user cancelled this order
-      createdAt: Date.now() - (30 * 60 * 1000), // 30 minutes ago to show it was created earlier
-      transactionHash: '0x1c163afb0d50e5db8596bf442d064b014c4370af97fdbc495f6e641fb50ad5a1'
-    };
-
-    // Add to cache for VIX index (indexId: 2)
-    this.orderCache.set(2, {
-      orders: [existingOrder],
-      timestamp: Date.now()
-    });
-
-    console.log('💾 Pre-populated cache with existing cancelled order:', existingOrder.hash);
   }
 
   /**
@@ -101,204 +95,283 @@ export class BlockchainOrders {
     );
   }
 
-  // SDK initialization removed - using direct LimitOrder creation instead
+  // Using 1inch SDK directly for order creation and management
 
   /**
-   * Create a new order with index condition (using backend API)
+   * Check if browser wallet is available and connected (enhanced version)
+   */
+  private isWalletAvailable(): boolean {
+    const hasWindow = typeof window !== "undefined";
+    const hasEthereum = hasWindow && !!window.ethereum;
+    
+    const ethereum = window.ethereum as ExtendedEthereum | undefined;
+    
+    console.log('🔍 [BlockchainOrders] isWalletAvailable check:', {
+      hasWindow,
+      hasEthereum,
+      selectedAddress: hasEthereum ? ethereum?.selectedAddress : null,
+      isMetaMask: hasEthereum ? ethereum?.isMetaMask : false,
+      isPhantom: hasEthereum ? ethereum?.isPhantom : false
+    });
+
+    // Check if browser environment and ethereum is available
+    if (!hasWindow || !hasEthereum) {
+      console.log('❌ [BlockchainOrders] No window or ethereum available');
+      return false;
+    }
+
+    return true; // If ethereum is available, we can try to connect
+  }
+
+  /**
+   * Request wallet connection (preferring MetaMask)
+   */
+  private async requestWalletConnection(): Promise<void> {
+    try {
+      // If both wallets present, try to connect to MetaMask specifically
+      const ethereum = window.ethereum as ExtendedEthereum | undefined;
+      if (ethereum?.isMetaMask && ethereum?.isPhantom && ethereum?.providers) {
+        const metamaskProvider = ethereum.providers.find((p: any) => p.isMetaMask && !p.isPhantom);
+        if (metamaskProvider) {
+          console.log('🔄 [BlockchainOrders] Requesting MetaMask connection...');
+          await metamaskProvider.request({ method: 'eth_requestAccounts' });
+          return;
+        }
+      }
+      
+      // Default connection request
+      console.log('🔄 [BlockchainOrders] Requesting wallet connection...');
+      const defaultEthereum = window.ethereum as ExtendedEthereum;
+      await defaultEthereum.request({ method: 'eth_requestAccounts' });
+    } catch (error) {
+      console.error('❌ [BlockchainOrders] Failed to connect wallet:', error);
+      throw new Error('Failed to connect wallet. Please ensure MetaMask is installed and unlock your wallet.');
+    }
+  }
+
+  /**
+   * Get current wallet address (enhanced async version)
+   */
+  private async getCurrentWalletAddress(): Promise<string | null> {
+    if (!this.isWalletAvailable()) {
+      console.log('❌ [BlockchainOrders] Wallet not available');
+      return null;
+    }
+
+    try {
+      const ethereum = window.ethereum as ExtendedEthereum;
+      
+      // First check selectedAddress
+      if (ethereum.selectedAddress) {
+        console.log('✅ [BlockchainOrders] Found selectedAddress:', ethereum.selectedAddress);
+        return ethereum.selectedAddress;
+      }
+
+      // If no selectedAddress, try to get accounts
+      console.log('🔍 [BlockchainOrders] No selectedAddress, checking eth_accounts...');
+      const accounts = await ethereum.request({ method: 'eth_accounts' });
+      
+      if (accounts && accounts.length > 0) {
+        console.log('✅ [BlockchainOrders] Found account via eth_accounts:', accounts[0]);
+        return accounts[0];
+      }
+
+      // If still no account, try to request connection
+      console.log('⚠️ [BlockchainOrders] No wallet address found, attempting to connect...');
+      await this.requestWalletConnection();
+      
+      // Try again after connection
+      const newAccounts = await ethereum.request({ method: 'eth_accounts' });
+      if (newAccounts && newAccounts.length > 0) {
+        console.log('✅ [BlockchainOrders] Connected and found account:', newAccounts[0]);
+        return newAccounts[0];
+      }
+
+      console.log('❌ [BlockchainOrders] No wallet address found even after connection attempt');
+      return null;
+    } catch (error) {
+      console.error('❌ [BlockchainOrders] Error getting wallet address:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Create a new order with index condition (using secure server flow)
    */
   async createOrder(params: OrderParams): Promise<Order | null> {
     try {
-      console.log("🔄 Creating order via backend API:", params);
+      console.log("🔄 Creating order via secure server flow:", params);
       
-      if (!this.wallet.isWalletConnected() || !this.wallet.currentAccount) {
+      if (!this.isWalletAvailable()) {
         throw new Error("Wallet not connected. Please connect your wallet first.");
       }
 
-      // Use the user's actual connected wallet address - NO private key needed!
-      const userWalletAddress = this.wallet.currentAccount;
-      if (!userWalletAddress) {
+      const currentAccount = await this.getCurrentWalletAddress();
+      if (!currentAccount) {
         throw new Error("No wallet address available");
       }
 
-      console.log(`🔍 Using actual user wallet: ${userWalletAddress}`);
+      console.log(`👤 Using wallet: ${currentAccount}`);
+      console.log(`🌐 Network: Base Mainnet (${CONFIG.CHAIN_ID})`);
 
-      // Prepare order parameters for backend API (using user's wallet)
-      const orderParams = {
-        fromToken: params.fromToken, // Token address
-        toToken: params.toToken,     // Token address
-        amount: params.fromAmount,   // Amount to sell
-        expectedAmount: params.toAmount, // Expected amount to receive
+      // Parse tokens for the order
+      const fromTokenInfo = this.getTokenInfo(params.fromToken);
+      const toTokenInfo = this.getTokenInfo(params.toToken);
+      
+      console.log(`📊 Trading: ${params.fromAmount} ${fromTokenInfo.symbol} → ${params.toAmount} ${toTokenInfo.symbol}`);
+      console.log(`📋 Condition: ${params.description}`);
+      
+      // STEP 1: Prepare unsigned order on server
+      console.log('📋 Step 1: Preparing unsigned order on server...');
+      
+      const orderRequest = {
+        fromToken: fromTokenInfo.symbol,
+        toToken: toTokenInfo.symbol,
+        amount: params.fromAmount,
+        expectedAmount: params.toAmount,
         condition: {
           indexId: params.indexId,
           operator: this.mapOperatorToString(params.operator),
           threshold: params.threshold,
           description: params.description
         },
-        expirationHours: params.expiry ? Math.floor(params.expiry / 3600) : 24, // Convert seconds to hours
-        walletAddress: userWalletAddress, // Use actual user wallet
-        oneInchApiKey: process.env.NEXT_PUBLIC_ONEINCH_API_KEY
+        expirationHours: params.expiry ? Math.floor(params.expiry / 3600) : 24,
+        makerAddress: currentAccount,
+        config: {
+          CHAIN_ID: CONFIG.CHAIN_ID,
+          INDEX_ORACLE_ADDRESS: CONFIG.INDEX_ORACLE_ADDRESS,
+          LIMIT_ORDER_PROTOCOL: CONFIG.LIMIT_ORDER_PROTOCOL
+        }
       };
 
-      console.log('🚀 Calling backend API to create order...');
-
-      // Call the backend API
-      const response = await fetch('/api/orders', {
+      console.log('📤 Sending order parameters to server...');
+      const prepareResponse = await fetch(`${API_BASE_URL}/orders/prepare`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'create-order',
-          ...orderParams
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderRequest)
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || errorData.error || 'Failed to create order');
+      if (!prepareResponse.ok) {
+        const errorText = await prepareResponse.text();
+        throw new Error(`Server preparation failed: ${errorText}`);
       }
 
-      const result = await response.json();
-
-      if (!result.success) {
-        throw new Error(result.message || result.error || 'Order creation failed');
+      const prepareResult = await prepareResponse.json();
+      if (!prepareResult.success) {
+        throw new Error(`Order preparation failed: ${prepareResult.error}`);
       }
 
-      console.log('✅ Order structure created by backend:', result.orderHash);
-      console.log('⏳ Order not yet submitted - requires MetaMask signing...');
+      console.log('✅ Server prepared unsigned order:', {
+        orderHash: prepareResult.orderHash,
+        orderId: prepareResult.orderId,
+        condition: prepareResult.condition.description,
+        expiration: prepareResult.order.expiration
+      });
+
+      // STEP 2: Sign the order with MetaMask
+      console.log('✍️ Step 2: Signing order with MetaMask...');
       
-      // Check if we need to sign the order with MetaMask
-      if (result.typedData) {
-        console.log('📝 Prompting MetaMask for signature...');
-        
-        try {
-          // Request user signature via MetaMask
-          const provider = (window as any).ethereum;
-          if (!provider) {
-            throw new Error('MetaMask not installed');
-          }
+      const ethereum = window.ethereum as ExtendedEthereum;
+      const signature = await ethereum.request({
+        method: 'eth_signTypedData_v4',
+        params: [currentAccount, JSON.stringify(prepareResult.signingData.typedData)]
+      });
+      
+      console.log('✅ Order signed successfully');
+      
+      // STEP 3: Submit signed order back to server
+      console.log('📤 Step 3: Submitting signed order to server...');
+      
+      const submitData = {
+        orderData: prepareResult.signingData,
+        signature: signature
+      };
 
-          const signature = await provider.request({
-            method: 'eth_signTypedData_v4',
-            params: [this.wallet.currentAccount, JSON.stringify(result.typedData)],
-          });
+      const submitResponse = await fetch(`${API_BASE_URL}/orders/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(submitData)
+      });
 
-          console.log('✅ Order signed by user:', signature);
-          
-          // Use EXACT backend approach: create and submit in one go
-          console.log('📤 Using backend approach: create and submit in one go...');
-          
-          // Use the exact backend approach with original parameters
-          const backendPayload = {
-            action: 'create-and-submit-order',
-            fromToken: orderParams.fromToken,
-            toToken: orderParams.toToken,
-            amount: orderParams.amount,
-            expectedAmount: orderParams.expectedAmount,
-            condition: orderParams.condition,
-            expirationHours: orderParams.expirationHours,
-            walletAddress: this.wallet.currentAccount,
-            oneInchApiKey: process.env.NEXT_PUBLIC_ONEINCH_API_KEY,
-            signature: signature
-          };
-          
-          console.log('📡 Calling backend with exact backend approach...');
-          
-          const submitResponse = await fetch('/api/orders', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(backendPayload)
-          });
-
-          if (!submitResponse.ok) {
-            const errorData = await submitResponse.json();
-            console.error('❌ Backend approach error:', errorData);
-            throw new Error(`Backend error: ${submitResponse.status} ${errorData.message || 'Unknown error'}`);
-          }
-
-          const submitResult = await submitResponse.json();
-          console.log('✅ Order successfully created and submitted via backend approach:', submitResult.submitResult);
-          console.log('🎉 LIMIT ORDER CREATED SUCCESSFULLY!');
-          
-          // Update result to use backend response
-          result.orderHash = submitResult.orderHash;
-          
-        } catch (signError) {
-          console.error('❌ User rejected signing or signing failed:', signError);
-          throw new Error('Order signing cancelled or failed');
-        }
-      } else {
-        console.error('❌ No typedData returned from backend - cannot sign order');
-        throw new Error('Backend did not return signing data');
+      if (!submitResponse.ok) {
+        const errorText = await submitResponse.text();
+        throw new Error(`Server submission failed: ${errorText}`);
       }
 
-      // If we get here, the order was successfully signed and submitted to 1inch
-      // Now save to persistent cache
-      console.log('💾 Order successfully submitted - saving to cache...');
+      const submitResult = await submitResponse.json();
+      
+      console.log('📊 FINAL RESULT:', {
+        success: submitResult.success,
+        orderHash: submitResult.orderHash,
+        submitted: submitResult.submission?.submitted || false
+      });
+
+      if (!submitResult.success) {
+        throw new Error(`Order submission failed: ${submitResult.submission?.error || 'Unknown error'}`);
+      }
+
+      console.log('✅ Order submitted successfully to 1inch via server!');
+      
+      // Show success notification
+      if (typeof window !== 'undefined') {
+        // Create and show success popup
+        this.showSuccessPopup(prepareResult.orderHash, params.description);
+      }
       
       // Create order object for caching
       const newOrder = {
-        hash: result.orderHash,
+        hash: prepareResult.orderHash,
         indexId: params.indexId,
         operator: params.operator,
         threshold: params.threshold,
         description: params.description,
-        makerAsset: params.fromToken,
-        takerAsset: params.toToken,
-        makingAmount: result.order?.makingAmount || '0',
-        takingAmount: result.order?.takingAmount || '0',
-        fromToken: params.fromToken,
-        toToken: params.toToken,
+        makerAsset: fromTokenInfo.address,
+        takerAsset: toTokenInfo.address,
+        makingAmount: ethers.utils.parseUnits(params.fromAmount, fromTokenInfo.decimals).toString(),
+        takingAmount: ethers.utils.parseUnits(params.toAmount, toTokenInfo.decimals).toString(),
+        fromToken: fromTokenInfo.address,
+        toToken: toTokenInfo.address,
         fromAmount: params.fromAmount,
         toAmount: params.toAmount,
-        maker: this.wallet.currentAccount,
-        receiver: this.wallet.currentAccount,
-        expiry: Math.floor(Date.now() / 1000) + (orderParams.expirationHours * 3600),
-        status: "active" as const,
+        maker: currentAccount,
+        receiver: currentAccount,
+        expiry: Math.floor(Date.now() / 1000) + (orderRequest.expirationHours * 3600),
+        status: submitResult.success ? ("active" as const) : ("cancelled" as const),
         createdAt: Date.now(),
-        transactionHash: result.orderHash
+        transactionHash: prepareResult.orderHash
       };
-
-      // Skip in-memory cache - use persistent storage only
-      console.log('💾 Skipping in-memory cache, saving directly to persistent storage only');
 
       // Save to persistent localStorage cache
       try {
-        console.log('💾 Saving successfully submitted order to persistent localStorage cache');
-        
-        const fromTokenInfo = this.getTokenInfo(params.fromToken);
-        const toTokenInfo = this.getTokenInfo(params.toToken);
+        console.log('💾 Saving order to persistent localStorage cache');
         
         const savedOrder = {
           orderHash: newOrder.hash,
           type: 'limit' as const,
           timestamp: newOrder.createdAt,
           date: new Date(newOrder.createdAt).toISOString(),
-          status: 'submitted' as const, // New orders start as submitted
+          status: submitResult.success ? 'submitted' as const : 'pending' as const,
           
-          // Use the meaningful order description from the form (e.g., "bitcoin", "vix")
           description: params.description,
           
           fromToken: {
-            address: params.fromToken,
+            address: fromTokenInfo.address,
             symbol: fromTokenInfo.symbol,
             name: fromTokenInfo.symbol,
             decimals: fromTokenInfo.decimals
           },
           toToken: {
-            address: params.toToken,
+            address: toTokenInfo.address,
             symbol: toTokenInfo.symbol,
             name: toTokenInfo.symbol,
             decimals: toTokenInfo.decimals
           },
-          fromAmount: newOrder.makingAmount || '0',
-          toAmount: newOrder.takingAmount || '0',
+          fromAmount: newOrder.makingAmount,
+          toAmount: newOrder.takingAmount,
           fromAmountFormatted: `${newOrder.fromAmount} ${fromTokenInfo.symbol}`,
           toAmountFormatted: `${newOrder.toAmount} ${toTokenInfo.symbol}`,
           
-          walletAddress: this.wallet.currentAccount!,
+          walletAddress: currentAccount,
           chainId: CONFIG.CHAIN_ID.toString(),
           
           validUntil: newOrder.expiry,
@@ -308,21 +381,19 @@ export class BlockchainOrders {
             receiver: newOrder.receiver,
             makerAsset: newOrder.makerAsset,
             takerAsset: newOrder.takerAsset,
-            makingAmount: newOrder.makingAmount || '0',
-            takingAmount: newOrder.takingAmount || '0',
-            salt: '0'
+            makingAmount: newOrder.makingAmount,
+            takingAmount: newOrder.takingAmount,
+            salt: prepareResult.technical?.salt || '0' // Use salt from server response
           }
         };
         
         OrderCacheService.saveOrder(savedOrder);
-        console.log('✅ Order successfully submitted to 1inch and saved to cache');
+        console.log('✅ Order saved to cache');
         
       } catch (cacheError) {
         console.error('⚠️ Failed to save order to persistent cache:', cacheError);
-        // Don't fail the whole operation if persistent cache save fails
       }
 
-      // Return the cached order object (only if successfully submitted)
       return newOrder;
 
     } catch (error) {
@@ -334,15 +405,16 @@ export class BlockchainOrders {
   /**
    * Get token info helper
    */
-  private getTokenInfo(tokenAddress: string) {
+  private getTokenInfo(tokenAddress: string): TokenInfo {
     // Check if it's a symbol or address
-    const tokenKey = Object.keys(CONFIG.TOKENS).find(key => 
-      (CONFIG.TOKENS as any)[key].address.toLowerCase() === tokenAddress.toLowerCase() ||
-      key === tokenAddress.toUpperCase()
-    );
+    const tokenKey = Object.keys(CONFIG.TOKENS).find(key => {
+      const token = CONFIG.TOKENS[key as keyof typeof CONFIG.TOKENS];
+      return token.address.toLowerCase() === tokenAddress.toLowerCase() ||
+             key === tokenAddress.toUpperCase();
+    });
     
     if (tokenKey) {
-      return (CONFIG.TOKENS as any)[tokenKey];
+      return CONFIG.TOKENS[tokenKey as keyof typeof CONFIG.TOKENS];
     }
     
     // Default fallback for unknown tokens
@@ -369,192 +441,151 @@ export class BlockchainOrders {
   }
 
   /**
-   * Create index predicate (matching backend logic)
+   * Show success popup notification
    */
-  private createIndexPredicate(condition: { indexId: number, operator: string, threshold: number }): string {
-    const indexKey = Object.keys(INDICES).find(key => (INDICES as any)[key].id === condition.indexId);
-    console.log(`   Index: ${indexKey ? (INDICES as any)[indexKey]?.name : 'Unknown'}`);
-    console.log(`   Operator: ${condition.operator}`);
-    console.log(`   Threshold: ${condition.threshold}`);
+  private showSuccessPopup(orderHash: string, description: string): void {
+    // Create popup element
+    const popup = document.createElement('div');
+    popup.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-4 rounded-lg shadow-lg z-50 max-w-md';
+    popup.style.animation = 'slideInRight 0.3s ease-out';
     
-    // Oracle call encoding (ethers v6 syntax)
-    const getIndexValueSelector = ethers.utils.id('getIndexValue(uint256)').slice(0, 10);
-    const oracleCallData = ethers.utils.defaultAbiCoder.encode(
-      ['bytes4', 'uint256'],
-      [getIndexValueSelector, condition.indexId]
-    );
-    
-    // Predicate structure: operator(threshold, arbitraryStaticCall(oracle, callData))
-    const arbitraryStaticCallData = ethers.utils.defaultAbiCoder.encode(
-      ['address', 'bytes'],
-      [CONFIG.INDEX_ORACLE_ADDRESS, oracleCallData]
-    );
-    
-    let predicateData;
-    
-    // Map our operator to 1inch methods
-    switch (condition.operator) {
-      case 'gt':
-      case 'gte': // Treat >= as > for simplicity
-        predicateData = ethers.utils.defaultAbiCoder.encode(
-          ['uint256', 'bytes'],
-          [condition.threshold, arbitraryStaticCallData]
-        );
-        break;
-      case 'lt':
-      case 'lte': // Treat <= as < for simplicity
-        predicateData = ethers.utils.defaultAbiCoder.encode(
-          ['uint256', 'bytes'],
-          [condition.threshold, arbitraryStaticCallData]
-        );
-        break;
-      case 'eq':
-        predicateData = ethers.utils.defaultAbiCoder.encode(
-          ['uint256', 'bytes'],
-          [condition.threshold, arbitraryStaticCallData]
-        );
-        break;
-      default:
-        // Default to gt
-        predicateData = ethers.utils.defaultAbiCoder.encode(
-          ['uint256', 'bytes'],
-          [condition.threshold, arbitraryStaticCallData]
-        );
+    popup.innerHTML = `
+      <div class="flex items-center">
+        <div class="flex-shrink-0">
+          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+          </svg>
+        </div>
+        <div class="flex-1">
+          <h4 class="font-medium">🎉 Order Submitted Successfully!</h4>
+          <p class="text-sm mt-1 opacity-90">${description}</p>
+          <p class="text-xs mt-1 opacity-75 font-mono">${orderHash.slice(0, 10)}...${orderHash.slice(-8)}</p>
+        </div>
+        <button class="ml-4 text-white hover:text-gray-200" onclick="this.parentElement.parentElement.remove()">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+    `;
+
+    // Add CSS animation if not already added
+    if (!document.querySelector('#success-popup-styles')) {
+      const styles = document.createElement('style');
+      styles.id = 'success-popup-styles';
+      styles.textContent = `
+        @keyframes slideInRight {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOutRight {
+          from { transform: translateX(0); opacity: 1; }
+          to { transform: translateX(100%); opacity: 0; }
+        }
+      `;
+      document.head.appendChild(styles);
     }
-    
-    // Complete predicate with protocol address (ethers v6 syntax)
-    const completePredicate = ethers.utils.solidityPack(
-      ['address', 'bytes'],
-      [CONFIG.LIMIT_ORDER_PROTOCOL, predicateData]
-    );
-    
-    return completePredicate;
+
+    // Add to page
+    document.body.appendChild(popup);
+
+    // Auto-remove after 8 seconds
+    setTimeout(() => {
+      popup.style.animation = 'slideOutRight 0.3s ease-in';
+      setTimeout(() => {
+        if (popup.parentElement) {
+          popup.remove();
+        }
+      }, 300);
+    }, 8000);
+
+    console.log('🎉 Success popup displayed for order:', orderHash);
   }
 
+
+
   /**
-   * Cancel an existing order using wallet-based approach (like backend)
+   * Cancel an existing order using 1inch SDK directly
    */
   async cancelOrder(orderHash: string): Promise<boolean> {
     try {
-      if (!this.wallet.isWalletConnected() || !this.wallet.currentAccount) {
+      if (!this.isWalletAvailable()) {
         throw new Error("Wallet not connected. Please connect your wallet first.");
+      }
+
+      const currentAccount = await this.getCurrentWalletAddress();
+      if (!currentAccount) {
+        throw new Error("No wallet address available");
       }
 
       console.log(`🚫 Cancelling order ${orderHash} with user wallet...`);
       
-      // Call backend API to prepare cancellation data
-      const response = await fetch('/api/orders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'cancel-order',
-          orderHash: orderHash,
-          walletAddress: this.wallet.currentAccount
-        })
+      // Initialize 1inch SDK with custom proxy connector
+      console.log('🔧 Initializing 1inch SDK with direct connector for cancellation...');
+      const sdk = new Sdk({
+        authKey: process.env.NEXT_PUBLIC_ONEINCH_API_KEY!,
+        networkId: CONFIG.CHAIN_ID,
+        httpConnector: new FetchProviderConnector()
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || errorData.error || 'Failed to prepare cancellation');
-      }
-
-      const result = await response.json();
-      console.log('📋 Cancellation prepared:', result);
-
-      console.log('🔧 Executing actual 1inch protocol cancellation with MetaMask...');
       
-      // Check if the API preparation was successful
-      if (result.success) {
-        // Step 1: Get order details from 1inch API to get makerTraits
-        console.log('🔍 Step 1: Getting order details from 1inch API...');
+      // Step 1: Get order details from 1inch API to get makerTraits
+      console.log('🔍 Step 1: Getting order details from 1inch API...');
+      
+      try {
+        // Use the existing oneinch API endpoint to get order details
+        const orderDetailsResponse = await fetch(`/api/oneinch/fusion?action=get-order&orderHash=${orderHash}`);
         
-        try {
-          const orderDetailsResponse = await fetch(`/api/oneinch/fusion?action=get-order&orderHash=${orderHash}`);
-          if (!orderDetailsResponse.ok) {
-            if (orderDetailsResponse.status === 404) {
-              // Order doesn't exist on 1inch API - it was never successfully submitted
-              console.log('⚠️ Order not found on 1inch API - it was likely never successfully submitted');
-              console.log('🔄 Marking order as cancelled locally...');
-              
-              // Mark the order as cancelled in local storage
-              OrderCacheService.updateOrderStatus(orderHash, 'cancelled');
-              
-              return true;
-            }
-            throw new Error('Failed to get order details from 1inch API');
+        if (!orderDetailsResponse.ok) {
+          if (orderDetailsResponse.status === 404) {
+            // Order doesn't exist on 1inch API - it was never successfully submitted
+            console.log('⚠️ Order not found on 1inch API - it was likely never successfully submitted');
+            console.log('🔄 Marking order as cancelled locally...');
+            
+            // Mark the order as cancelled in local storage
+            OrderCacheService.updateOrderStatus(orderHash, 'cancelled');
+            
+            return true;
           }
-          
-          const orderDetails = await orderDetailsResponse.json();
-          if (!orderDetails.success || !orderDetails.order) {
-            throw new Error('Order not found in 1inch API');
-          }
-          
-          console.log('✅ Order details retrieved:', {
-            maker: orderDetails.order.maker,
-            makerTraits: orderDetails.order.makerTraits
-          });
-          
-          // Step 2: Verify user is the order maker
-          if (orderDetails.order.maker.toLowerCase() !== this.wallet.currentAccount?.toLowerCase()) {
-            throw new Error(`Only the order maker can cancel this order. Maker: ${orderDetails.order.maker}, Your address: ${this.wallet.currentAccount}`);
-          }
-          
-          console.log('✅ Order ownership verified');
-          
-          // Step 3: Execute cancellation transaction via MetaMask
-          console.log('📤 Step 3: Executing cancellation transaction...');
-          
-          const txHash = await this.executeCancellationTransaction(orderHash, orderDetails.order.makerTraits);
-          
-          console.log(`✅ Order cancelled successfully! Transaction: ${txHash}`);
-          
-        } catch (contractError) {
-          console.error('❌ Contract cancellation failed:', contractError);
-          const errorMessage = contractError instanceof Error ? contractError.message : String(contractError);
-          throw new Error(`Failed to cancel order on-chain: ${errorMessage}`);
-        }
-        console.log('✅ API cancellation preparation successful, updating persistent storage');
-        
-        // First try to update the order in persistent storage
-        let persistentCacheUpdated = false;
-        try {
-          persistentCacheUpdated = OrderCacheService.updateOrderStatus(orderHash, 'cancelled');
-          
-          if (persistentCacheUpdated) {
-            console.log('✅ Updated order status in persistent localStorage cache');
-          } else {
-            console.warn(`⚠️ Order ${orderHash} not found in persistent cache - may already be cancelled or doesn't exist`);
-            return false;
-          }
-        } catch (cacheError) {
-          console.error('❌ Failed to update persistent cache:', cacheError);
-          throw new Error('Failed to update order status in persistent storage');
+          throw new Error('Failed to get order details from 1inch API');
         }
         
-        // Also update in-memory cache if the order exists there (optional optimization)
-        let orderFoundInMemory = false;
-        for (const [indexId, cacheData] of Array.from(this.orderCache.entries())) {
-          const order = cacheData.orders.find((o: any) => o.hash === orderHash);
-          if (order) {
-            order.status = 'cancelled' as const;
-            order.cancelledAt = Date.now(); // Track when it was cancelled
-            console.log(`✅ Also updated order ${orderHash} status in in-memory cache for index ${indexId}`);
-            orderFoundInMemory = true;
-            break;
-          }
+        const orderDetailsResult = await orderDetailsResponse.json();
+        if (!orderDetailsResult.success || !orderDetailsResult.order) {
+          throw new Error('Order not found in 1inch API');
         }
         
-        if (!orderFoundInMemory) {
-          console.log('ℹ️ Order not found in in-memory cache, but that\'s okay - persistent storage was updated');
+        const order = orderDetailsResult.order;
+        
+        console.log('✅ Order details retrieved:', {
+          maker: order.maker,
+          makerTraits: order.makerTraits
+        });
+        
+        // Step 2: Verify user is the order maker
+        if (order.maker.toLowerCase() !== currentAccount.toLowerCase()) {
+          throw new Error(`Only the order maker can cancel this order. Maker: ${order.maker}, Your address: ${currentAccount}`);
         }
+        
+        console.log('✅ Order ownership verified');
+        
+        // Step 3: Execute cancellation transaction via MetaMask
+        console.log('📤 Step 3: Executing cancellation transaction...');
+        
+        const txHash = await this.executeCancellationTransaction(orderHash, order.makerTraits);
+        
+        console.log(`✅ Order cancelled successfully! Transaction: ${txHash}`);
+        
+        // Update order status in cache
+        OrderCacheService.updateOrderStatus(orderHash, 'cancelled');
         
         return true;
-      } else {
-        console.error('❌ API cancellation preparation failed, not updating cache');
-        throw new Error(result.message || 'Order cancellation preparation failed');
+        
+      } catch (contractError) {
+        console.error('❌ Contract cancellation failed:', contractError);
+        const errorMessage = contractError instanceof Error ? contractError.message : String(contractError);
+        throw new Error(`Failed to cancel order on-chain: ${errorMessage}`);
       }
+      
     } catch (error) {
       console.error("❌ Error cancelling order:", error);
       throw error;
@@ -569,6 +600,8 @@ export class BlockchainOrders {
       if (typeof window === "undefined" || !window.ethereum) {
         throw new Error("MetaMask not available");
       }
+      
+      const ethereum = window.ethereum as ExtendedEthereum;
 
       // Contract ABI for cancelOrder function
       const cancelOrderABI = [
@@ -597,11 +630,17 @@ export class BlockchainOrders {
         orderHash
       });
 
+      // Get current wallet address
+      const fromAddress = await this.getCurrentWalletAddress();
+      if (!fromAddress) {
+        throw new Error("No wallet address available for transaction");
+      }
+
       // Send transaction via MetaMask
-      const txHash = await window.ethereum.request({
+      const txHash = await ethereum.request({
         method: 'eth_sendTransaction',
         params: [{
-          from: this.wallet.currentAccount,
+          from: fromAddress,
           to: CONFIG.LIMIT_ORDER_PROTOCOL,
           data: calldata,
           // Let MetaMask estimate gas
@@ -630,7 +669,8 @@ export class BlockchainOrders {
     
     while (attempts < maxAttempts) {
       try {
-        const receipt = await window.ethereum?.request({
+        const ethereum = window.ethereum as ExtendedEthereum | undefined;
+        const receipt = await ethereum?.request({
           method: 'eth_getTransactionReceipt',
           params: [txHash],
         });
@@ -706,7 +746,8 @@ export class BlockchainOrders {
       const persistentOrders = OrderCacheService.getAllOrders();
       
       // Filter persistent orders to only include those for the current wallet
-      const walletAddress = this.wallet.currentAccount?.toLowerCase();
+      const currentWallet = await this.getCurrentWalletAddress();
+      const walletAddress = currentWallet?.toLowerCase();
       const walletPersistentOrders = walletAddress ? 
         persistentOrders.filter(order => order.walletAddress.toLowerCase() === walletAddress) : [];
       

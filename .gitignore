@@ -13,6 +13,9 @@ node_modules/
 # Foundry
 broadcast/
 
+lib/
+cache/
+backend/lib/
 # macOS
 .DS_Store
 **/.DS_Store

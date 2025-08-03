@@ -200,37 +200,224 @@ export class OneInchService {
   }
 
   /**
+   * Switch to Base Mainnet network
+   */
+  private async switchToBaseNetwork(): Promise<void> {
+    const baseChainId = '0x2105'; // Base Mainnet (8453 in hex)
+    
+    try {
+      // Try to switch to Base network
+      await window.ethereum!.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: baseChainId }],
+      });
+      console.log('✅ [OneInchService] Successfully switched to Base Mainnet');
+    } catch (switchError: any) {
+      // If network doesn't exist, add it
+      if (switchError.code === 4902) {
+        console.log('🔄 [OneInchService] Base network not found, adding it...');
+        await window.ethereum!.request({
+          method: 'wallet_addEthereumChain',
+          params: [{
+            chainId: baseChainId,
+            chainName: 'Base Mainnet',
+            nativeCurrency: {
+              name: 'Ethereum',
+              symbol: 'ETH',
+              decimals: 18
+            },
+            rpcUrls: ['https://mainnet.base.org'],
+            blockExplorerUrls: ['https://basescan.org']
+          }],
+        });
+        console.log('✅ [OneInchService] Successfully added and switched to Base Mainnet');
+      } else {
+        throw switchError;
+      }
+    }
+  }
+
+  /**
+   * Request wallet connection (preferring MetaMask)
+   */
+  private async requestWalletConnection(): Promise<void> {
+    try {
+      // If both wallets present, try to connect to MetaMask specifically
+      if (window.ethereum?.isMetaMask && window.ethereum?.isPhantom && window.ethereum?.providers) {
+        const metamaskProvider = window.ethereum.providers.find((p: any) => p.isMetaMask && !p.isPhantom);
+        if (metamaskProvider) {
+          console.log('🔄 [OneInchService] Requesting MetaMask connection...');
+          await metamaskProvider.request({ method: 'eth_requestAccounts' });
+          return;
+        }
+      }
+      
+      // Default connection request
+      console.log('🔄 [OneInchService] Requesting wallet connection...');
+      await window.ethereum!.request({ method: 'eth_requestAccounts' });
+    } catch (error) {
+      console.error('❌ [OneInchService] Failed to connect wallet:', error);
+      throw new Error('Failed to connect wallet. Please ensure MetaMask is installed and unlock your wallet.');
+    }
+  }
+
+  /**
    * Check if browser wallet is available and connected
    */
   private isWalletAvailable(): boolean {
-    return typeof window !== "undefined" && 
-           !!window.ethereum && 
-           !!window.ethereum.selectedAddress;
+    const hasWindow = typeof window !== "undefined";
+    const hasEthereum = hasWindow && !!window.ethereum;
+    const hasConfigWallet = !!this.config.walletAddress;
+    
+    // Try to get the preferred provider (MetaMask over Phantom)
+    let selectedAddress = null;
+    if (hasEthereum) {
+      // If both MetaMask and Phantom are present, prefer MetaMask
+      if (window.ethereum.isMetaMask && window.ethereum.isPhantom && window.ethereum.providers) {
+        const metamaskProvider = window.ethereum.providers.find((p: any) => p.isMetaMask && !p.isPhantom);
+        selectedAddress = metamaskProvider?.selectedAddress || window.ethereum.selectedAddress;
+      } else {
+        selectedAddress = window.ethereum.selectedAddress;
+      }
+    }
+    
+    const hasSelectedAddress = !!selectedAddress;
+    
+    console.log('🔍 [OneInchService] isWalletAvailable check:', {
+      hasWindow,
+      hasEthereum,
+      hasConfigWallet,
+      configWalletAddress: this.config.walletAddress,
+      hasSelectedAddress,
+      selectedAddress,
+      isMetaMask: hasEthereum ? window.ethereum.isMetaMask : false,
+      isPhantom: hasEthereum ? window.ethereum.isPhantom : false
+    });
+
+    // Check if browser environment and ethereum is available
+    if (!hasWindow || !hasEthereum) {
+      console.log('❌ [OneInchService] No window or ethereum available');
+      return false;
+    }
+
+    // Check if we have a wallet address from the service instance
+    if (hasConfigWallet) {
+      console.log('✅ [OneInchService] Wallet available via config');
+      return true;
+    }
+
+    // Fallback: check if selectedAddress is available
+    if (hasSelectedAddress) {
+      console.log('✅ [OneInchService] Wallet available via selectedAddress');
+      return true;
+    }
+
+    console.log('❌ [OneInchService] No wallet address available');
+    return false;
   }
 
   /**
    * Send transaction using browser wallet
    */
   private async sendTransaction(transaction: TransactionPayload): Promise<string> {
+    console.log('🚀 [OneInchService] sendTransaction called with:', {
+      to: transaction.to,
+      value: transaction.value.toString(),
+      dataLength: transaction.data?.length || 0,
+      walletAddress: this.config.walletAddress
+    });
+
     if (!this.isWalletAvailable()) {
       throw new Error("Browser wallet not available or not connected");
     }
 
+    // Check wallet provider info
+    const walletInfo = {
+      isMetaMask: window.ethereum?.isMetaMask,
+      isPhantom: window.ethereum?.isPhantom,
+      chainId: window.ethereum?.chainId,
+      selectedAddress: window.ethereum?.selectedAddress,
+      networkVersion: window.ethereum?.networkVersion
+    };
+    console.log('🔍 [OneInchService] Wallet provider info:', walletInfo);
+
+    const txParams = {
+      from: this.config.walletAddress,
+      to: transaction.to,
+      data: transaction.data,
+      value: `0x${transaction.value.toString(16)}`,
+    };
+    console.log('📝 [OneInchService] Transaction parameters:', txParams);
+
+    // Check network before sending transaction
+    const currentChainId = parseInt(walletInfo.chainId || '0x1', 16);
+    const baseChainId = 8453; // Base Mainnet
+    
+    if (currentChainId !== baseChainId) {
+      console.warn(`⚠️ [OneInchService] Wrong network detected! Current: ${currentChainId}, Required: ${baseChainId}`);
+      console.log('🔄 [OneInchService] Attempting to switch to Base Mainnet...');
+      
+      try {
+        await this.switchToBaseNetwork();
+        console.log('✅ [OneInchService] Network switch successful, proceeding with transaction...');
+      } catch (networkError) {
+        console.error('❌ [OneInchService] Failed to switch network:', networkError);
+        throw new Error(`Please manually switch to Base Mainnet network. Currently on network ${currentChainId}, need ${baseChainId}. Error: ${networkError instanceof Error ? networkError.message : 'Unknown error'}`);
+      }
+    }
+
+    // Check if wallet is properly connected
+    if (!walletInfo.selectedAddress) {
+      console.warn('⚠️ [OneInchService] No wallet address selected, attempting to connect...');
+      try {
+        await this.requestWalletConnection();
+        // Refresh wallet info after connection attempt
+        const newWalletInfo = {
+          isMetaMask: window.ethereum?.isMetaMask,
+          isPhantom: window.ethereum?.isPhantom,
+          chainId: window.ethereum?.chainId,
+          selectedAddress: window.ethereum?.selectedAddress,
+          networkVersion: window.ethereum?.networkVersion
+        };
+        console.log('🔍 [OneInchService] Updated wallet info after connection:', newWalletInfo);
+      } catch (connectionError) {
+        console.error('❌ [OneInchService] Wallet connection failed:', connectionError);
+        throw new Error('Please connect your wallet first. ' + (connectionError instanceof Error ? connectionError.message : 'Unknown error'));
+      }
+    }
+
+    // Prefer MetaMask if both wallets are available
+    let provider = window.ethereum;
+    if (walletInfo.isMetaMask && walletInfo.isPhantom) {
+      console.log('🔄 [OneInchService] Both MetaMask and Phantom detected, trying to use MetaMask...');
+      // Try to find MetaMask specifically
+      if (window.ethereum?.providers) {
+        const metamaskProvider = window.ethereum.providers.find((p: any) => p.isMetaMask && !p.isPhantom);
+        if (metamaskProvider) {
+          provider = metamaskProvider;
+          console.log('✅ [OneInchService] Successfully selected MetaMask provider');
+        } else {
+          console.warn('⚠️ [OneInchService] Could not isolate MetaMask provider, using default');
+        }
+      }
+    }
+
     try {
-      const txHash = await window.ethereum!.request({
+      console.log('⏳ [OneInchService] Requesting wallet to sign transaction...');
+      const txHash = await provider!.request({
         method: 'eth_sendTransaction',
-        params: [{
-          from: this.config.walletAddress,
-          to: transaction.to,
-          data: transaction.data,
-          value: `0x${transaction.value.toString(16)}`,
-        }],
+        params: [txParams],
       });
 
-      console.log("✅ Transaction sent:", txHash);
+      console.log("✅ [OneInchService] Transaction sent successfully:", txHash);
       return txHash;
     } catch (error) {
-      console.error("❌ Failed to send transaction:", error);
+      console.error("❌ [OneInchService] Transaction failed:", {
+        error,
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        errorCode: (error as any)?.code,
+        walletInfo
+      });
       throw error;
     }
   }
@@ -377,9 +564,20 @@ export class OneInchService {
   async performSwap(
     params: SwapParams
   ): Promise<{ approvalTxHash?: string; swapTxHash: string }> {
-    if (!this.isWalletAvailable()) {
+    console.log('🚀 [OneInchService] performSwap called with params:', {
+      ...params,
+      amount: params.amount.toString() // Convert BigInt to string for logging
+    });
+    
+    const walletAvailable = this.isWalletAvailable();
+    console.log('🔍 [OneInchService] Wallet availability check result:', walletAvailable);
+    
+    if (!walletAvailable) {
+      console.error('❌ [OneInchService] Wallet not available, throwing error');
       throw new Error("Browser wallet not available. Please connect your wallet.");
     }
+    
+    console.log('✅ [OneInchService] Wallet check passed, proceeding with swap...');
 
     const result: { approvalTxHash?: string; swapTxHash: string } = {
       swapTxHash: "",

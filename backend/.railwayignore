@@ -1,0 +1,59 @@
+# Railway Ignore File
+# Files and directories to exclude from Railway deployment
+
+# Development files
+*.log
+.env
+.env.local
+.env.development
+.env.test
+
+# Testing
+test/
+*.test.js
+*.spec.js
+coverage/
+
+# Build artifacts
+node_modules/
+dist/
+build/
+.cache/
+
+# Development tools
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+
+# Documentation (keep RAILWAY_DEPLOYMENT.md)
+README.md
+docs/
+
+# Foundry/Blockchain development files
+foundry.toml
+lib/
+cache/
+out/
+broadcast/
+script/
+contracts/
+
+# Development scripts
+test-*.js
+debug-*.js
+simple-*.js
+comprehensive-*.js
+web3_workflow.js
+*.example
+
+# Temporary files
+tmp/
+temp/
+.DS_Store
+Thumbs.db

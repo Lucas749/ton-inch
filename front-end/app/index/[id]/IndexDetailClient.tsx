@@ -38,6 +38,7 @@ import { TokenSelector } from "@/components/TokenSelector";
 import { Token, tokenService } from "@/lib/token-service";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { WalletConnect } from "@/components/WalletConnect";
 import { ethers } from "ethers";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -365,6 +366,16 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
   });
   
   const { isConnected, walletAddress, indices: blockchainIndices, ethBalance, getTokenBalance, connectWallet, refreshIndices } = useBlockchain();
+
+  // Debug wallet connection state
+  useEffect(() => {
+    console.log('🔍 [IndexDetailClient] Wallet state:', {
+      isConnected,
+      walletAddress,
+      ethBalance,
+      blockchainIndicesCount: blockchainIndices?.length || 0
+    });
+  }, [isConnected, walletAddress, ethBalance, blockchainIndices]);
 
   // Auto-populate order description with index name when component loads
   useEffect(() => {
@@ -2594,17 +2605,32 @@ This matches the backend test-index-order-creator.js values exactly!`);
               </Card>
             )}
 
-            {/* Connection Warning */}
+            {/* Wallet Connection */}
             {!isConnected && (
-              <Card className="border-yellow-200 bg-yellow-50">
+              <WalletConnect 
+                className="border-blue-200 bg-blue-50"
+                showBalance={true}
+                showNetwork={true}
+                compact={false}
+              />
+            )}
+
+            {/* Connection Status for Connected Users */}
+            {isConnected && (
+              <Card className="border-green-200 bg-green-50">
                 <CardContent className="p-4">
                   <div className="flex items-center space-x-2">
-                    <Activity className="w-5 h-5 text-yellow-600" />
+                    <Activity className="w-5 h-5 text-green-600" />
                     <div>
-                      <h4 className="font-medium text-yellow-800">Connect Wallet</h4>
-                      <p className="text-sm text-yellow-700">
-                        Connect your wallet to add this index to your portfolio.
+                      <h4 className="font-medium text-green-800">Wallet Connected</h4>
+                      <p className="text-sm text-green-700">
+                        {walletAddress ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}` : 'Connected'}
                       </p>
+                      {ethBalance && (
+                        <p className="text-xs text-green-600">
+                          Balance: {parseFloat(ethBalance).toFixed(4)} ETH
+                        </p>
+                      )}
                     </div>
                   </div>
                 </CardContent>
