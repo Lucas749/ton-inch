@@ -619,6 +619,7 @@ async function createIndexBasedOrderStandalone(params: any) {
         salt: order.salt.toString(), // Store SDK-generated salt (already aligned with extension)
         receiver: order.receiver.toString(),
         expiration: expiration.toString(),
+        makerTraits: order.makerTraits.value.toString(),
         nonce: nonce.toString(),
         extension: extension ? extension.encode() : null // Store the EXACT encoded extension used in order creation
       }
@@ -1025,18 +1026,8 @@ export async function POST(request: NextRequest) {
           httpConnector: new FetchProviderConnector()
         });
 
-        // Recreate MakerTraits
-        const makerTraits = MakerTraits.default()
-          .withExpiration(BigInt(orderData.expiration))
-          .withNonce(BigInt(orderData.nonce))
-          .allowPartialFills()
-          .allowMultipleFills();
-
-        // Use SDK createOrder method during submission (same as backend pattern)
-        if (orderData.extension) {
-          makerTraits.withExtension();
-          console.log('✅ Using stored encoded extension');
-        }
+        // Recreate MakerTraits from stored value (exact match)
+        const makerTraits = MakerTraits.from(BigInt(orderData.makerTraits));
 
         // DON'T recreate the order - use manual LimitOrder with EXACT original data
         // The SDK can't recreate orders with custom salts - it breaks alignment
