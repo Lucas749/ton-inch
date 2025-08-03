@@ -1002,9 +1002,9 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                 console.warn(`Failed to fetch commodity data for ${alphaVantageFunction}, falling back to SPY`);
                 // For other commodities, fallback to SPY data
                 const fallbackResponse = await fetch(`/api/alphavantage?function=TIME_SERIES_DAILY&symbol=SPY&outputsize=compact`);
-                response = await fallbackResponse.json();
-                if (!fallbackResponse.ok) throw new Error((response as any)?.error || 'Failed to fetch fallback data');
-                parsedData = AlphaVantageService.parseTimeSeriesData(response!);
+                const fallbackData = await fallbackResponse.json();
+                if (!fallbackResponse.ok) throw new Error(fallbackData?.error || 'Failed to fetch fallback data');
+                parsedData = AlphaVantageService.parseTimeSeriesData(fallbackData);
               } else {
                 parsedData = AlphaVantageService.parseTimeSeriesData(commodityResponse);
               }
@@ -1254,7 +1254,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
         low: number;
         close: number;
         volume: number;
-      }>;
+      }> = [];
 
       // Use real Alpha Vantage function if available
       if (useRealAlphaVantageData && alphaVantageFunction) {
@@ -1708,10 +1708,42 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
       const { ORACLE_TYPES } = await import('@/lib/blockchain-constants');
       const { blockchainService } = await import('@/lib/blockchain-service');
       
-      const result = await blockchainService.createIndexWithOracleType(
-        realIndexData.name,
+      // Debug logging to identify missing/invalid parameters
+      console.log('🔍 Debug - Parameters for createIndexWithOracleType:', {
+        name: realIndexData.name,
+        nameType: typeof realIndexData.name,
+        nameLength: realIndexData.name?.length,
         initialValue,
+        initialValueType: typeof initialValue,
         sourceUrl,
+        sourceUrlType: typeof sourceUrl,
+        sourceUrlLength: sourceUrl?.length,
+        oracleType: ORACLE_TYPES.CHAINLINK,
+        oracleTypeType: typeof ORACLE_TYPES.CHAINLINK,
+        realIndexData
+      });
+
+      // Validate parameters before calling the service
+      if (!realIndexData.name || typeof realIndexData.name !== 'string' || realIndexData.name.trim().length === 0) {
+        throw new Error(`Invalid or missing index name: ${realIndexData.name}`);
+      }
+      
+      if (!initialValue || typeof initialValue !== 'number' || initialValue <= 0 || isNaN(initialValue)) {
+        throw new Error(`Invalid initial value: ${initialValue} (must be a positive number)`);
+      }
+      
+      if (!sourceUrl || typeof sourceUrl !== 'string' || sourceUrl.trim().length === 0) {
+        throw new Error(`Invalid or missing source URL: ${sourceUrl}`);
+      }
+      
+      if (typeof ORACLE_TYPES.CHAINLINK !== 'number') {
+        throw new Error(`Invalid oracle type: ${ORACLE_TYPES.CHAINLINK} (must be a number)`);
+      }
+      
+      const result = await blockchainService.createIndexWithOracleType(
+        realIndexData.name.trim(),
+        initialValue,
+        sourceUrl.trim(),
         ORACLE_TYPES.CHAINLINK
       );
 
