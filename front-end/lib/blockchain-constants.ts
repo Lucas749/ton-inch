@@ -85,7 +85,7 @@ export const INDICES = {
 // Contract addresses - Base Mainnet (New Architecture)
 export const CONTRACTS = {
   // ONLY contract we need - Hybrid Oracle for index data
-  IndexOracle: "0x8a585F9B2359Ef093E8a2f5432F387960e953BD2", // Hybrid Oracle (Base Mainnet)
+  IndexOracle: "0x3073D2b5e72c48f16Ee99700BC07737b8ecd8709", // Hybrid Oracle (Base Mainnet)
   
   // Base Mainnet token addresses
   USDC: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // Base Mainnet USDC

@@ -471,6 +471,20 @@ export class BlockchainOrders {
         try {
           const orderDetailsResponse = await fetch(`/api/oneinch/fusion?action=get-order&orderHash=${orderHash}`);
           if (!orderDetailsResponse.ok) {
+            if (orderDetailsResponse.status === 404) {
+              // Order doesn't exist on 1inch API - it was never successfully submitted
+              console.log('⚠️ Order not found on 1inch API - it was likely never successfully submitted');
+              console.log('🔄 Marking order as cancelled locally...');
+              
+              // Mark the order as cancelled in local storage
+              this.orderCacheService.updateOrderStatus(orderHash, 'cancelled');
+              
+              return {
+                success: true,
+                message: 'Order cancelled locally (was not found on 1inch)',
+                localOnly: true
+              };
+            }
             throw new Error('Failed to get order details from 1inch API');
           }
           
