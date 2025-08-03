@@ -128,25 +128,137 @@ function createAlphaVantageUrl(index: RealIndexData): string {
   return buildUrl(index.symbol, index.category);
 }
 
-// Map index IDs to Alpha Vantage symbols
+// Helper function to determine the correct AlphaVantage function and parameters based on symbol
+const getAlphaVantageConfig = (symbol: string, indexId: string): any => {
+  // Economic Indicators - use specific economic functions
+  const economicIndicators: Record<string, any> = {
+    'UNEMPLOYMENT': { function: 'UNEMPLOYMENT', isEconomic: true },
+    'CPI': { function: 'CPI', isEconomic: true },
+    'INFLATION': { function: 'INFLATION', isEconomic: true },
+    'REAL_GDP': { function: 'REAL_GDP', isEconomic: true },
+    'GDP': { function: 'REAL_GDP', isEconomic: true },
+    'FEDERAL_FUNDS_RATE': { function: 'FEDERAL_FUNDS_RATE', isEconomic: true },
+    'FFR': { function: 'FEDERAL_FUNDS_RATE', isEconomic: true },
+    'TREASURY_YIELD': { function: 'TREASURY_YIELD', isEconomic: true },
+    'YIELD': { function: 'TREASURY_YIELD', isEconomic: true }
+  };
+
+  // Crypto currencies - use DIGITAL_CURRENCY_DAILY
+  const cryptoSymbols: Record<string, any> = {
+    'BTCUSD': { function: 'DIGITAL_CURRENCY_DAILY', symbol: 'BTC', market: 'USD', isCrypto: true },
+    'BTC': { function: 'DIGITAL_CURRENCY_DAILY', symbol: 'BTC', market: 'USD', isCrypto: true },
+    'ETHUSD': { function: 'DIGITAL_CURRENCY_DAILY', symbol: 'ETH', market: 'USD', isCrypto: true },
+    'ETH': { function: 'DIGITAL_CURRENCY_DAILY', symbol: 'ETH', market: 'USD', isCrypto: true }
+  };
+
+  // Forex pairs - use CURRENCY_EXCHANGE_RATE
+  const forexPairs: Record<string, any> = {
+    'EURUSD': { function: 'CURRENCY_EXCHANGE_RATE', from_currency: 'EUR', to_currency: 'USD', isForex: true },
+    'GBPUSD': { function: 'CURRENCY_EXCHANGE_RATE', from_currency: 'GBP', to_currency: 'USD', isForex: true },
+    'USDJPY': { function: 'CURRENCY_EXCHANGE_RATE', from_currency: 'USD', to_currency: 'JPY', isForex: true }
+  };
+
+  // Commodities - use specific commodity functions
+  const commodities: Record<string, any> = {
+    'WTI': { function: 'WTI', isCommodity: true },
+    'BRENT': { function: 'BRENT', isCommodity: true },
+    'NATURAL_GAS': { function: 'NATURAL_GAS', isCommodity: true },
+    'WHEAT': { function: 'WHEAT', isCommodity: true },
+    'CORN': { function: 'CORN', isCommodity: true },
+    'GOLD': { function: 'GOLD', isCommodity: true },
+    'SILVER': { function: 'SILVER', isCommodity: true },
+    'COPPER': { function: 'COPPER', isCommodity: true }
+  };
+
+  // Intelligence functions
+  const intelligence: Record<string, any> = {
+    'GAINERS': { function: 'TOP_GAINERS_LOSERS', isIntelligence: true },
+    'TOP_GAINERS': { function: 'TOP_GAINERS_LOSERS', isIntelligence: true }
+  };
+
+  // Check each category
+  if (economicIndicators[symbol]) {
+    return economicIndicators[symbol];
+  }
+  if (cryptoSymbols[symbol]) {
+    return cryptoSymbols[symbol];
+  }
+  if (forexPairs[symbol]) {
+    return forexPairs[symbol];
+  }
+  if (commodities[symbol]) {
+    return commodities[symbol];
+  }
+  if (intelligence[symbol]) {
+    return intelligence[symbol];
+  }
+
+  // Default to stock data using GLOBAL_QUOTE for real-time price, then TIME_SERIES_DAILY for chart
+  return { function: 'TIME_SERIES_DAILY', symbol: symbol, isStock: true };
+};
+
+// Map index IDs to Alpha Vantage symbols - Enhanced for all index types
 const getAlphaVantageSymbol = (indexId: string): string => {
   const symbolMap: Record<string, string> = {
-    'aapl_stock': 'AAPL',  // Make sure case matches
+    // Stocks
+    'aapl_stock': 'AAPL',
     'AAPL_STOCK': 'AAPL',
-    'btc_price': 'BTCUSD',
-    'BTC_PRICE': 'BTCUSD',
-    'eth_price': 'ETHUSD',
-    'ETH_PRICE': 'ETHUSD', 
-    'gold_price': 'GLD',
-    'GOLD_PRICE': 'GLD', // Using GLD ETF as proxy for gold
-    'eur_usd': 'EURUSD',
-    'EUR_USD': 'EURUSD',
+    'msft_stock': 'MSFT',
+    'MSFT_STOCK': 'MSFT', 
+    'googl_stock': 'GOOGL',
+    'GOOGL_STOCK': 'GOOGL',
+    'amzn_stock': 'AMZN',
+    'AMZN_STOCK': 'AMZN',
     'tsla_stock': 'TSLA',
     'TSLA_STOCK': 'TSLA',
+    'meta_stock': 'META',
+    'META_STOCK': 'META',
+    'nvda_stock': 'NVDA',
+    'NVDA_STOCK': 'NVDA',
     'spy_etf': 'SPY',
     'SPY_ETF': 'SPY',
     'vix_index': 'VIX',
-    'VIX_INDEX': 'VIX'
+    'VIX_INDEX': 'VIX',
+    
+    // Crypto
+    'btc_price': 'BTCUSD',
+    'BTC_PRICE': 'BTCUSD',
+    'eth_price': 'ETHUSD',
+    'ETH_PRICE': 'ETHUSD',
+    
+    // Forex
+    'eur_usd': 'EURUSD',
+    'EUR_USD': 'EURUSD',
+    'gbp_usd': 'GBPUSD',
+    'GBP_USD': 'GBPUSD',
+    'usd_jpy': 'USDJPY',
+    'USD_JPY': 'USDJPY',
+    
+    // Economic Indicators
+    'us_gdp': 'GDP',
+    'US_GDP': 'GDP',
+    'us_inflation': 'CPI',
+    'US_INFLATION': 'CPI',
+    'unemployment': 'UNEMPLOYMENT',
+    'UNEMPLOYMENT': 'UNEMPLOYMENT',
+    'us_unemployment': 'UNEMPLOYMENT',
+    'US_UNEMPLOYMENT': 'UNEMPLOYMENT',
+    'fed_funds_rate': 'FFR',
+    'FED_FUNDS_RATE': 'FFR',
+    'treasury_yield': 'YIELD',
+    'TREASURY_YIELD': 'YIELD',
+    
+    // Intelligence
+    'top_gainers': 'GAINERS',
+    'TOP_GAINERS': 'GAINERS',
+    
+    // Commodities
+    'gold_price': 'GOLD',
+    'GOLD_PRICE': 'GOLD',
+    'wti_oil': 'WTI',
+    'WTI_OIL': 'WTI',
+    'brent_oil': 'BRENT',
+    'BRENT_OIL': 'BRENT'
   };
   console.log(`🔍 Looking up symbol for indexId: "${indexId}", found: "${symbolMap[indexId] || 'IBM (default)'}"`);
   return symbolMap[indexId] || 'IBM'; // Default to IBM if not found
@@ -756,15 +868,39 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
     if (blockchainIndex && (blockchainIndex as any).sourceUrl && (blockchainIndex as any).sourceUrl.includes('alphavantage.co')) {
       try {
         const url = new URL((blockchainIndex as any).sourceUrl);
-        alphaVantageFunction = url.searchParams.get('function');
-        alphaVantageSymbol = url.searchParams.get('symbol');
-        useRealAlphaVantageData = true;
+        const originalFunction = url.searchParams.get('function');
+        const originalSymbol = url.searchParams.get('symbol');
         
-        // Update symbol for API calls
-        if (alphaVantageSymbol) {
-          symbol = alphaVantageSymbol;
-        } else if (alphaVantageFunction) {
-          symbol = alphaVantageFunction;
+        // Use smart routing to override old blockchain mappings
+        const config = getAlphaVantageConfig(symbol, index.id);
+        console.log(`🧠 Smart routing override for blockchain index - Original: ${originalFunction}/${originalSymbol}, New config:`, config);
+        
+        if (config.isEconomic || config.isCrypto || config.isForex || config.isCommodity || config.isIntelligence) {
+          // Use smart routing configuration
+          alphaVantageFunction = config.function;
+          alphaVantageSymbol = config.symbol || null;
+          useRealAlphaVantageData = true;
+          
+          // Set symbol for API calls based on data type
+          if (config.isEconomic || config.isCommodity || config.isIntelligence) {
+            // For these types, the function name IS the symbol/identifier
+            symbol = config.function;
+          } else if (config.isCrypto) {
+            symbol = config.symbol;
+          } else if (config.isForex) {
+            symbol = `${config.from_currency}${config.to_currency}`;
+          }
+        } else {
+          // Fallback to original blockchain sourceUrl for stocks
+          alphaVantageFunction = originalFunction;
+          alphaVantageSymbol = originalSymbol;
+          useRealAlphaVantageData = true;
+          
+          if (originalSymbol) {
+            symbol = originalSymbol;
+          } else if (originalFunction) {
+            symbol = originalFunction;
+          }
         }
         
       } catch (error) {
@@ -910,12 +1046,73 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
             parsedData = AlphaVantageService.parseTimeSeriesData(commodityResponse);
           }
         } else {
-          // Fallback to stock data
-          console.log(`📈 Fallback: fetching stock data for: ${symbol} via cached API`);
-          const apiResponse = await fetch(`/api/alphavantage?function=TIME_SERIES_DAILY&symbol=${symbol}&outputsize=compact`);
-          response = await apiResponse.json();
-          if (!apiResponse.ok) throw new Error((response as any)?.error || 'Failed to fetch stock data');
-          parsedData = AlphaVantageService.parseTimeSeriesData(response!);
+          // Use intelligent routing based on symbol type
+          const config = getAlphaVantageConfig(symbol, index.id);
+          console.log(`📈 Smart routing for symbol: ${symbol}, config:`, config);
+          
+          if (config.isEconomic) {
+            // Economic indicators
+            console.log(`📈 Fetching economic data for: ${config.function} via cached API`);
+            const apiResponse = await fetch(`/api/alphavantage?function=${config.function}`);
+            const economicResponse = await apiResponse.json();
+            
+            if (!apiResponse.ok) {
+              console.warn(`Failed to fetch economic data for ${config.function}, falling back to SPY`);
+              const fallbackResponse = await fetch(`/api/alphavantage?function=TIME_SERIES_DAILY&symbol=SPY&outputsize=compact`);
+              response = await fallbackResponse.json();
+              if (!fallbackResponse.ok) throw new Error((response as any)?.error || 'Failed to fetch fallback data');
+              parsedData = AlphaVantageService.parseTimeSeriesData(response!);
+            } else {
+              parsedData = AlphaVantageService.parseEconomicIndicatorData(economicResponse);
+            }
+          } else if (config.isCrypto) {
+            // Crypto currencies
+            console.log(`📈 Fetching crypto data for: ${config.symbol} via cached API`);
+            const apiResponse = await fetch(`/api/alphavantage?function=${config.function}&symbol=${config.symbol}&market=${config.market}`);
+            const cryptoResponse = await apiResponse.json();
+            if (!apiResponse.ok) throw new Error(cryptoResponse.error || 'Failed to fetch crypto data');
+            parsedData = AlphaVantageService.parseTimeSeriesData(cryptoResponse);
+          } else if (config.isForex) {
+            // Forex pairs
+            console.log(`📈 Fetching forex data for: ${config.from_currency}/${config.to_currency} via cached API`);
+            const apiResponse = await fetch(`/api/alphavantage?function=${config.function}&from_currency=${config.from_currency}&to_currency=${config.to_currency}`);
+            const forexResponse = await apiResponse.json();
+            if (!apiResponse.ok) throw new Error(forexResponse.error || 'Failed to fetch forex data');
+            parsedData = AlphaVantageService.parseTimeSeriesData(forexResponse);
+          } else if (config.isCommodity) {
+            // Commodities
+            console.log(`📈 Fetching commodity data for: ${config.function} via cached API`);
+            const apiResponse = await fetch(`/api/alphavantage?function=${config.function}`);
+            const commodityResponse = await apiResponse.json();
+            
+            if (!apiResponse.ok) {
+              console.warn(`Failed to fetch commodity data for ${config.function}, falling back to SPY`);
+              const fallbackResponse = await fetch(`/api/alphavantage?function=TIME_SERIES_DAILY&symbol=SPY&outputsize=compact`);
+              response = await fallbackResponse.json();
+              if (!fallbackResponse.ok) throw new Error((response as any)?.error || 'Failed to fetch fallback data');
+              parsedData = AlphaVantageService.parseTimeSeriesData(response!);
+            } else {
+              parsedData = AlphaVantageService.parseCommodityData(commodityResponse);
+            }
+          } else if (config.isIntelligence) {
+            // Intelligence functions like TOP_GAINERS_LOSERS
+            console.log(`📈 Fetching intelligence data for: ${config.function} via cached API`);
+            const apiResponse = await fetch(`/api/alphavantage?function=${config.function}`);
+            const intelligenceResponse = await apiResponse.json();
+            if (!apiResponse.ok) throw new Error(intelligenceResponse.error || 'Failed to fetch intelligence data');
+            // For now, use a fallback since we don't have a specific parser for intelligence data
+            const fallbackResponse = await fetch(`/api/alphavantage?function=TIME_SERIES_DAILY&symbol=SPY&outputsize=compact`);
+            response = await fallbackResponse.json();
+            if (!fallbackResponse.ok) throw new Error((response as any)?.error || 'Failed to fetch fallback data');
+            parsedData = AlphaVantageService.parseTimeSeriesData(response!);
+          } else {
+            // Default: Stock data
+            console.log(`📈 Fetching stock data for: ${symbol} via cached API`);
+            const apiResponse = await fetch(`/api/alphavantage?function=TIME_SERIES_DAILY&symbol=${symbol}&outputsize=compact`);
+            response = await apiResponse.json();
+            if (!apiResponse.ok) throw new Error((response as any)?.error || 'Failed to fetch stock data');
+            parsedData = AlphaVantageService.parseTimeSeriesData(response!);
+          }
         }
       } else if (symbol.includes('USD') && !symbol.includes('/')) {
         // Crypto symbols like BTCUSD, ETHUSD
@@ -1228,8 +1425,10 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
     setRequestSuccess(null);
 
     try {
-      // Use the current Alpha Vantage price as initial value
-      const initialValue = Math.floor(realIndexData.price || 0);
+      // Use the current Alpha Vantage price as initial value, with proper validation
+      const rawPrice = realIndexData.price;
+      const validPrice = (typeof rawPrice === 'number' && !isNaN(rawPrice) && rawPrice > 0) ? rawPrice : 100;
+      const initialValue = Math.floor(validPrice);
       
       // Create proper Alpha Vantage URL based on index category
       const sourceUrl = createAlphaVantageUrl(realIndexData);
