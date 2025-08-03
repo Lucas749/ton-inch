@@ -470,14 +470,15 @@ async function createIndexBasedOrderStandalone(params: any) {
     // Setup timing
     const expirationHours = params.expirationHours || 24;
     const expiration = BigInt(Math.floor(Date.now() / 1000) + (expirationHours * 3600));
-    const UINT_40_MAX = (BigInt(1) << BigInt(48)) - BigInt(1); // Fixed: should be 48-bit as per docs
+    const UINT_40_MAX = (BigInt(1) << BigInt(40)) - BigInt(1);
     
     // Create MakerTraits
     const nonce = randBigInt(UINT_40_MAX);
-    const makerTraits = new MakerTraits() // Fixed: use 'new' instead of 'default()'
+    const makerTraits = MakerTraits.default()
       .withExpiration(expiration)
       .withNonce(nonce)
-      .withPartialFill() // Fixed: use correct method name
+      .allowPartialFills()
+      .allowMultipleFills()
       .withExtension();
     
     console.log('🔧 Creating order via SDK (handles salt-extension alignment)...');
@@ -1149,13 +1150,14 @@ export async function POST(request: NextRequest) {
 
         // Setup timing (following 1inch docs exactly)
         const expiration = BigInt(Math.floor(Date.now() / 1000) + ((expirationHours || 24) * 3600));
-        const UINT_40_MAX = (BigInt(1) << BigInt(48)) - BigInt(1); // Fixed: should be 48-bit as per docs
+        const UINT_40_MAX = (BigInt(1) << BigInt(40)) - BigInt(1);
 
-        // Create MakerTraits (following 1inch docs exactly)
-        const makerTraits = new MakerTraits() // Fixed: use 'new' instead of 'default()'
+        // Create MakerTraits (exact same as backend)
+        const makerTraits = MakerTraits.default()
           .withExpiration(expiration)
           .withNonce(randBigInt(UINT_40_MAX))
-          .withPartialFill() // Fixed: use correct method name
+          .allowPartialFills()
+          .allowMultipleFills()
           .withExtension();
 
         console.log('🔧 Creating order via SDK (exact backend approach)...');
