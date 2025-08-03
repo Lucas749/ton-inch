@@ -952,13 +952,15 @@ export async function POST(request: NextRequest) {
           makerTraits.withExtension();
         }
 
-        // Recreate the order using SDK (this returns the correct type for submitOrder)
+        // Recreate the EXACT order that was signed (using original salt)
         const orderParams = {
           makerAsset: new Address(orderData.makerAsset),
           takerAsset: new Address(orderData.takerAsset),
           makingAmount: BigInt(orderData.makingAmount),
           takingAmount: BigInt(orderData.takingAmount),
-          maker: new Address(orderData.maker)
+          maker: new Address(orderData.maker),
+          salt: BigInt(orderData.salt), // Use the ORIGINAL salt from the signed order
+          receiver: new Address(orderData.receiver || orderData.maker)
         };
 
         // Add extension if it exists
@@ -966,7 +968,8 @@ export async function POST(request: NextRequest) {
           (orderParams as any).extension = orderData.extension;
         }
 
-        const order = await sdk.createOrder(orderParams, makerTraits);
+        // Create LimitOrder directly with original salt instead of using sdk.createOrder()
+        const order = new LimitOrder(orderParams, makerTraits);
 
         console.log('✅ Order object recreated for submission');
         console.log('📤 Submitting to 1inch orderbook via SDK...');
