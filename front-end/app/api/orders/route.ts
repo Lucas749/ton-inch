@@ -617,7 +617,7 @@ async function createIndexBasedOrderStandalone(params: any) {
         takingAmount: takingAmount.toString(),
         maker: userWalletAddress,
         salt: order.salt.toString(), // Store SDK-generated salt (already aligned with extension)
-        receiver: userWalletAddress,
+        receiver: order.receiver.toString(),
         expiration: expiration.toString(),
         nonce: nonce.toString(),
         extension: extension ? extension.encode() : null // Store the EXACT encoded extension used in order creation
