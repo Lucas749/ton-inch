@@ -119,3 +119,55 @@ export function getRpcDescription(url: string): string {
   if (url.includes('mainnet.base.org')) return 'Base Mainnet (Public - Limited)';
   return 'Custom RPC';
 }
+
+/**
+ * Format index value for display based on index type
+ */
+export function formatIndexValueForDisplay(indexId: number, value: number): string {
+  switch (indexId) {
+    case 0: // Inflation Rate (basis points)
+    case 4: // Unemployment Rate (basis points)
+      return `${(value / 100).toFixed(2)}%`;
+    case 1: // Elon Followers
+      return `${(value / 1000000).toFixed(1)}M followers`;
+    case 2: // BTC Price (scaled by 100)
+    case 5: // Tesla Stock (scaled by 100)
+      return `$${(value / 100).toFixed(2)}`;
+    case 3: // VIX Index (basis points)
+      return `${(value / 100).toFixed(2)}`;
+    default:
+      // For custom indices, try to determine if it's a percentage based on value range
+      if (value <= 1000 && value > 0) {
+        // Likely a percentage value (basis points)
+        return `${(value / 100).toFixed(2)}%`;
+      }
+      return value.toLocaleString();
+  }
+}
+
+/**
+ * Get index type information for formatting
+ */
+export function getIndexTypeInfo(indexId: number): { 
+  isPercentage: boolean; 
+  isCurrency: boolean; 
+  isFollowers: boolean;
+  scalingFactor: number;
+  unit: string;
+} {
+  switch (indexId) {
+    case 0: // Inflation Rate
+    case 4: // Unemployment Rate
+      return { isPercentage: true, isCurrency: false, isFollowers: false, scalingFactor: 100, unit: '%' };
+    case 1: // Elon Followers
+      return { isPercentage: false, isCurrency: false, isFollowers: true, scalingFactor: 1000000, unit: 'M followers' };
+    case 2: // BTC Price
+    case 5: // Tesla Stock
+      return { isPercentage: false, isCurrency: true, isFollowers: false, scalingFactor: 100, unit: '$' };
+    case 3: // VIX Index
+      return { isPercentage: false, isCurrency: false, isFollowers: false, scalingFactor: 100, unit: '' };
+    default:
+      // For custom indices, make an educated guess based on value
+      return { isPercentage: false, isCurrency: false, isFollowers: false, scalingFactor: 1, unit: '' };
+  }
+}

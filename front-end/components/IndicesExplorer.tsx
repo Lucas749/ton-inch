@@ -21,6 +21,7 @@ import { useRouter } from "next/navigation";
 import { useBlockchain } from "@/hooks/useBlockchain";
 import { Sparkline } from "./Sparkline";
 import { RealIndicesService, RealIndexData } from "@/lib/real-indices-service";
+import { formatIndexValueForDisplay } from "@/lib/blockchain-utils";
 
 // Extended interface for blockchain-integrated indices
 interface ExtendedRealIndexData extends RealIndexData {
@@ -235,7 +236,7 @@ export function IndicesExplorer({ excludeSymbols = [] }: IndicesExplorerProps) {
           avatar: (blockchainIndex as any).avatar || "🔗",
           color: (blockchainIndex as any).color || "bg-blue-500",
           currentValue: blockchainIndex.value,
-          valueLabel: `${(blockchainIndex.value / 100).toFixed(2)}`,
+          valueLabel: formatIndexValueForDisplay(blockchainIndex.id, blockchainIndex.value),
           price: blockchainIndex.value / 100,
           change: "0.00%",
           changeValue: "0.00",
@@ -267,7 +268,7 @@ export function IndicesExplorer({ excludeSymbols = [] }: IndicesExplorerProps) {
             avatar: (blockchainIndex as any).avatar || "🔗",
             color: (blockchainIndex as any).color || "bg-blue-500",
             currentValue: blockchainIndex.value,
-            valueLabel: `${(blockchainIndex.value / 100).toFixed(2)}`,
+            valueLabel: formatIndexValueForDisplay(blockchainIndex.id, blockchainIndex.value),
             price: blockchainIndex.value / 100,
             change: "0.00%",
             changeValue: "0.00",

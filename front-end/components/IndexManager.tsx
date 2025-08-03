@@ -40,6 +40,7 @@ import {
   searchPredefinedIndices,
 } from "@/lib/predefined-indices";
 import { WalletConnect } from "@/components/WalletConnect";
+import { formatIndexValueForDisplay } from "@/lib/blockchain-utils";
 
 interface IndexManagerProps {
   className?: string;
@@ -130,7 +131,10 @@ export function IndexManager({
     return new Date(timestamp * 1000).toLocaleString();
   };
 
-  const formatValue = (value: number) => {
+  const formatValue = (value: number, indexId?: number) => {
+    if (indexId !== undefined) {
+      return formatIndexValueForDisplay(indexId, value);
+    }
     return value.toLocaleString();
   };
 
@@ -316,7 +320,7 @@ export function IndexManager({
                             </p>
                           )}
                           <div className="flex items-center space-x-4 text-xs text-gray-500">
-                            <span>Value: {formatValue(index.value)}</span>
+                            <span>Value: {formatValue(index.value, index.id)}</span>
                             <span>
                               Updated: {formatTimestamp(index.timestamp)}
                             </span>
