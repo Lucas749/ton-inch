@@ -132,10 +132,22 @@ export async function estimateApprovalGas(
         from: walletAddress
       });
       
-      gasLimit = Math.floor(estimatedGas.toNumber() * BASE_CONFIG.SAFETY_MARGIN);
-      console.log(`📊 Approval gas estimate: ${estimatedGas.toNumber()} → ${gasLimit} (with safety margin)`);
+      const rawEstimate = estimatedGas.toNumber();
+      
+      // 🚫 CRITICAL FIX: Cap gas limit to prevent massive estimates  
+      const MAX_REASONABLE_GAS = 100000; // 100k gas maximum for approval
+      
+      if (rawEstimate > MAX_REASONABLE_GAS) {
+        console.warn(`⚠️  Approval gas estimate too high: ${rawEstimate} → using capped limit: ${MAX_REASONABLE_GAS}`);
+        gasLimit = MAX_REASONABLE_GAS;
+      } else {
+        gasLimit = Math.floor(rawEstimate * BASE_CONFIG.SAFETY_MARGIN);
+      }
+      
+      console.log(`📊 Approval gas estimate: ${rawEstimate} → ${gasLimit} (${rawEstimate > MAX_REASONABLE_GAS ? 'CAPPED' : 'with safety margin'})`);
       
     } catch (estimateError) {
+      console.warn(`⚠️  Token approval gas estimation failed: ${(estimateError as Error).message}`);
       console.log('ℹ️ Using default approval gas estimate');
     }
     
@@ -200,31 +212,43 @@ export async function estimateOracleGas(
     
     let gasLimit = operation === 'create' ? GAS_ESTIMATES.ORACLE_CREATE_INDEX : GAS_ESTIMATES.ORACLE_UPDATE;
     
-    // Try to get accurate estimate for oracle operations
-    if (operation === 'create' && initialValue && sourceUrl) {
-      try {
-        const oracleAbi = [
-          'function createCustomIndex(uint256 initialValue, string calldata sourceUrl, uint8 oracleType, address chainlinkOracleAddress) external returns (uint256 indexId)'
-        ];
-        
-        const contract = new web3.eth.Contract(oracleAbi as any, BASE_CONFIG.INDEX_ORACLE_ADDRESS);
-        
-        const estimatedGas = await contract.methods
-          .createCustomIndex(
-            initialValue.toString(),
-            sourceUrl,
-            1, // CHAINLINK oracle type
-            '0x0000000000000000000000000000000000000000'
-          )
-          .estimateGas({ from: walletAddress });
-        
-        gasLimit = Math.floor(Number(estimatedGas) * BASE_CONFIG.SAFETY_MARGIN);
-        console.log(`📊 Oracle ${operation} gas estimate: ${estimatedGas} → ${gasLimit} (with safety margin)`);
-        
-      } catch (estimateError) {
-        console.log(`ℹ️ Using default oracle ${operation} gas estimate`);
+      // Try to get accurate estimate for oracle operations
+  if (operation === 'create' && initialValue && sourceUrl) {
+    try {
+      const oracleAbi = [
+        'function createCustomIndex(uint256 initialValue, string calldata sourceUrl, uint8 oracleType, address chainlinkOracleAddress) external returns (uint256 indexId)'
+      ];
+      
+      const contract = new web3.eth.Contract(oracleAbi as any, BASE_CONFIG.INDEX_ORACLE_ADDRESS);
+      
+      const estimatedGas = await contract.methods
+        .createCustomIndex(
+          initialValue.toString(),
+          sourceUrl,
+          1, // CHAINLINK oracle type
+          '0x0000000000000000000000000000000000000000'
+        )
+        .estimateGas({ from: walletAddress });
+      
+      const rawEstimate = Number(estimatedGas);
+      
+      // 🚫 CRITICAL FIX: Cap gas limit to prevent massive estimates
+      const MAX_REASONABLE_GAS = 500000; // 500k gas maximum for any oracle operation
+      
+      if (rawEstimate > MAX_REASONABLE_GAS) {
+        console.warn(`⚠️  Gas estimate too high: ${rawEstimate} → using capped limit: ${MAX_REASONABLE_GAS}`);
+        gasLimit = MAX_REASONABLE_GAS;
+      } else {
+        gasLimit = Math.floor(rawEstimate * BASE_CONFIG.SAFETY_MARGIN);
       }
+      
+      console.log(`📊 Oracle ${operation} gas estimate: ${rawEstimate} → ${gasLimit} (${rawEstimate > MAX_REASONABLE_GAS ? 'CAPPED' : 'with safety margin'})`);
+      
+    } catch (estimateError) {
+      console.warn(`⚠️  Contract gas estimation failed: ${(estimateError as Error).message}`);
+      console.log(`ℹ️ Using default oracle ${operation} gas estimate: ${gasLimit}`);
     }
+  }
     
     const totalCostWei = ethers.BigNumber.from(gasLimit).mul(gasPrice.gasPrice);
     const totalCostEth = ethers.utils.formatEther(totalCostWei);
