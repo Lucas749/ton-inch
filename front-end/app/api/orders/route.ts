@@ -1094,6 +1094,120 @@ export async function POST(request: NextRequest) {
         }, { status: 500 });
       }
 
+    } else if (action === 'create-and-submit-order') {
+      // EXACT BACKEND APPROACH: Create, sign, and submit in one go
+      const { 
+        fromToken, 
+        toToken, 
+        amount, 
+        expectedAmount, 
+        condition, 
+        expirationHours, 
+        walletAddress, 
+        oneInchApiKey,
+        signature 
+      } = body;
+
+      if (!fromToken || !toToken || !amount || !expectedAmount || !condition || !walletAddress || !oneInchApiKey || !signature) {
+        return NextResponse.json({ 
+          error: 'Missing required parameters for create-and-submit-order' 
+        }, { status: 400 });
+      }
+
+      try {
+        console.log('🚀 BACKEND APPROACH: Create and submit order in one go');
+        
+        // Initialize SDK (exact same as backend)
+        const sdk = new Sdk({
+          authKey: oneInchApiKey,
+          networkId: CONFIG.CHAIN_ID,
+          httpConnector: new FetchProviderConnector()
+        });
+
+        // Get tokens (exact same as backend)
+        const fromTokenInfo = TOKENS.find(t => t.address.toLowerCase() === fromToken.toLowerCase());
+        const toTokenInfo = TOKENS.find(t => t.address.toLowerCase() === toToken.toLowerCase());
+
+        if (!fromTokenInfo || !toTokenInfo) {
+          throw new Error('Token not found');
+        }
+
+        // Calculate amounts (exact same as backend)
+        const makingAmount = BigInt(Math.floor(parseFloat(amount) * Math.pow(10, fromTokenInfo.decimals)));
+        const takingAmount = BigInt(Math.floor(parseFloat(expectedAmount) * Math.pow(10, toTokenInfo.decimals)));
+
+        // Create extension with predicate (exact same as backend)
+        const extension = new ExtensionBuilder()
+          .addPredicateCall(
+            new Address(INDEX_ORACLE_ADDRESS),
+            new Address(INDEX_ORACLE_ADDRESS).call(
+              'b4fed844', // checkCondition selector
+              condition.indexId.toString().padStart(64, '0'),
+              condition.operator.toString().padStart(64, '0'),
+              condition.threshold.toString().padStart(64, '0')
+            )
+          );
+
+        // Setup timing (exact same as backend)
+        const expiration = BigInt(Math.floor(Date.now() / 1000) + ((expirationHours || 24) * 3600));
+        const UINT_40_MAX = (BigInt(1) << BigInt(40)) - BigInt(1);
+
+        // Create MakerTraits (exact same as backend)
+        const makerTraits = MakerTraits.default()
+          .withExpiration(expiration)
+          .withNonce(randBigInt(UINT_40_MAX))
+          .allowPartialFills()
+          .allowMultipleFills()
+          .withExtension();
+
+        console.log('🔧 Creating order via SDK (exact backend approach)...');
+
+        // Create order (exact same as backend - let SDK handle salt)
+        const order = await sdk.createOrder({
+          makerAsset: new Address(fromTokenInfo.address),
+          takerAsset: new Address(toTokenInfo.address),
+          makingAmount: makingAmount,
+          takingAmount: takingAmount,
+          maker: new Address(walletAddress),
+          extension: extension.encode()
+        }, makerTraits);
+
+        console.log(`✅ Order created: ${order.getOrderHash()}`);
+        console.log('📤 Submitting to 1inch (backend approach)...');
+
+        // Submit order (exact same as backend)
+        const submitResult = await sdk.submitOrder(order, signature);
+        
+        console.log('✅ Order submitted successfully via backend approach!');
+        console.log('📋 Submit result:', submitResult);
+
+        return NextResponse.json({
+          success: true,
+          orderHash: order.getOrderHash(),
+          message: 'Order created and submitted successfully using backend approach',
+          submitResult,
+          submission: {
+            submitted: true,
+            method: 'Backend SDK approach',
+            result: submitResult
+          }
+        }, {
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          },
+        });
+
+      } catch (error: any) {
+        console.error('❌ Backend approach failed:', error);
+        return NextResponse.json({
+          error: 'Failed to create and submit order using backend approach',
+          message: error.message || 'Backend approach error',
+          details: error.toString()
+        }, { status: 500 });
+      }
+
     } else {
       return NextResponse.json({ 
         error: 'Invalid action. Use "cancel-order", "create-order", "submit-order", or "create-and-submit-order"' 

@@ -185,43 +185,45 @@ export class BlockchainOrders {
 
           console.log('✅ Order signed by user:', signature);
           
-          // Submit signed order using backend SDK approach
-          console.log('📤 Submitting signed order via backend SDK...');
+          // Use EXACT backend approach: create and submit in one go
+          console.log('📤 Using backend approach: create and submit in one go...');
           
-          try {
-            // Use our new submit-order action that uses the SDK
-            const submitPayload = {
-              action: 'submit-order',
-              orderHash: result.orderHash,
-              signature: signature,
-              orderData: result.orderData,
-              oneInchApiKey: process.env.NEXT_PUBLIC_ONEINCH_API_KEY
-            };
-            
-            console.log('📡 Submitting to backend:', { orderHash: result.orderHash });
-            
-            const submitResponse = await fetch('/api/orders', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify(submitPayload)
-            });
+          // Use the exact backend approach
+          const backendPayload = {
+            action: 'create-and-submit-order',
+            fromToken: orderParams.fromToken,
+            toToken: orderParams.toToken,
+            amount: orderParams.amount,
+            expectedAmount: orderParams.expectedAmount,
+            condition: orderParams.condition,
+            expirationHours: orderParams.expirationHours,
+            walletAddress: this.wallet.currentAccount,
+            oneInchApiKey: process.env.NEXT_PUBLIC_ONEINCH_API_KEY,
+            signature: signature
+          };
+          
+          console.log('📡 Calling backend with exact backend approach...');
+          
+          const submitResponse = await fetch('/api/orders', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(backendPayload)
+          });
 
-            if (!submitResponse.ok) {
-              const errorData = await submitResponse.json();
-              console.error('❌ Backend submission error:', errorData);
-              throw new Error(`Backend error: ${submitResponse.status} ${errorData.message || 'Unknown error'}`);
-            }
-
-            const submitResult = await submitResponse.json();
-            console.log('✅ Order successfully submitted via SDK:', submitResult.submitResult);
-            console.log('🎉 LIMIT ORDER CREATED SUCCESSFULLY!');
-            
-          } catch (submitError) {
-            console.error('❌ Failed to submit order to 1inch:', submitError);
-            throw new Error(`Order signed but 1inch submission failed: ${(submitError as Error).message}`);
+          if (!submitResponse.ok) {
+            const errorData = await submitResponse.json();
+            console.error('❌ Backend approach error:', errorData);
+            throw new Error(`Backend error: ${submitResponse.status} ${errorData.message || 'Unknown error'}`);
           }
+
+          const submitResult = await submitResponse.json();
+          console.log('✅ Order successfully created and submitted via backend approach:', submitResult.submitResult);
+          console.log('🎉 LIMIT ORDER CREATED SUCCESSFULLY!');
+          
+          // Update result to use backend response
+          result.orderHash = submitResult.orderHash;
           
         } catch (signError) {
           console.error('❌ User rejected signing or signing failed:', signError);
