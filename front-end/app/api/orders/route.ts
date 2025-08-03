@@ -648,6 +648,40 @@ async function createIndexBasedOrderStandalone(params: any) {
       }
     }
     
+    // If signature is provided, submit the order immediately (backend approach)
+    if (params.signature) {
+      console.log('\n🚀 SIGNATURE PROVIDED - SUBMITTING ORDER');
+      console.log('=====================================');
+      
+      try {
+        console.log('📤 Submitting order to 1inch via SDK (backend approach)...');
+        const submitResult = await sdk.submitOrder(order, params.signature);
+        
+        console.log('✅ Order submitted successfully via SDK!');
+        console.log('📋 Submit result:', submitResult);
+        
+        // Update result to show successful submission  
+        result.success = true;
+        result.submission = {
+          submitted: true,
+          method: 'SDK submitOrder (backend approach)',
+          result: submitResult
+        };
+        result.technical.signature = params.signature;
+        
+        console.log('\n🎯 ORDER SUBMITTED SUCCESSFULLY');
+        console.log('============================');
+        
+      } catch (submitError: any) {
+        console.error('❌ Order submission failed:', submitError);
+        result.submission = {
+          submitted: false,
+          error: submitError.message,
+          method: 'SDK submitOrder (backend approach)'
+        };
+      }
+    }
+    
     return result;
     
   } catch (error: any) {
@@ -843,6 +877,59 @@ export async function POST(request: NextRequest) {
         }, { status: 500 });
       }
 
+    } else if (action === 'create-and-submit-order') {
+      // SINGLE API CALL - EXACTLY LIKE BACKEND
+      const {
+        fromToken,
+        toToken,
+        amount,
+        expectedAmount,
+        condition,
+        expirationHours,
+        walletAddress,
+        signature,
+        oneInchApiKey
+      } = body;
+
+      if (!fromToken || !toToken || !amount || !expectedAmount || !condition || !walletAddress || !signature || !oneInchApiKey) {
+        return NextResponse.json({ 
+          error: 'Missing required parameters: fromToken, toToken, amount, expectedAmount, condition, walletAddress, signature, oneInchApiKey' 
+        }, { status: 400 });
+      }
+
+      try {
+        console.log('🚀 Creating and submitting order (backend approach)');
+
+        // EXACT COPY OF BACKEND LOGIC
+        const result = await createIndexBasedOrderStandalone({
+          fromToken,
+          toToken,
+          amount,
+          expectedAmount,
+          condition,
+          expirationHours: expirationHours || 24,
+          walletAddress,
+          signature, // Pass the signature from frontend
+          oneInchApiKey
+        });
+
+        return NextResponse.json(result, {
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          },
+        });
+
+      } catch (error: any) {
+        console.error('❌ Order creation and submission failed:', error);
+        return NextResponse.json({
+          error: 'Failed to create and submit order',
+          message: error.message || 'Order processing error',
+          details: error.toString()
+        }, { status: 500 });
+      }
+
     } else if (action === 'create-order') {
             const {
         fromToken,
@@ -951,23 +1038,31 @@ export async function POST(request: NextRequest) {
           console.log('✅ Using stored encoded extension');
         }
 
-        // Use SDK createOrder method with the EXACT parameters and salt
+        // DON'T recreate the order - use manual LimitOrder with EXACT original data
+        // The SDK can't recreate orders with custom salts - it breaks alignment
         const orderParams = {
           makerAsset: new Address(orderData.makerAsset),
           takerAsset: new Address(orderData.takerAsset),
           makingAmount: BigInt(orderData.makingAmount),
           takingAmount: BigInt(orderData.takingAmount),
           maker: new Address(orderData.maker),
-          salt: BigInt(orderData.salt) // Pass the original salt to SDK
+          salt: BigInt(orderData.salt), // Use EXACT original salt
+          receiver: new Address(orderData.receiver || orderData.maker)
         };
 
         // Add the EXACT encoded extension that was used during order creation
         if (orderData.extension) {
-          (orderParams as any).extension = orderData.extension; // Use stored encoded extension
+          (orderParams as any).extension = orderData.extension; // Use stored encoded extension as raw bytes
         }
 
-        // Use SDK createOrder method (same as working backend) instead of manual LimitOrder
-        const order = await sdk.createOrder(orderParams, makerTraits);
+        // Create LimitOrder manually with EXACT original parameters (no SDK recreation)
+        const order = new LimitOrder(orderParams, makerTraits);
+        
+        console.log('🔍 Order hash verification:', {
+          expected: orderHash,
+          recreated: order.getOrderHash(CONFIG.CHAIN_ID),
+          match: orderHash === order.getOrderHash(CONFIG.CHAIN_ID)
+        });
 
         console.log('✅ Order object recreated for submission');
         console.log('📤 Submitting to 1inch orderbook via SDK...');
@@ -1008,7 +1103,7 @@ export async function POST(request: NextRequest) {
 
     } else {
       return NextResponse.json({ 
-        error: 'Invalid action. Use "cancel-order", "create-order", or "submit-order"' 
+        error: 'Invalid action. Use "cancel-order", "create-order", "submit-order", or "create-and-submit-order"' 
       }, { status: 400 });
     }
 
