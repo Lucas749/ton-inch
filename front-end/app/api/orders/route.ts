@@ -945,21 +945,20 @@ export async function POST(request: NextRequest) {
           .allowPartialFills()
           .allowMultipleFills();
 
-        // Use the EXACT encoded extension from order creation (no recreation needed)
+        // Use SDK createOrder method during submission (same as backend pattern)
         if (orderData.extension) {
           makerTraits.withExtension();
           console.log('✅ Using stored encoded extension');
         }
 
-        // Recreate the EXACT order that was signed (using original salt and extension)
+        // Use SDK createOrder method with the EXACT parameters and salt
         const orderParams = {
           makerAsset: new Address(orderData.makerAsset),
           takerAsset: new Address(orderData.takerAsset),
           makingAmount: BigInt(orderData.makingAmount),
           takingAmount: BigInt(orderData.takingAmount),
           maker: new Address(orderData.maker),
-          salt: BigInt(orderData.salt), // Use the ORIGINAL salt from the signed order
-          receiver: new Address(orderData.receiver || orderData.maker)
+          salt: BigInt(orderData.salt) // Pass the original salt to SDK
         };
 
         // Add the EXACT encoded extension that was used during order creation
@@ -967,8 +966,8 @@ export async function POST(request: NextRequest) {
           (orderParams as any).extension = orderData.extension; // Use stored encoded extension
         }
 
-        // Create LimitOrder directly with original salt and extension
-        const order = new LimitOrder(orderParams, makerTraits);
+        // Use SDK createOrder method (same as working backend) instead of manual LimitOrder
+        const order = await sdk.createOrder(orderParams, makerTraits);
 
         console.log('✅ Order object recreated for submission');
         console.log('📤 Submitting to 1inch orderbook via SDK...');
