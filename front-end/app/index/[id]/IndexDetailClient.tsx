@@ -121,6 +121,9 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
     oracleTypeName: string;
     isChainlink: boolean;
     isMock: boolean;
+    isActive: boolean;
+    requiresActivation: boolean;
+    canConfigureOracle: boolean;
     loading: boolean;
     error: string | null;
   }>({
@@ -129,6 +132,9 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
     oracleTypeName: 'MOCK',
     isChainlink: false,
     isMock: true,
+    isActive: false,
+    requiresActivation: false,
+    canConfigureOracle: true,
     loading: true,
     error: null
   });
@@ -180,6 +186,9 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
           oracleTypeName: data.oracleTypeName || 'MOCK',
           isChainlink: data.isChainlink || false,
           isMock: data.isMock !== false,
+          isActive: data.isActive || false,
+          requiresActivation: data.requiresActivation || false,
+          canConfigureOracle: data.canConfigureOracle !== false,
           loading: false,
           error: null
         });
@@ -1663,8 +1672,8 @@ This matches the backend test-index-order-creator.js values exactly!`);
               </Card>
             )}
 
-            {/* Admin Box - Only for indices 0-3 when connected */}
-            {blockchainIndexId !== null && blockchainIndexId <= 3 && (
+            {/* Admin Box - Show for all indices when connected */}
+            {blockchainIndexId !== null && isConnected && (
               <AdminBox 
                 indexId={blockchainIndexId}
                 indexName={realIndexData.name}

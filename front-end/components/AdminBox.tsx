@@ -79,17 +79,36 @@ export function AdminBox({ indexId, indexName, className = "" }: AdminBoxProps) 
       setIsLoadingOracleInfo(true);
       setError(null);
       
-      const oracleInfo = await blockchainService.getIndexOracleType(indexId);
-      setOracleType(oracleInfo.oracleType);
-      setOracleTypeName(oracleInfo.oracleTypeName);
-      
-      // Note: For active status, we would need to add this to the API
-      // For now, we'll assume indices are active by default
-      setIsActive(true);
+      // First try to get oracle status which includes active state
+      try {
+        const response = await fetch(`/api/orders?action=check-oracle&indexId=${indexId}`);
+        const oracleStatusData = await response.json();
+        
+        if (oracleStatusData.success) {
+          setOracleType(oracleStatusData.oracleType || 0);
+          setOracleTypeName(oracleStatusData.oracleTypeName || 'MOCK');
+          setIsActive(oracleStatusData.isActive || false);
+        } else {
+          throw new Error('Oracle status check failed');
+        }
+      } catch (statusError) {
+        // Fallback to the old method if the oracle status check fails
+        console.warn(`Could not get oracle status for index ${indexId}, trying fallback:`, statusError);
+        
+        const oracleInfo = await blockchainService.getIndexOracleType(indexId);
+        setOracleType(oracleInfo.oracleType);
+        setOracleTypeName(oracleInfo.oracleTypeName);
+        
+        // If we can't get the oracle status, assume the index is active
+        // This is the old behavior for backward compatibility
+        setIsActive(true);
+      }
       
     } catch (err: any) {
       console.warn(`Could not load oracle info for index ${indexId}:`, err.message);
       // Don't show error for oracle info as it's not critical
+      // Default to inactive if we can't determine the status
+      setIsActive(false);
     } finally {
       setIsLoadingOracleInfo(false);
     }

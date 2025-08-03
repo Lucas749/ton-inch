@@ -732,18 +732,23 @@ export async function GET(request: NextRequest) {
       // Check if index has chainlink oracle configured
       const oracleCheck = await checkIndexOracleStatus(Number(indexId));
       
-              return NextResponse.json({
-          success: true,
-          indexId: Number(indexId),
-          hasOracle: oracleCheck.hasSpecificOracle, // Only true if specific oracle address is set
-          oracleType: oracleCheck.oracleType,
-          oracleTypeName: oracleCheck.oracleTypeName,
-          oracleAddress: oracleCheck.oracleAddress,
-          isChainlink: oracleCheck.isChainlink,
-          isMock: oracleCheck.isMock,
-          hasSpecificOracle: oracleCheck.hasSpecificOracle,
-          setupRequired: !oracleCheck.hasSpecificOracle // Setup required if no specific oracle
-        }, {
+                    return NextResponse.json({
+        success: true,
+        indexId: Number(indexId),
+        exists: oracleCheck.exists !== false, // Default to true if not specified
+        isActive: oracleCheck.isActive || false,
+        hasOracle: oracleCheck.hasSpecificOracle, // Only true if specific oracle address is set
+        oracleType: oracleCheck.oracleType,
+        oracleTypeName: oracleCheck.oracleTypeName,
+        oracleAddress: oracleCheck.oracleAddress,
+        isChainlink: oracleCheck.isChainlink,
+        isMock: oracleCheck.isMock,
+        hasSpecificOracle: oracleCheck.hasSpecificOracle,
+        canConfigureOracle: oracleCheck.canConfigureOracle || true,
+        requiresActivation: oracleCheck.requiresActivation || false,
+        setupRequired: !oracleCheck.hasSpecificOracle, // Setup required if no specific oracle
+        error: oracleCheck.error || null
+      }, {
         headers: {
           'Access-Control-Allow-Origin': '*',
           'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
@@ -1028,10 +1033,12 @@ async function checkIndexOracleStatus(indexId: number) {
     const { ethers } = require('ethers');
     const provider = new ethers.providers.JsonRpcProvider(CONFIG.RPC_URL);
     
-    // Oracle contract ABI (minimal for our needs)
+    // Oracle contract ABI (minimal for our needs) - Added getIndexDetails to check if index exists and is active
     const oracleABI = [
       "function getIndexOracleType(uint256 indexId) external view returns (uint8 oracleType)",
-      "function getIndexChainlinkOracle(uint256 indexId) external view returns (address oracleAddress)"
+      "function getIndexChainlinkOracle(uint256 indexId) external view returns (address oracleAddress)",
+      "function getIndexDetails(uint256 indexId) external view returns (uint256 value, uint256 timestamp, string memory sourceUrl, bool isActive, uint8 oracleType, address creator)",
+      "function customIndexData(uint256 indexId) external view returns (uint256 value, uint256 timestamp, string memory sourceUrl, bool isActive, uint8 oracleType, address creator)"
     ];
     
     const oracleContract = new ethers.Contract(
@@ -1040,9 +1047,53 @@ async function checkIndexOracleStatus(indexId: number) {
       provider
     );
     
-    // Get oracle type for this index (0 = MOCK, 1 = CHAINLINK)
-    const oracleType = await oracleContract.getIndexOracleType(indexId);
-    const oracleAddress = await oracleContract.getIndexChainlinkOracle(indexId);
+    // First check if index exists and get its status
+    let isActive = false;
+    let oracleType = 0;
+    let oracleAddress = '0x0000000000000000000000000000000000000000';
+    
+    try {
+      // Try to get index details first to check if it exists and is active
+      if (indexId <= 5) {
+        // For predefined indices, try getIndexDetails
+        const details = await oracleContract.getIndexDetails(indexId);
+        isActive = details[3]; // isActive is the 4th element
+        oracleType = details[4]; // oracleType is the 5th element
+      } else {
+        // For custom indices, try customIndexData directly (doesn't require active state)
+        const customData = await oracleContract.customIndexData(indexId);
+        isActive = customData[3]; // isActive is the 4th element
+        oracleType = customData[4]; // oracleType is the 5th element
+      }
+      
+      // If index is active, we can safely call getIndexOracleType and getIndexChainlinkOracle
+      if (isActive) {
+        oracleType = await oracleContract.getIndexOracleType(indexId);
+        oracleAddress = await oracleContract.getIndexChainlinkOracle(indexId);
+      }
+      
+    } catch (detailsError: any) {
+      console.warn(`⚠️  Could not get details for index ${indexId}:`, detailsError.message);
+      
+      // If we can't get details, the index might not exist at all
+      if (detailsError.message.includes('Index not found') || detailsError.message.includes('call revert')) {
+        return {
+          exists: false,
+          isActive: false,
+          hasOracle: false,
+          oracleType: 0,
+          oracleTypeName: 'UNKNOWN',
+          oracleAddress: '0x0000000000000000000000000000000000000000',
+          isChainlink: false,
+          isMock: true,
+          hasSpecificOracle: false,
+          error: 'Index does not exist'
+        };
+      }
+      
+      // For other errors, try to continue with default values
+      console.log(`   Continuing with default values for index ${indexId}`);
+    }
     
     // Check if oracle has a specific address (not zero address)
     const zeroAddress = '0x0000000000000000000000000000000000000000';
@@ -1050,19 +1101,23 @@ async function checkIndexOracleStatus(indexId: number) {
     const oracleTypeName = oracleType === 0 ? 'MOCK' : 'CHAINLINK';
     
     console.log(`   Index ID: ${indexId}`);
+    console.log(`   Is Active: ${isActive}`);
     console.log(`   Oracle Type: ${oracleType} (${oracleTypeName})`);
     console.log(`   Oracle Address: ${oracleAddress}`);
     console.log(`   Has Specific Oracle: ${hasSpecificOracle}`);
-    console.log(`   Is Zero Address: ${oracleAddress === zeroAddress}`);
     
     return {
+      exists: true,
+      isActive: isActive,
       hasOracle: hasSpecificOracle, // Only true if specific oracle address is set
       oracleType: oracleType,
       oracleTypeName: oracleTypeName,
       oracleAddress: oracleAddress,
       isChainlink: oracleType === 1,
       isMock: oracleType === 0,
-      hasSpecificOracle: hasSpecificOracle
+      hasSpecificOracle: hasSpecificOracle,
+      canConfigureOracle: true, // Can always configure oracle, regardless of active state
+      requiresActivation: !isActive // Indicates if index needs to be activated first
     };
     
   } catch (error: any) {
