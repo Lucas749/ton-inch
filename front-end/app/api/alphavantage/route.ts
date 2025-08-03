@@ -5,7 +5,9 @@ import { ServerCSVCacheService } from '@/lib/server-csv-cache';
 // Dynamic route for Alpha Vantage API
 
 // Initialize the cache service with a proper cache directory for Next.js
-const cacheService = new ServerCSVCacheService(process.cwd() + '/cache');
+// Use /tmp in serverless environments (Vercel) as it's the only writable directory
+const cacheDir = process.env.VERCEL ? '/tmp/cache' : process.cwd() + '/cache';
+const cacheService = new ServerCSVCacheService(cacheDir);
 
 // Validation function to check if AlphaVantage response is valid
 function validateResponseData(data: any, functionName: string): void {
