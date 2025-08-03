@@ -481,27 +481,25 @@ async function createIndexBasedOrderStandalone(params: any) {
       .allowMultipleFills()
       .withExtension();
     
-    console.log('🔧 Creating order...');
+    console.log('🔧 Creating order via SDK (handles salt-extension alignment)...');
     
-    // Create order using LimitOrder constructor - convert BigNumber to bigint
-    const salt = randBigInt((BigInt(1) << BigInt(256)) - BigInt(1));
-    const limitOrderParams = {
+    // Create order using SDK (let SDK handle salt-extension alignment)
+    const orderParams = {
       makerAsset: new Address(fromToken.address),
       takerAsset: new Address(toToken.address),
       makingAmount: BigInt(makingAmount.toString()),
       takingAmount: BigInt(takingAmount.toString()),
       maker: new Address(userWalletAddress),
-      salt: salt,
-      receiver: new Address(userWalletAddress)
+      // Don't pass salt - let SDK generate it to align with extension
     };
 
-    // Add extension to order parameters if available
+    // Add extension if available
     if (extension) {
-      (limitOrderParams as any).extension = extension;
-      console.log('✅ Added extension to LimitOrder parameters');
+      (orderParams as any).extension = extension.encode();
+      console.log('✅ Added encoded extension to order parameters');
     }
 
-    const order = new LimitOrder(limitOrderParams, makerTraits);
+    const order = await sdk.createOrder(orderParams, makerTraits);
     
     console.log(`✅ Order created: ${order.getOrderHash(CONFIG.CHAIN_ID)}`);
     
@@ -618,7 +616,7 @@ async function createIndexBasedOrderStandalone(params: any) {
         makingAmount: makingAmount.toString(),
         takingAmount: takingAmount.toString(),
         maker: userWalletAddress,
-        salt: order.salt.toString(),
+        salt: order.salt.toString(), // Store SDK-generated salt (already aligned with extension)
         receiver: userWalletAddress,
         expiration: expiration.toString(),
         nonce: nonce.toString(),

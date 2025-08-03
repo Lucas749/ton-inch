@@ -147,8 +147,29 @@ export class BlockchainIndices {
           let name = `Custom Index ${id}`;
           let description = `User-created index #${id}`;
           
+          // DEBUG: Log index 15 parsing
+          if (id === 15) {
+            console.log('🐛 DEBUG: Index 15 parsing details:', {
+              id,
+              indexDetails: indexDetails,
+              sourceUrl: indexDetails?.[2] || 'NO_SOURCE_URL',
+              hasIndexDetails: !!indexDetails,
+              indexDetailsLength: indexDetails?.length || 0
+            });
+          }
+          
           if (indexDetails && (indexDetails.length >= 3 || indexDetails.__length__ >= 3 || indexDetails[2] !== undefined)) {
             const sourceUrl = indexDetails[2]; // sourceUrl is typically the 3rd element
+            
+            // DEBUG: Log index 15 sourceUrl processing
+            if (id === 15) {
+              console.log('🐛 DEBUG: Index 15 sourceUrl processing:', {
+                sourceUrl,
+                sourceUrlTrimmed: sourceUrl?.trim(),
+                willProcess: !!(sourceUrl && sourceUrl.trim())
+              });
+            }
+            
             if (sourceUrl && sourceUrl.trim()) {
               
               // Simple and direct Alpha Vantage URL parsing
@@ -229,6 +250,21 @@ export class BlockchainIndices {
           
           // Extract sourceUrl for external link
           const sourceUrl = indexDetails && indexDetails[2] ? indexDetails[2] : null;
+          
+          // DEBUG: Log index 15 final values before pushing
+          if (id === 15) {
+            console.log('🐛 DEBUG: Index 15 final values before push:', {
+              id,
+              name,
+              description,
+              category,
+              alphaVantageSymbol,
+              symbol: alphaVantageSymbol || `IDX${id}`,
+              active,
+              value,
+              sourceUrl: indexDetails?.[2] || 'NO_SOURCE_URL'
+            });
+          }
           
           indices.push({
             id,
