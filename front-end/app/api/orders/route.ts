@@ -592,6 +592,18 @@ async function createIndexBasedOrderStandalone(params: any) {
         typedData: typedData, // Return typed data for client-side signing
         signature: null, // Will be signed client-side
         predicate: predicate.substring(0, 40) + '...'
+      },
+      orderData: {
+        makerAsset: fromToken.address,
+        takerAsset: toToken.address,
+        makingAmount: makingAmount.toString(),
+        takingAmount: takingAmount.toString(),
+        maker: userWalletAddress,
+        salt: order.salt.toString(),
+        receiver: userWalletAddress,
+        expiration: expiration.toString(),
+        nonce: order.salt.toString(),
+        extension: extension ? extension.encode() : null
       }
     };
     
@@ -876,9 +888,100 @@ export async function POST(request: NextRequest) {
         }, { status: 500 });
       }
 
+    } else if (action === 'submit-order') {
+      const {
+        orderHash,
+        signature,
+        orderData,
+        oneInchApiKey
+      } = body;
+
+      if (!orderHash || !signature || !orderData || !oneInchApiKey) {
+        return NextResponse.json({ 
+          error: 'Missing required parameters: orderHash, signature, orderData, oneInchApiKey' 
+        }, { status: 400 });
+      }
+
+      try {
+        console.log('📤 Submitting signed order to 1inch via SDK');
+        console.log('🔍 Order Hash:', orderHash);
+        console.log('✍️ Signature provided:', signature ? 'YES' : 'NO');
+
+        // Initialize SDK
+        const sdk = new Sdk({
+          authKey: oneInchApiKey,
+          networkId: CONFIG.CHAIN_ID,
+          httpConnector: new FetchProviderConnector()
+        });
+
+        // Recreate MakerTraits
+        const makerTraits = MakerTraits.default()
+          .withExpiration(BigInt(orderData.expiration))
+          .withNonce(BigInt(orderData.salt))
+          .allowPartialFills()
+          .allowMultipleFills();
+
+        // Add extension if it exists
+        if (orderData.extension) {
+          makerTraits.withExtension();
+        }
+
+        // Recreate the order using SDK (this returns the correct type for submitOrder)
+        const orderParams = {
+          makerAsset: new Address(orderData.makerAsset),
+          takerAsset: new Address(orderData.takerAsset),
+          makingAmount: BigInt(orderData.makingAmount),
+          takingAmount: BigInt(orderData.takingAmount),
+          maker: new Address(orderData.maker)
+        };
+
+        // Add extension if it exists
+        if (orderData.extension) {
+          (orderParams as any).extension = orderData.extension;
+        }
+
+        const order = await sdk.createOrder(orderParams, makerTraits);
+
+        console.log('✅ Order object recreated for submission');
+        console.log('📤 Submitting to 1inch orderbook via SDK...');
+
+        // Submit order using SDK (this is the backend approach)
+        const submitResult = await sdk.submitOrder(order, signature);
+        
+        console.log('✅ Order submitted successfully via SDK!');
+        console.log('📋 Submit result:', submitResult);
+
+        return NextResponse.json({
+          success: true,
+          orderHash,
+          message: 'Order submitted successfully to 1inch orderbook',
+          submitResult,
+          submission: {
+            submitted: true,
+            method: 'SDK submitOrder',
+            result: submitResult
+          }
+        }, {
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          },
+        });
+
+      } catch (submitError: any) {
+        console.error('❌ Order submission failed:', submitError);
+        return NextResponse.json({
+          error: 'Failed to submit order to 1inch',
+          message: submitError.message || 'Order submission error',
+          details: submitError.toString(),
+          orderHash
+        }, { status: 500 });
+      }
+
     } else {
       return NextResponse.json({ 
-        error: 'Invalid action. Use "cancel-order" or "create-order"' 
+        error: 'Invalid action. Use "cancel-order", "create-order", or "submit-order"' 
       }, { status: 400 });
     }
 

@@ -185,37 +185,37 @@ export class BlockchainOrders {
 
           console.log('✅ Order signed by user:', signature);
           
-          // Submit signed order to 1inch API
-          console.log('📤 Submitting signed order to 1inch API...');
+          // Submit signed order using backend SDK approach
+          console.log('📤 Submitting signed order via backend SDK...');
           
           try {
-            // Submit to actual 1inch limit order API
-            const submitUrl = `https://api.1inch.dev/orderbook/v4.0/${CONFIG.CHAIN_ID}/order`;
-            
+            // Use our new submit-order action that uses the SDK
             const submitPayload = {
-              ...result.typedData.message,
-              signature: signature
+              action: 'submit-order',
+              orderHash: result.orderHash,
+              signature: signature,
+              orderData: result.orderData,
+              oneInchApiKey: process.env.NEXT_PUBLIC_ONEINCH_API_KEY
             };
             
-            console.log('📡 Submitting to 1inch:', { url: submitUrl, orderHash: result.orderHash });
+            console.log('📡 Submitting to backend:', { orderHash: result.orderHash });
             
-            const submitResponse = await fetch(submitUrl, {
+            const submitResponse = await fetch('/api/orders', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${process.env.NEXT_PUBLIC_ONEINCH_API_KEY}`
               },
               body: JSON.stringify(submitPayload)
             });
 
             if (!submitResponse.ok) {
-              const errorText = await submitResponse.text();
-              console.error('❌ 1inch API error:', errorText);
-              throw new Error(`1inch API error: ${submitResponse.status} ${errorText}`);
+              const errorData = await submitResponse.json();
+              console.error('❌ Backend submission error:', errorData);
+              throw new Error(`Backend error: ${submitResponse.status} ${errorData.message || 'Unknown error'}`);
             }
 
             const submitResult = await submitResponse.json();
-            console.log('✅ Order successfully submitted to 1inch API:', submitResult);
+            console.log('✅ Order successfully submitted via SDK:', submitResult.submitResult);
             console.log('🎉 LIMIT ORDER CREATED SUCCESSFULLY!');
             
           } catch (submitError) {
