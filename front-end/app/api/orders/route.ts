@@ -622,7 +622,7 @@ async function createIndexBasedOrderStandalone(params: any) {
         receiver: userWalletAddress,
         expiration: expiration.toString(),
         nonce: nonce.toString(),
-        extension: extension ? extension.encode() : null
+        condition: params.condition // Store condition parameters to recreate extension properly
       }
     };
     
@@ -947,9 +947,16 @@ export async function POST(request: NextRequest) {
           .allowPartialFills()
           .allowMultipleFills();
 
-        // Add extension if it exists
-        if (orderData.extension) {
+        // Recreate extension from condition parameters (for proper salt-extension alignment)
+        let extension = null;
+        if (orderData.condition) {
+          console.log('🔮 Recreating extension from condition parameters...');
+          const predicate = createIndexPredicate(orderData.condition);
+          extension = new ExtensionBuilder()
+            .withPredicate(predicate)
+            .build();
           makerTraits.withExtension();
+          console.log('✅ Extension recreated');
         }
 
         // Recreate the EXACT order that was signed (using original salt)
@@ -963,9 +970,9 @@ export async function POST(request: NextRequest) {
           receiver: new Address(orderData.receiver || orderData.maker)
         };
 
-        // Add extension if it exists
-        if (orderData.extension) {
-          (orderParams as any).extension = orderData.extension;
+        // Add extension if it exists (SDK will handle salt-extension alignment)
+        if (extension) {
+          (orderParams as any).extension = extension;
         }
 
         // Create LimitOrder directly with original salt instead of using sdk.createOrder()

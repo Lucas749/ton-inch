@@ -39,6 +39,13 @@ export default function Dashboard() {
   const [cancelError, setCancelError] = useState<string | null>(null);
   
   const { isConnected, indices: blockchainIndices, refreshIndices, clearIndexCache, isOwner, walletAddress } = useBlockchain();
+
+  // Debug function to force refresh real contract data
+  const forceRefreshRealData = async () => {
+    console.log('🗑️ Force clearing cache and refreshing real contract data...');
+    await clearIndexCache();
+    console.log('✅ Cache cleared and data refreshed!');
+  };
   const { orders, cancelOrder } = useOrders();
   const router = useRouter();
 

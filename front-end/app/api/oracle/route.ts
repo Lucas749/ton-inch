@@ -19,6 +19,245 @@ import {
 
 export const dynamic = 'force-dynamic';
 
+// Configuration matching backend
+const CONFIG = {
+  CHAIN_ID: 8453,
+  RPC_URL: 'https://base.llamarpc.com',
+  INDEX_ORACLE_ADDRESS: '0x3073D2b5e72c48f16Ee99700BC07737b8ecd8709'
+};
+
+// Index names and symbols (matching backend)
+const INDEX_NAMES: Record<number, string> = {
+  0: 'Inflation Rate',
+  1: 'Elon Followers', 
+  2: 'BTC Price',
+  3: 'VIX Index',
+  4: 'Unemployment Rate',
+  5: 'Tesla Stock'
+};
+
+const INDEX_SYMBOLS: Record<number, string> = {
+  0: 'INFL',
+  1: 'ELON',
+  2: 'BTC', 
+  3: 'VIX',
+  4: 'UNEMP',
+  5: 'TSLA'
+};
+
+const INDEX_UNITS: Record<number, string> = {
+  0: 'Percentage',
+  1: 'Followers',
+  2: 'USD',
+  3: 'Index Points',
+  4: 'Percentage', 
+  5: 'USD'
+};
+
+/**
+ * Format index value for display (matching backend logic)
+ */
+function formatIndexValue(indexId: number, value: any): string {
+  const numValue = Number(value);
+  
+  switch (indexId) {
+    case 0: // Inflation Rate
+    case 4: // Unemployment Rate
+      return `${(numValue / 100).toFixed(2)}%`;
+    case 1: // Elon Followers
+      return `${(numValue / 1000000).toFixed(1)}M`;
+    case 2: // BTC Price
+    case 5: // Tesla Stock
+      return `$${numValue.toLocaleString()}`;
+    case 3: // VIX Index
+      return numValue.toFixed(2);
+    default:
+      return numValue.toString();
+  }
+}
+
+/**
+ * Get index by ID (matching backend oracle-manager.js getIndexById function)
+ */
+async function getIndexById(indexId: number) {
+  console.log(`🔍 Getting Index Data for ID: ${indexId}`);
+  console.log('=======================================');
+  
+  try {
+    // Initialize Web3 with Base RPC
+    const { ethers } = require('ethers');
+    const provider = new ethers.providers.JsonRpcProvider(CONFIG.RPC_URL);
+    
+    // Oracle contract ABI 
+    const oracleABI = [
+      "function indexData(uint256 indexId) external view returns (uint256 value, uint256 timestamp, string memory sourceUrl, bool isActive, uint8 oracleType, address creator)",
+      "function customIndexData(uint256 indexId) external view returns (uint256 value, uint256 timestamp, string memory sourceUrl, bool isActive, uint8 oracleType, address creator)"
+    ];
+    
+    const contract = new ethers.Contract(CONFIG.INDEX_ORACLE_ADDRESS, oracleABI, provider);
+    
+    let indexData;
+    
+    if (indexId <= 5) {
+      // Predefined index
+      const [value, timestamp, sourceUrl, isActive, oracleType, creator] = await contract.indexData(indexId);
+      
+      indexData = {
+        id: indexId,
+        type: 'predefined',
+        name: INDEX_NAMES[indexId] || `Index ${indexId}`,
+        symbol: INDEX_SYMBOLS[indexId] || `IDX${indexId}`,
+        value: value.toString(),
+        timestamp: new Date(timestamp.toNumber() * 1000).toISOString(),
+        sourceUrl: sourceUrl,
+        isActive: isActive,
+        unit: INDEX_UNITS[indexId] || 'Units',
+        formatted: formatIndexValue(indexId, value),
+        creator: creator,
+        oracleType: oracleType
+      };
+    } else {
+      // Custom index
+      const [value, timestamp, sourceUrl, isActive, oracleType, creator] = await contract.customIndexData(indexId);
+      
+      // Extract name from Alpha Vantage sourceUrl or use default naming (matching blockchain-indices.ts logic)
+      let name = `Custom Index ${indexId}`;
+      let symbol = `CUSTOM${indexId}`;
+      let category = 'Custom';
+      let alphaVantageSymbol: string | undefined = undefined;
+      
+      if (sourceUrl && sourceUrl.trim() && sourceUrl.includes('alphavantage.co')) {
+        try {
+          const url = new URL(sourceUrl);
+          const functionParam = url.searchParams.get('function');
+          const symbolParam = url.searchParams.get('symbol');
+          
+          // Direct name extraction - no complex logic (matching blockchain-indices.ts)
+          if (symbolParam) {
+            name = symbolParam.toUpperCase();
+            symbol = symbolParam.toUpperCase();
+            alphaVantageSymbol = symbolParam.toUpperCase();
+            if (functionParam && functionParam.toLowerCase().includes('earnings')) {
+              name = `${symbolParam.toUpperCase()} EPS`;
+            }
+          } else if (functionParam) {
+            // For CORN, GOLD, etc. - just capitalize the function name
+            name = functionParam.charAt(0).toUpperCase() + functionParam.slice(1).toLowerCase();
+            symbol = functionParam.toUpperCase();
+            alphaVantageSymbol = functionParam.toUpperCase();
+          }
+          
+          // Simple category assignment based on function/symbol
+          if (symbolParam) {
+            // Has symbol - likely a stock, crypto, or specific asset
+            if (functionParam && functionParam.toLowerCase().includes('earnings')) {
+              category = 'Stocks';
+            } else if (functionParam && functionParam.toLowerCase().includes('digital')) {
+              category = 'Crypto';
+            } else {
+              category = 'Stocks';
+            }
+          } else if (functionParam) {
+            const func = functionParam.toLowerCase();
+            // Commodities like CORN, GOLD, etc.
+            const commodities = ['corn', 'wheat', 'wti', 'brent', 'gold', 'silver', 'copper', 'oil', 'gas'];
+            if (commodities.some(c => func.includes(c))) {
+              category = 'Commodities';
+            } else if (func.includes('fx') || func.includes('currency')) {
+              category = 'Forex';
+            } else {
+              category = 'Economics';
+            }
+          }
+          
+          console.log(`📊 Parsed Alpha Vantage URL for index ${indexId}:`);
+          console.log(`   Function: ${functionParam}`);
+          console.log(`   Symbol: ${symbolParam}`);
+          console.log(`   Parsed Name: ${name}`);
+          console.log(`   Category: ${category}`);
+          
+        } catch (urlError) {
+          console.warn(`Could not parse sourceUrl for index ${indexId}:`, urlError);
+          // Keep the default name and symbol
+        }
+      }
+      
+      indexData = {
+        id: indexId,
+        type: 'custom',
+        name: name,
+        symbol: symbol,
+        value: value.toString(),
+        timestamp: new Date(timestamp.toNumber() * 1000).toISOString(),
+        sourceUrl: sourceUrl,
+        isActive: isActive,
+        unit: 'Custom Unit',
+        formatted: value.toString(),
+        creator: creator,
+        oracleType: oracleType,
+        category: category,
+        alphaVantageSymbol: alphaVantageSymbol
+      };
+    }
+    
+    console.log(`✅ Found index: ${indexData.name} (${indexData.symbol})`);
+    console.log(`   Value: ${indexData.formatted}`);
+    console.log(`   Active: ${indexData.isActive}`);
+    console.log(`   Creator: ${indexData.creator}`);
+    console.log(`   Oracle Type: ${indexData.oracleType}`);
+    console.log(`   Updated: ${indexData.timestamp}\n`);
+    
+    return {
+      success: true,
+      index: indexData
+    };
+    
+  } catch (error: any) {
+    console.error(`❌ Failed to get index ${indexId}:`, error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const action = searchParams.get('action');
+  const indexId = searchParams.get('indexId');
+
+  console.log('🏗️ ORACLE API GET:', { action, indexId });
+
+  if (action === 'get-index-by-id') {
+    if (!indexId || isNaN(Number(indexId))) {
+      return NextResponse.json({ 
+        error: 'Invalid indexId parameter' 
+      }, { status: 400 });
+    }
+
+    try {
+      const result = await getIndexById(Number(indexId));
+      
+      return NextResponse.json(result, {
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        },
+      });
+
+    } catch (error: any) {
+      console.error('❌ Get index by ID error:', error);
+      return NextResponse.json({
+        error: 'Failed to get index by ID',
+        message: error.message || 'Oracle query error'
+      }, { status: 500 });
+    }
+
+  } else {
+    return NextResponse.json({ 
+      error: 'Invalid action. Use "get-index-by-id"' 
+    }, { status: 400 });
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();

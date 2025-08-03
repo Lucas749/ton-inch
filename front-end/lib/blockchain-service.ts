@@ -144,6 +144,18 @@ export class BlockchainService {
     return this.indices.updateIndex(indexId, newValue);
   }
 
+  async setIndexStatus(indexId: number, isActive: boolean): Promise<boolean> {
+    return this.indices.setIndexStatus(indexId, isActive);
+  }
+
+  async setIndexOracleType(indexId: number, oracleType: number): Promise<{ oracleType: number; oracleTypeName: string }> {
+    return this.indices.setIndexOracleType(indexId, oracleType);
+  }
+
+  async getIndexOracleType(indexId: number): Promise<{ oracleType: number; oracleTypeName: string }> {
+    return this.indices.getIndexOracleType(indexId);
+  }
+
   async validateOrderCondition(condition: OrderCondition): Promise<boolean> {
     return this.indices.validateOrderCondition(condition);
   }
@@ -166,8 +178,8 @@ export class BlockchainService {
     return this.indices.searchIndicesByName(searchTerm);
   }
 
-  clearIndicesCache(): void {
-    this.indices.clearCache();
+  async isOwner(): Promise<boolean> { 
+    return this.indices.isOwner();
   }
 
   async isContractOwner(): Promise<boolean> {

@@ -11,9 +11,6 @@ import type { BlockchainWallet } from "./blockchain-wallet";
 
 // Global request lock to prevent multiple simultaneous requests across all instances
 let globalPendingRequest: Promise<CustomIndex[]> | null = null;
-let globalIndicesCache: CustomIndex[] | null = null;
-let globalCacheTimestamp: number = 0;
-const GLOBAL_CACHE_DURATION = 30000; // 30 seconds
 
 export class BlockchainIndices {
   private web3: Web3;
@@ -40,17 +37,11 @@ export class BlockchainIndices {
   }
 
   /**
-   * Get all custom indices from the oracle with rate limiting and global caching
+   * Get all custom indices from the oracle (always fresh data)
    */
   async getAllIndices(): Promise<CustomIndex[]> {
     try {
-      // Check global cache first
-      const now = Date.now();
-      if (globalIndicesCache && (now - globalCacheTimestamp) < GLOBAL_CACHE_DURATION) {
-        return globalIndicesCache;
-      }
-
-      // If there's already a global pending request, return it to avoid duplicate calls
+      // If there's already a pending request, return it to avoid duplicate calls
       if (globalPendingRequest) {
         return globalPendingRequest;
       }
@@ -60,11 +51,6 @@ export class BlockchainIndices {
       
       try {
         const indices = await globalPendingRequest;
-        
-        // Cache the results globally
-        globalIndicesCache = indices;
-        globalCacheTimestamp = now;
-        
         return indices;
       } finally {
         // Clear the global pending request
@@ -307,13 +293,11 @@ export class BlockchainIndices {
   }
 
   /**
-   * Clear the global indices cache (call after creating/updating indices)
+   * Clear any pending requests (no cache to clear)
    */
   clearCache(): void {
-    globalIndicesCache = null;
-    globalCacheTimestamp = 0;
     globalPendingRequest = null;
-    console.log('🗑️ Cleared global indices cache');
+    console.log('🗑️ Cleared pending requests');
   }
 
   /**
@@ -346,6 +330,8 @@ export class BlockchainIndices {
         .send({
           from: this.wallet.currentAccount,
           gas: "150000",
+          maxFeePerGas: '10000000', // 0.01 gwei - proper Base L2 max fee
+          maxPriorityFeePerGas: '1000000', // 0.001 gwei - proper Base L2 priority fee
         });
 
       console.log("✅ Index created in oracle:", oracleTx.transactionHash);
@@ -357,6 +343,8 @@ export class BlockchainIndices {
         .send({
           from: this.wallet.currentAccount,
           gas: "300000",
+          maxFeePerGas: '10000000', // 0.01 gwei - proper Base L2 max fee
+          maxPriorityFeePerGas: '1000000', // 0.001 gwei - proper Base L2 priority fee
         });
 
       console.log("✅ Index registered in PreInteraction:", preIntTx.transactionHash);
@@ -433,6 +421,8 @@ export class BlockchainIndices {
           .send({
             from: this.wallet.currentAccount,
             gas: Math.floor(gasEstimate * 1.2), // Add 20% buffer
+            maxFeePerGas: '10000000', // 0.01 gwei - proper Base L2 max fee
+            maxPriorityFeePerGas: '1000000', // 0.001 gwei - proper Base L2 priority fee
           });
       } else {
         console.log('📤 Updating custom index...');
@@ -449,6 +439,8 @@ export class BlockchainIndices {
           .send({
             from: this.wallet.currentAccount,
             gas: Math.floor(gasEstimate * 1.2), // Add 20% buffer
+            maxFeePerGas: '10000000', // 0.01 gwei - proper Base L2 max fee
+            maxPriorityFeePerGas: '1000000', // 0.001 gwei - proper Base L2 priority fee
           });
       }
 
@@ -474,11 +466,14 @@ export class BlockchainIndices {
       }
 
       console.log(`⚙️ Setting Index ${indexId} Status to ${isActive ? 'ACTIVE' : 'INACTIVE'}`);
+      console.log(`🏠 Using contract: ${CONTRACTS.IndexOracle}`);
+      console.log(`👤 From wallet: ${this.wallet.currentAccount}`);
       
       // Determine if it's predefined or custom index (matches backend logic)
       let tx;
       if (indexId <= 5) {
         console.log('📤 Updating predefined index status...');
+        console.log('🔧 Calling: setIndexActive(indexId, isActive)');
         
         // Estimate gas first to catch any issues early
         const gasEstimate = await this.oracle.methods
@@ -492,9 +487,12 @@ export class BlockchainIndices {
           .send({
             from: this.wallet.currentAccount,
             gas: Math.floor(gasEstimate * 1.2), // Add 20% buffer
+            maxFeePerGas: '10000000', // 0.01 gwei - proper Base L2 max fee
+            maxPriorityFeePerGas: '1000000', // 0.001 gwei - proper Base L2 priority fee
           });
       } else {
         console.log('📤 Updating custom index status...');
+        console.log('🔧 Calling: setCustomIndexActive(indexId, isActive)');
         
         // Estimate gas first to catch any issues early
         const gasEstimate = await this.oracle.methods
@@ -502,12 +500,17 @@ export class BlockchainIndices {
           .estimateGas({ from: this.wallet.currentAccount });
         
         console.log(`⛽ Estimated gas: ${gasEstimate}`);
+        console.log(`🔐 Note: This will check ownership - you must be either:`);
+        console.log(`   1. Contract owner, OR`);
+        console.log(`   2. Creator of index ${indexId}`);
         
         tx = await this.oracle.methods
           .setCustomIndexActive(indexId, isActive)
           .send({
             from: this.wallet.currentAccount,
             gas: Math.floor(gasEstimate * 1.2), // Add 20% buffer
+            maxFeePerGas: '10000000', // 0.01 gwei - proper Base L2 max fee
+            maxPriorityFeePerGas: '1000000', // 0.001 gwei - proper Base L2 priority fee
           });
       }
 
@@ -517,8 +520,28 @@ export class BlockchainIndices {
       this.clearCache();
       
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error("❌ Error setting index status:", error);
+      
+      // Provide more helpful error messages for common ownership issues
+      if (error.message && error.message.includes('Not owner')) {
+        const enhancedError = new Error(
+          `Access denied: You are not authorized to modify index ${indexId}. ` +
+          `You must be either the contract owner or the creator of this index. ` +
+          `Check the console logs above for detailed ownership information.`
+        );
+        enhancedError.name = 'OwnershipError';
+        throw enhancedError;
+      } else if (error.message && error.message.includes('execution reverted')) {
+        const enhancedError = new Error(
+          `Transaction reverted: ${error.message}. ` +
+          `This typically means you don't have permission to modify this index. ` +
+          `Check the console logs above for detailed ownership information.`
+        );
+        enhancedError.name = 'TransactionRevertedError';
+        throw enhancedError;
+      }
+      
       throw error;
     }
   }
@@ -557,6 +580,8 @@ export class BlockchainIndices {
           .send({
             from: this.wallet.currentAccount,
             gas: Math.floor(gasEstimate * 1.2), // Add 20% buffer
+            maxFeePerGas: '10000000', // 0.01 gwei - proper Base L2 max fee
+            maxPriorityFeePerGas: '1000000', // 0.001 gwei - proper Base L2 priority fee
           });
       } else {
         console.log('📤 Updating custom index oracle type...');
@@ -573,6 +598,8 @@ export class BlockchainIndices {
           .send({
             from: this.wallet.currentAccount,
             gas: Math.floor(gasEstimate * 1.2), // Add 20% buffer
+            maxFeePerGas: '10000000', // 0.01 gwei - proper Base L2 max fee
+            maxPriorityFeePerGas: '1000000', // 0.001 gwei - proper Base L2 priority fee
           });
       }
 
@@ -826,6 +853,8 @@ export class BlockchainIndices {
         .send({
           from: this.wallet.currentAccount,
           gas: Math.floor(Number(gasEstimate) * 1.2), // Convert BigInt to Number and add 20% buffer
+          maxFeePerGas: '10000000', // 0.01 gwei - proper Base L2 max fee
+          maxPriorityFeePerGas: '1000000', // 0.001 gwei - proper Base L2 priority fee
         });
 
       console.log("✅ Index created successfully:", tx.transactionHash);

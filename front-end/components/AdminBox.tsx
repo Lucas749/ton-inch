@@ -152,6 +152,92 @@ export function AdminBox({ indexId, indexName, className = "" }: AdminBoxProps) 
       setError(null);
       setSuccessMessage(null);
       
+      // 🔍 DEBUG: Show ownership information before attempting the change
+      console.log(`🔍 OWNERSHIP DEBUG for Index ${indexId}:`);
+      console.log(`   Your Wallet: ${walletAddress}`);
+      
+      // Show contract address being used
+      try {
+        const { CONTRACTS } = await import('@/lib/blockchain-constants');
+        console.log(`   Contract Address: ${CONTRACTS.IndexOracle}`);
+        console.log(`   Network: Base Mainnet (Chain ID: 8453)`);
+      } catch (contractError) {
+        console.warn(`⚠️  Could not get contract address:`, contractError);
+      }
+      
+      try {
+        // Get index details to see who the creator is
+        const response = await fetch(`/api/orders?action=check-oracle&indexId=${indexId}`);
+        const data = await response.json();
+        console.log(`   Index Status: ${data.isActive ? 'ACTIVE' : 'INACTIVE'}`);
+        
+        // Try to get more detailed index information including creator
+        if (indexId > 5) {
+          // For custom indices, we need to check the creator
+          console.log(`   Checking custom index ${indexId} ownership...`);
+          
+          try {
+            // Get the index creator using the blockchain indices service 
+            const { getAllIndices } = await import('@/lib/blockchain-service');
+            const allIndices = await getAllIndices();
+            const currentIndex = allIndices.find(idx => idx.id === indexId);
+            
+            if (currentIndex && currentIndex.creator) {
+              console.log(`   Index Creator: ${currentIndex.creator}`);
+              console.log(`   Your Wallet: ${walletAddress}`);
+              console.log(`   Addresses Match: ${walletAddress?.toLowerCase() === currentIndex.creator?.toLowerCase()}`);
+              
+              // Check if current user is contract owner
+              const isOwner = await blockchainService.isOwner();
+              console.log(`   Is Contract Owner: ${isOwner}`);
+              
+              const hasPermission = isOwner || (walletAddress?.toLowerCase() === currentIndex.creator?.toLowerCase());
+              
+              if (!hasPermission) {
+                console.warn(`❌ OWNERSHIP ISSUE: You are neither the contract owner nor the creator of this index`);
+                console.warn(`   To modify this index, you need to be:`);
+                console.warn(`   1. Contract owner, OR`);
+                console.warn(`   2. Index creator: ${currentIndex.creator}`);
+                console.warn(`   Current situation:`);
+                console.warn(`      - Your wallet: ${walletAddress}`);
+                console.warn(`      - Index creator: ${currentIndex.creator}`);
+                console.warn(`      - Are you contract owner: ${isOwner}`);
+              } else {
+                console.log(`✅ OWNERSHIP OK: You have permission to modify this index`);
+                if (isOwner) console.log(`   ✓ You are the contract owner`);
+                if (walletAddress?.toLowerCase() === currentIndex.creator?.toLowerCase()) {
+                  console.log(`   ✓ You are the index creator`);
+                }
+              }
+            } else {
+              console.warn(`⚠️  Could not find index ${indexId} in loaded indices or no creator info`);
+              console.log(`   Available indices:`, allIndices.map(idx => ({ id: idx.id, creator: idx.creator })));
+            }
+          } catch (detailsError) {
+            console.warn(`⚠️  Could not get index creator details:`, detailsError);
+          }
+        } else {
+          // For predefined indices (0-5), only contract owner can modify
+          try {
+            const isOwner = await blockchainService.isOwner();
+            console.log(`   Is Contract Owner: ${isOwner}`);
+            
+            if (!isOwner) {
+              console.warn(`❌ OWNERSHIP ISSUE: Only contract owner can modify predefined indices (0-5)`);
+              console.warn(`   Your wallet: ${walletAddress}`);
+            } else {
+              console.log(`✅ OWNERSHIP OK: You are the contract owner`);
+            }
+          } catch (ownerError) {
+            console.warn(`⚠️  Could not check contract owner:`, ownerError);
+          }
+        }
+      } catch (debugError) {
+        console.warn(`⚠️  Debug info failed:`, debugError);
+      }
+      
+      console.log(`🔄 Attempting to ${newStatus ? 'activate' : 'deactivate'} index...`);
+      
       await blockchainService.setIndexStatus(indexId, newStatus);
       
       setIsActive(newStatus);
@@ -161,6 +247,7 @@ export function AdminBox({ indexId, indexName, className = "" }: AdminBoxProps) 
       await refreshIndices();
       
     } catch (err: any) {
+      console.error(`❌ Error setting index status:`, err);
       setError(`Failed to ${newStatus ? 'activate' : 'deactivate'} index: ${err.message}`);
     } finally {
       setIsSettingStatus(false);

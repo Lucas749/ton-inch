@@ -46,20 +46,9 @@ export function generateStaticParams() {
     // Intelligence
     { id: 'top_gainers' },
     
-    // Blockchain Indices (for dynamic routing)
-    { id: 'blockchain_0' },
-    { id: 'blockchain_1' },
-    { id: 'blockchain_2' },
-    { id: 'blockchain_3' },
-    { id: 'blockchain_4' },
-    { id: 'blockchain_5' },
-    { id: 'blockchain_6' },
-    { id: 'blockchain_7' },
-    { id: 'blockchain_8' },
-    { id: 'blockchain_9' },
-    { id: 'blockchain_10' },
-    { id: 'blockchain_11' },
-    { id: 'blockchain_12' }
+    // Note: Blockchain indices (blockchain_0, blockchain_1, blockchain_15, etc.) are handled dynamically
+    // We don't hardcode them here since there could be 40+ indices created by users
+    // Next.js will render these on-demand when users visit /index/blockchain_N
   ];
 }
 
@@ -446,8 +435,14 @@ export default function IndexDetailPage({ params }: { params: { id: string } }) 
     // Extract blockchain index ID from the URL parameter
     const blockchainId = params.id.replace('blockchain_', '');
     
-    // Generate blockchain index data with proper names and info
-    const blockchainIndexInfo: Record<string, any> = {
+    // Note: Instead of hardcoding blockchain index data, we should fetch it from the oracle API
+    // This is handled dynamically in the IndexDetailClient component which will:
+    // 1. Fetch the real blockchain data using the oracle API
+    // 2. Parse sourceUrl to get proper names (like "Corn" from Alpha Vantage URL)
+    // 3. Fall back to contract names like "Custom Index 15" if no sourceUrl
+    
+    // Predefined indices info (0-5) - these are hardcoded in the smart contract
+    const predefinedIndexInfo: Record<string, any> = {
       '0': { name: "Inflation Rate", symbol: "$INFL", avatar: "📈", color: "bg-red-600", currentValue: "3.20%", exampleCondition: "Execute when inflation > 4%", category: "Economics" },
       '1': { name: "Elon Followers", symbol: "$ELON", avatar: "🐦", color: "bg-blue-500", currentValue: "150.0M", exampleCondition: "Execute when Elon > 160M followers", category: "Intelligence" },
       '2': { name: "BTC Price", symbol: "$BTC", avatar: "₿", color: "bg-orange-500", currentValue: "$43,000", exampleCondition: "Execute when BTC < $40,000", category: "Crypto" },
@@ -456,8 +451,10 @@ export default function IndexDetailPage({ params }: { params: { id: string } }) 
       '5': { name: "Tesla Stock", symbol: "$TSLA", avatar: "🚗", color: "bg-red-500", currentValue: "$248.00", exampleCondition: "Execute when Tesla > $250", category: "Stocks" }
     };
     
-    const indexInfo = blockchainIndexInfo[blockchainId] || {
-      name: `Custom Index ${blockchainId}`,
+    // For predefined indices (0-5), use the hardcoded info since these are fixed in the contract
+    // For custom indices (6+), use fallback data - the real data will be fetched in IndexDetailClient
+    const indexInfo = predefinedIndexInfo[blockchainId] || {
+      name: `Custom Index ${blockchainId}`, // This will be replaced with real data from oracle API
       symbol: `$IDX${blockchainId}`,
       avatar: "🔗",
       color: "bg-purple-600",

@@ -207,17 +207,17 @@ export function useBlockchain(): UseBlockchainReturn {
     }
   }, [checkOwnership, isConnected, walletAddress]);
 
-  // Clear index cache and force refresh from blockchain
+  // Force refresh indices from blockchain  
   const clearIndexCache = useCallback(async () => {
     try {
-      console.log('🗑️ useBlockchain: Clearing index cache and forcing refresh...');
+      console.log('🗑️ useBlockchain: Forcing fresh fetch from blockchain...');
       console.log('🔍 useBlockchain: Wallet connected:', isConnected);
       console.log('🔍 useBlockchain: Wallet address:', walletAddress);
       
-      // Clear the global cache in blockchain service
+      // Clear any pending requests
       blockchainService.clearIndicesCache();
       
-      // Now fetch fresh data from blockchain (this will bypass cache)
+      // Fetch fresh data from blockchain (always fresh now, no cache)
       const allIndices = await blockchainService.getAllIndices();
       
       console.log('🔍 useBlockchain: Loaded fresh indices from blockchain:', allIndices);
@@ -228,9 +228,9 @@ export function useBlockchain(): UseBlockchainReturn {
         await checkOwnership();
       }
       
-      console.log('✅ useBlockchain: Index cache cleared and refreshed successfully');
+      console.log('✅ useBlockchain: Fresh data fetched successfully');
     } catch (err) {
-      console.error("❌ Failed to clear cache and refresh indices:", err);
+      console.error("❌ Failed to refresh indices:", err);
       setError(err instanceof Error ? err.message : "Failed to refresh indices from blockchain");
     }
   }, [checkOwnership, isConnected, walletAddress]);
