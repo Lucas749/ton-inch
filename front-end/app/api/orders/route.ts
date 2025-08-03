@@ -1202,6 +1202,7 @@ export async function POST(request: NextRequest) {
         try {
           submitResult = await sdk.submitOrder(order, signature);
           console.log('✅ Order submitted successfully!');
+          console.log('📋 Submit result:', submitResult);
         } catch (error: any) {
           submitError = error.message;
           console.log(`⚠️ Submit failed: ${error.message}`);
@@ -1228,7 +1229,7 @@ export async function POST(request: NextRequest) {
           submission: {
             submitted: submitResult !== null,
             error: submitError,
-            result: submitResult
+            result: submitResult // Will be converted to JSON-safe format below
           },
           technical: {
             orderHash: order.getOrderHash(),
