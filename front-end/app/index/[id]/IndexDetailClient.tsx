@@ -1045,19 +1045,22 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
         setToToken(wethToken);
       }
 
+      const demoThreshold = "18000";
+      const demoThresholdDollars = (parseInt(demoThreshold) / 100).toFixed(0); // Convert basis points to dollars
+      
       setOrderForm({
-        description: `Buy WETH when ${realIndexData.name} > $180`,
+        description: `Buy WETH when ${realIndexData.name} > $${demoThresholdDollars}`,
         fromAmount: "0.1", // 0.1 USDC - matching backend test exactly
         toAmount: "0.00003", // 0.00003 WETH - matching backend test exactly
         operator: OPERATORS.GT,
-        threshold: "18000", // $180.00 in basis points
+        threshold: demoThreshold,
         expiry: "2" // 2 hours - matching backend test
       });
       
       alert(`🚀 Demo order data loaded! 
 📱 ${realIndexData.name} conditional order
 💰 Sell 0.1 USDC → Buy 0.00003 WETH
-🎯 When ${realIndexData.name} > $180
+🎯 When ${realIndexData.name} > $${demoThresholdDollars}
 ⏰ Expires in 2 hours
 
 This matches the backend test-index-order-creator.js values exactly!`);
