@@ -470,7 +470,7 @@ async function createIndexBasedOrderStandalone(params: any) {
     // Setup timing
     const expirationHours = params.expirationHours || 24;
     const expiration = BigInt(Math.floor(Date.now() / 1000) + (expirationHours * 3600));
-    const UINT_40_MAX = (1n << 48n) - 1n; // Fixed: should be 48-bit as per docs
+    const UINT_40_MAX = (BigInt(1) << BigInt(48)) - BigInt(1); // Fixed: should be 48-bit as per docs
     
     // Create MakerTraits
     const nonce = randBigInt(UINT_40_MAX);
@@ -1149,7 +1149,7 @@ export async function POST(request: NextRequest) {
 
         // Setup timing (following 1inch docs exactly)
         const expiration = BigInt(Math.floor(Date.now() / 1000) + ((expirationHours || 24) * 3600));
-        const UINT_40_MAX = (1n << 48n) - 1n; // Fixed: should be 48-bit as per docs
+        const UINT_40_MAX = (BigInt(1) << BigInt(48)) - BigInt(1); // Fixed: should be 48-bit as per docs
 
         // Create MakerTraits (following 1inch docs exactly)
         const makerTraits = new MakerTraits() // Fixed: use 'new' instead of 'default()'
