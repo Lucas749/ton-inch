@@ -1009,6 +1009,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
               // Commodity functions - use cached API route
               console.log(`�� Fetching commodity data for: ${alphaVantageFunction} via cached API`);
               let commodityResponse: any;
+              let parsedData: any;
               
               const apiResponse = await fetch(`/api/alphavantage?function=${alphaVantageFunction}`);
               commodityResponse = await apiResponse.json();
@@ -1546,7 +1547,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
       setChartError(`Failed to load chart data for ${symbol}. Using demo visualization.`);
       
       // Generate fallback demo data with realistic values for different index types
-      let basePrice;
+      let basePrice: number;
       if (blockchainIndexId !== null) {
         // Use blockchain-specific realistic values based on index type
         switch (blockchainIndexId) {
