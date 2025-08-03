@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Navbar } from "@/components/navbar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,6 +49,17 @@ export default function Dashboard() {
   const { orders, cancelOrder } = useOrders();
   const router = useRouter();
 
+  // Memoize the indices with orders to prevent re-render loops
+  const indicesWithOrders = useMemo(() => {
+    if (!isConnected || !blockchainIndices) return [];
+    
+    return blockchainIndices.map(index => ({
+      ...index,
+      orders: [],
+      orderCount: 0
+    }));
+  }, [isConnected, blockchainIndices]);
+
   // Load all cached orders on page load
   useEffect(() => {
     console.log('🔍 Dashboard useEffect - Connection status:', isConnected);
@@ -64,20 +75,13 @@ export default function Dashboard() {
       return;
     }
 
-    // Convert blockchain indices to IndexWithOrders format
-    const indicesWithOrders: IndexWithOrders[] = blockchainIndices.map(index => ({
-      ...index,
-      orders: [],
-      orderCount: 0
-    }));
-
     console.log('🔍 Dashboard - Setting indices:', indicesWithOrders);
     setIndices(indicesWithOrders);
     
     // Load all cached orders immediately on page load
     loadAllOrders();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isConnected, blockchainIndices]);
+  }, [isConnected, indicesWithOrders]);
 
   // Auto-clear success/error messages
   useEffect(() => {

@@ -5,7 +5,7 @@
  * Integrates with RainbowKit/wagmi for wallet connection
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAccount, useBalance, useChainId, useConnect, useDisconnect } from "wagmi";
 import {
   blockchainService,
@@ -361,6 +361,9 @@ export function useBlockchain(): UseBlockchainReturn {
     };
   }, []);
 
+  // Memoize indices to prevent unnecessary re-renders
+  const memoizedIndices = useMemo(() => indices, [indices]);
+
   return {
     // State
     isConnected,
@@ -370,7 +373,7 @@ export function useBlockchain(): UseBlockchainReturn {
     chainId,
     networkName,
     ethBalance,
-    indices,
+    indices: memoizedIndices,
 
     // Actions
     connectWallet,
