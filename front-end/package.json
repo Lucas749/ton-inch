@@ -82,5 +82,9 @@
     "web3": "^4.16.0",
     "ws": "^8.18.3",
     "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/prop-types": "^15.7.15",
+    "@types/scheduler": "^0.26.0"
   }
 }

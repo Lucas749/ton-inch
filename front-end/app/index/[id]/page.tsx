@@ -1,56 +1,9 @@
 import { IndexDetailClient } from "./IndexDetailClient";
 import { redirect } from 'next/navigation';
 
-// Generate static params for all available indices
-export function generateStaticParams() {
-  return [
-    // Major Stocks
-    { id: 'aapl_stock' },
-    { id: 'tsla_stock' },
-    { id: 'msft_stock' },
-    { id: 'googl_stock' },
-    { id: 'amzn_stock' },
-    { id: 'meta_stock' },
-    { id: 'nvda_stock' },
-    
-    // ETFs and Indices
-    { id: 'spy_etf' },
-    { id: 'qqq_etf' },
-    { id: 'vix_index' },
-    
-    // Cryptocurrencies
-    { id: 'btc_price' },
-    { id: 'eth_price' },
-    
-    // Commodities
-    { id: 'wti_oil' },
-    { id: 'brent_oil' },
-    { id: 'natural_gas' },
-    { id: 'copper_price' },
-    { id: 'gold_price' },
-    { id: 'wheat_price' },
-    { id: 'corn_price' },
-    
-    // Forex
-    { id: 'eur_usd' },
-    { id: 'gbp_usd' },
-    { id: 'usd_jpy' },
-    
-    // Economics
-    { id: 'us_gdp' },
-    { id: 'us_inflation' },
-    { id: 'us_unemployment' },
-    { id: 'fed_funds_rate' },
-    { id: 'treasury_yield' },
-    
-    // Intelligence
-    { id: 'top_gainers' },
-    
-    // Note: Blockchain indices (blockchain_0, blockchain_1, blockchain_15, etc.) are handled dynamically
-    // We don't hardcode them here since there could be 40+ indices created by users
-    // Next.js will render these on-demand when users visit /index/blockchain_N
-  ];
-}
+// Disable static generation to fix Netlify deployment issues
+// This will make the route server-side rendered instead
+export const dynamic = 'force-dynamic';
 
 // Comprehensive index details for all supported indices
 const indexDetails: Record<string, any> = {

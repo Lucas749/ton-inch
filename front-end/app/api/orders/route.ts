@@ -22,7 +22,7 @@ import {
   getFundingInstructions 
 } from '@/lib/gas-estimator';
 
-export const dynamic = 'force-dynamic';
+// Dynamic route for Orders API
 
 // ===================================================================
 // EMBEDDED BACKEND LOGIC FOR STANDALONE DEPLOYMENT

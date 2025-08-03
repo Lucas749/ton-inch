@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // FUSION INTENT SWAP API ROUTE - Complete Intent-Based Swap Implementation
-export const dynamic = 'force-dynamic';
+// Dynamic route for 1inch fusion API
 
 // GET method for getting Fusion quotes and order details
 export async function GET(request: NextRequest) {

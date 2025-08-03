@@ -17,7 +17,7 @@ import {
   getFundingInstructions 
 } from '@/lib/gas-estimator';
 
-export const dynamic = 'force-dynamic';
+// Dynamic route for Oracle API
 
 // Configuration matching backend
 const CONFIG = {

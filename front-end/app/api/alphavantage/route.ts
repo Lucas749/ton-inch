@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ServerCSVCacheService } from '@/lib/server-csv-cache';
 
 // Mark this route as dynamic to avoid static generation issues
-export const dynamic = 'force-dynamic';
+// Dynamic route for Alpha Vantage API
 
 // Initialize the cache service with a proper cache directory for Next.js
 const cacheService = new ServerCSVCacheService(process.cwd() + '/cache');

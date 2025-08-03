@@ -178,8 +178,8 @@ export function AdminBox({ indexId, indexName, className = "" }: AdminBoxProps) 
           
           try {
             // Get the index creator using the blockchain indices service 
-            const { getAllIndices } = await import('@/lib/blockchain-service');
-            const allIndices = await getAllIndices();
+            const { blockchainService } = await import('@/lib/blockchain-service');
+            const allIndices = await blockchainService.getAllIndices();
             const currentIndex = allIndices.find(idx => idx.id === indexId);
             
             if (currentIndex && currentIndex.creator) {
