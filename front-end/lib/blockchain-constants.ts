@@ -24,43 +24,61 @@ export const OPERATORS = {
   NEQ: 6, // Not Equal
 };
 
-// Index mappings (matching new backend system and Alpha Vantage integration)
+// Index mappings (matching actual oracle indices)
 export const INDICES = {
-  APPLE_STOCK: {
+  INFLATION_RATE: {
     id: 0,
-    name: 'Apple Stock',
-    symbol: 'AAPL',
-    description: 'Apple Inc. stock price',
-    unit: 'USD (basis points)',
-    alphaVantageSymbol: 'AAPL',
-    category: 'Stocks',
+    name: 'Inflation Rate',
+    symbol: 'INF',
+    description: 'US Inflation Rate',
+    unit: 'Percentage (basis points)',
+    alphaVantageSymbol: 'INFLATION', 
+    category: 'Economic',
   },
-  TESLA_STOCK: {
+  ELON_FOLLOWERS: {
     id: 1,
-    name: 'Tesla Stock', 
-    symbol: 'TSLA',
-    description: 'Tesla Inc. stock price',
+    name: 'Elon Followers',
+    symbol: 'ELON',
+    description: 'Elon Musk Twitter/X followers',
+    unit: 'Millions (basis points)',
+    alphaVantageSymbol: 'ELON',
+    category: 'Social',
+  },
+  BTC_PRICE: {
+    id: 2,
+    name: 'BTC Price',
+    symbol: 'BTC',
+    description: 'Bitcoin price in USD',
     unit: 'USD (basis points)',
-    alphaVantageSymbol: 'TSLA',
-    category: 'Stocks',
+    alphaVantageSymbol: 'BTC',
+    category: 'Crypto',
   },
   VIX_INDEX: {
-    id: 2,
-    name: 'VIX Volatility Index',
-    symbol: 'VIX', 
+    id: 3,
+    name: 'VIX Index',
+    symbol: 'VIX',
     description: 'CBOE Volatility Index',
     unit: 'Index points (basis points)',
     alphaVantageSymbol: 'VIX',
     category: 'Indices',
   },
-  BTC_PRICE: {
-    id: 3,
-    name: 'Bitcoin Price',
-    symbol: 'BTC',
-    description: 'Bitcoin price in USD', 
+  UNEMPLOYMENT: {
+    id: 4,
+    name: 'Unemployment',
+    symbol: 'UNEMP',
+    description: 'US Unemployment Rate',
+    unit: 'Percentage (basis points)',
+    alphaVantageSymbol: 'UNEMPLOYMENT',
+    category: 'Economic',
+  },
+  TESLA_STOCK: {
+    id: 5,
+    name: 'Tesla Stock',
+    symbol: 'TSLA',
+    description: 'Tesla Inc. stock price',
     unit: 'USD (basis points)',
-    alphaVantageSymbol: 'BTC',
-    category: 'Crypto',
+    alphaVantageSymbol: 'TSLA',
+    category: 'Stocks',
   },
 };
 

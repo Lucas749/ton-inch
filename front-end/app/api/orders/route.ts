@@ -73,41 +73,59 @@ const CONFIG = {
 
 // Available indices in the oracle contract
 const INDICES = {
-  APPLE_STOCK: {
+  INFLATION_RATE: {
     id: 0,
-    name: 'Apple Stock',
-    symbol: 'AAPL',
-    description: 'Apple Inc. stock price',
-    currentValue: 17500,
+    name: 'Inflation Rate',
+    symbol: 'INF',
+    description: 'US Inflation Rate',
+    currentValue: 320, // 3.20%
+    unit: 'Percentage (basis points)',
+    example: 'Execute when inflation > 4%'
+  },
+  ELON_FOLLOWERS: {
+    id: 1,
+    name: 'Elon Followers',
+    symbol: 'ELON',
+    description: 'Elon Musk Twitter/X followers',
+    currentValue: 15000, // 150.0M in custom units
+    unit: 'Millions (basis points)',
+    example: 'Execute when Elon > 160M followers'
+  },
+  BTC_PRICE: {
+    id: 2,
+    name: 'BTC Price',
+    symbol: 'BTC',
+    description: 'Bitcoin price in USD',
+    currentValue: 4300000, // $43,000 in basis points
     unit: 'USD (basis points)',
-    example: 'AAPL > $180 would be: threshold: 18000'
+    example: 'Execute when BTC < $40,000'
+  },
+  VIX_INDEX: {
+    id: 3,
+    name: 'VIX Index',
+    symbol: 'VIX',
+    description: 'CBOE Volatility Index',
+    currentValue: 2257, // 22.57
+    unit: 'Index points (basis points)',
+    example: 'Execute when VIX > 25'
+  },
+  UNEMPLOYMENT: {
+    id: 4,
+    name: 'Unemployment',
+    symbol: 'UNEMP',
+    description: 'US Unemployment Rate',
+    currentValue: 370, // 3.70%
+    unit: 'Percentage (basis points)',
+    example: 'Execute when unemployment > 4%'
   },
   TESLA_STOCK: {
-    id: 1,
+    id: 5,
     name: 'Tesla Stock',
     symbol: 'TSLA',
     description: 'Tesla Inc. stock price',
-    currentValue: 25000,
+    currentValue: 24800, // $248.00
     unit: 'USD (basis points)',
-    example: 'TSLA < $240 would be: threshold: 24000'
-  },
-  VIX_INDEX: {
-    id: 2,
-    name: 'VIX Volatility Index',
-    symbol: 'VIX',
-    description: 'CBOE Volatility Index',
-    currentValue: 2000,
-    unit: 'Index points (basis points)',
-    example: 'VIX > 25 would be: threshold: 2500'
-  },
-  BTC_PRICE: {
-    id: 3,
-    name: 'Bitcoin Price',
-    symbol: 'BTC',
-    description: 'Bitcoin price in USD',
-    currentValue: 4500000,
-    unit: 'USD (basis points)',
-    example: 'BTC > $50,000 would be: threshold: 5000000'
+    example: 'Execute when Tesla > $250'
   }
 };
 
