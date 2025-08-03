@@ -16,6 +16,8 @@ import { OrderCacheService } from "./order-cache-service";
 // 1inch SDK imports for direct usage
 import { LimitOrder, MakerTraits, Address, Sdk, randBigInt, FetchProviderConnector, ExtensionBuilder } from '@1inch/limit-order-sdk';
 
+// Using direct SDK approach like the working backend
+
 // Configuration matching backend
 const CONFIG = {
   CHAIN_ID: 8453, // Base Mainnet
@@ -178,7 +180,12 @@ export class BlockchainOrders {
       console.log(`👤 Using wallet: ${currentAccount}`);
       console.log(`🌐 Network: Base Mainnet (${CONFIG.CHAIN_ID})`);
 
-      // Initialize 1inch SDK
+      // Initialize 1inch SDK (direct connection like backend)
+      // Note: If CORS issues persist, you may need to:
+      // 1. Run a CORS proxy (e.g., cors-anywhere)
+      // 2. Use browser extension to disable CORS
+      // 3. Or add proper orderbook proxy endpoints
+      console.log('🔧 Initializing 1inch SDK with direct connector...');
       const sdk = new Sdk({
         authKey: process.env.NEXT_PUBLIC_ONEINCH_API_KEY!,
         networkId: CONFIG.CHAIN_ID,
@@ -227,18 +234,15 @@ export class BlockchainOrders {
       
       console.log('🔧 Creating order...');
       
-      // Create order (following backend pattern)
+      // Create order (exact backend pattern with extension)
       const order = await sdk.createOrder({
         makerAsset: new Address(fromTokenInfo.address),
         takerAsset: new Address(toTokenInfo.address),
         makingAmount: makingAmount,
         takingAmount: takingAmount,
-        maker: new Address(currentAccount)
-      }, makerTraits);
-      
-      // TODO: Add extension/predicate support 
-      // The SDK interface for extensions seems to have changed between versions
-      // For now creating basic orders without predicates - needs investigation
+        maker: new Address(currentAccount),
+        extension: extension.encode()  // ✅ Include extension like backend
+      } as any, makerTraits);
       
       const orderHash = order.getOrderHash(CONFIG.CHAIN_ID);
       console.log(`✅ Order created: ${orderHash}`);
@@ -467,7 +471,8 @@ export class BlockchainOrders {
 
       console.log(`🚫 Cancelling order ${orderHash} with user wallet...`);
       
-      // Initialize 1inch SDK
+      // Initialize 1inch SDK with custom proxy connector
+      console.log('🔧 Initializing 1inch SDK with direct connector for cancellation...');
       const sdk = new Sdk({
         authKey: process.env.NEXT_PUBLIC_ONEINCH_API_KEY!,
         networkId: CONFIG.CHAIN_ID,
