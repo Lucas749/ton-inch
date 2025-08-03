@@ -1046,16 +1046,16 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
       }
 
       setOrderForm({
-        description: `Buy WETH when ${realIndexData.name} > $180 (Apple Stock demo)`,
+        description: `Buy WETH when ${realIndexData.name} > $180`,
         fromAmount: "0.1", // 0.1 USDC - matching backend test exactly
         toAmount: "0.00003", // 0.00003 WETH - matching backend test exactly
         operator: OPERATORS.GT,
-        threshold: "18000", // $180.00 in basis points (Apple Stock threshold)
+        threshold: "18000", // $180.00 in basis points
         expiry: "2" // 2 hours - matching backend test
       });
       
       alert(`🚀 Demo order data loaded! 
-📱 Apple Stock conditional order
+📱 ${realIndexData.name} conditional order
 💰 Sell 0.1 USDC → Buy 0.00003 WETH
 🎯 When ${realIndexData.name} > $180
 ⏰ Expires in 2 hours
