@@ -23,7 +23,7 @@ export const dynamic = 'force-dynamic';
 const CONFIG = {
   CHAIN_ID: 8453,
   RPC_URL: 'https://base.llamarpc.com',
-  INDEX_ORACLE_ADDRESS: '0x3073D2b5e72c48f16Ee99700BC07737b8ecd8709'
+  INDEX_ORACLE_ADDRESS: '0x8a585F9B2359Ef093E8a2f5432F387960e953BD2' // Match blockchain-constants.ts
 };
 
 // Index names and symbols (matching backend)
@@ -290,7 +290,7 @@ export async function POST(request: NextRequest) {
         console.log(`💰 You need to send Base ETH to this address: ${wallet.address}`);
         
         // Create contract instance  
-        const contract = new web3.eth.Contract(ABIS.IndexOracle, CONTRACTS.IndexOracle);
+        const contract = new web3.eth.Contract(ABIS.IndexOracle, CONFIG.INDEX_ORACLE_ADDRESS);
 
         console.log('📋 Creating blockchain index with oracle:', {
           name,
@@ -327,7 +327,7 @@ export async function POST(request: NextRequest) {
         
         const txData = {
           from: wallet.address,
-          to: CONTRACTS.IndexOracle,
+          to: CONFIG.INDEX_ORACLE_ADDRESS,
           data: tx.encodeABI(),
           gas: gasEstimate.gasLimit,
           gasPrice: gasEstimate.gasPrice,
