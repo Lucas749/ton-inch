@@ -196,10 +196,9 @@ function validateOrderParams(params: any) {
     if (!params.condition.operator) errors.push('condition.operator is required');
     if (typeof params.condition.threshold !== 'number') errors.push('condition.threshold must be a number');
     
-    // Validate index ID
-    const validIndexIds = Object.values(INDICES).map((idx: any) => idx.id);
-    if (!validIndexIds.includes(params.condition.indexId)) {
-      errors.push(`Invalid indexId. Valid values: ${validIndexIds.join(', ')}`);
+    // Basic validation - indexId should be non-negative integer (all blockchain indices supported)
+    if (params.condition.indexId < 0 || !Number.isInteger(params.condition.indexId)) {
+      errors.push('indexId must be a non-negative integer');
     }
     
     // Validate operator
