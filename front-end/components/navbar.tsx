@@ -250,7 +250,7 @@ export function Navbar() {
                     </div>
                   ) : searchQuery ? (
                     <div className="p-4 text-center text-gray-500">
-                      No indices found for "{searchQuery}"
+                      No indices found for &quot;{searchQuery}&quot;
                     </div>
                   ) : null}
                 </div>

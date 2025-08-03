@@ -102,7 +102,7 @@ export class WalletErrorBoundary extends React.Component<
                 )}
                 <div className="text-xs text-gray-600 mt-2 p-2 bg-gray-50 rounded">
                   <strong>Quick fix:</strong> Try refreshing the page or reconnecting your wallet. 
-                  If using a mobile wallet, ensure it's running in the background.
+                  If using a mobile wallet, ensure it&apos;s running in the background.
                 </div>
                 <div className="pt-2">
                   <Button
