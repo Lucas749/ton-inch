@@ -193,11 +193,11 @@ export class BlockchainOrders {
   }
 
   /**
-   * Create a new order with index condition (using 1inch SDK directly)
+   * Create a new order with index condition (using secure server flow)
    */
   async createOrder(params: OrderParams): Promise<Order | null> {
     try {
-      console.log("🔄 Creating order via 1inch SDK directly:", params);
+      console.log("🔄 Creating order via secure server flow:", params);
       
       if (!this.isWalletAvailable()) {
         throw new Error("Wallet not connected. Please connect your wallet first.");
@@ -211,120 +211,131 @@ export class BlockchainOrders {
       console.log(`👤 Using wallet: ${currentAccount}`);
       console.log(`🌐 Network: Base Mainnet (${CONFIG.CHAIN_ID})`);
 
-      // Initialize 1inch SDK (direct connection like backend)
-      // Note: If CORS issues persist, you may need to:
-      // 1. Run a CORS proxy (e.g., cors-anywhere)
-      // 2. Use browser extension to disable CORS
-      // 3. Or add proper orderbook proxy endpoints
-      console.log('🔧 Initializing 1inch SDK with direct connector...');
-      const sdk = new Sdk({
-        authKey: process.env.NEXT_PUBLIC_ONEINCH_API_KEY!,
-        networkId: CONFIG.CHAIN_ID,
-        httpConnector: new FetchProviderConnector()
-      });
-
-      // Parse tokens
+      // Parse tokens for the order
       const fromTokenInfo = this.getTokenInfo(params.fromToken);
       const toTokenInfo = this.getTokenInfo(params.toToken);
-      
-      // Parse amounts
-      const makingAmount = BigInt(ethers.utils.parseUnits(params.fromAmount, fromTokenInfo.decimals).toString());
-      const takingAmount = BigInt(ethers.utils.parseUnits(params.toAmount, toTokenInfo.decimals).toString());
       
       console.log(`📊 Trading: ${params.fromAmount} ${fromTokenInfo.symbol} → ${params.toAmount} ${toTokenInfo.symbol}`);
       console.log(`📋 Condition: ${params.description}`);
       
-      // Create predicate
-      console.log('🔮 Creating index predicate...');
-      const condition = {
-        indexId: params.indexId,
-        operator: this.mapOperatorToString(params.operator),
-        threshold: params.threshold,
-        description: params.description
+      // STEP 1: Prepare unsigned order on server
+      console.log('📋 Step 1: Preparing unsigned order on server...');
+      
+      const orderRequest = {
+        fromToken: fromTokenInfo.symbol,
+        toToken: toTokenInfo.symbol,
+        amount: params.fromAmount,
+        expectedAmount: params.toAmount,
+        condition: {
+          indexId: params.indexId,
+          operator: this.mapOperatorToString(params.operator),
+          threshold: params.threshold,
+          description: params.description
+        },
+        expirationHours: params.expiry ? Math.floor(params.expiry / 3600) : 24,
+        makerAddress: currentAccount,
+        config: {
+          CHAIN_ID: CONFIG.CHAIN_ID,
+          INDEX_ORACLE_ADDRESS: CONFIG.INDEX_ORACLE_ADDRESS,
+          LIMIT_ORDER_PROTOCOL: CONFIG.LIMIT_ORDER_PROTOCOL
+        }
       };
-      const predicate = this.createIndexPredicate(condition);
+
+      console.log('📤 Sending order parameters to server...');
+      const prepareResponse = await fetch('http://localhost:3001/orders/prepare', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderRequest)
+      });
+
+      if (!prepareResponse.ok) {
+        const errorText = await prepareResponse.text();
+        throw new Error(`Server preparation failed: ${errorText}`);
+      }
+
+      const prepareResult = await prepareResponse.json();
+      if (!prepareResult.success) {
+        throw new Error(`Order preparation failed: ${prepareResult.error}`);
+      }
+
+      console.log('✅ Server prepared unsigned order:', {
+        orderHash: prepareResult.orderHash,
+        orderId: prepareResult.orderId,
+        condition: prepareResult.condition.description,
+        expiration: prepareResult.order.expiration
+      });
+
+      // STEP 2: Sign the order with MetaMask
+      console.log('✍️ Step 2: Signing order with MetaMask...');
       
-      // Create extension
-      const extension = new ExtensionBuilder()
-        .withPredicate(predicate)
-        .build();
-      console.log('✅ Extension created with predicate');
-      
-      // Setup timing
-      const expirationHours = params.expiry ? Math.floor(params.expiry / 3600) : 24;
-      const expiration = BigInt(Math.floor(Date.now() / 1000) + (expirationHours * 3600));
-      const UINT_40_MAX = (1n << 40n) - 1n;
-      
-      // Create MakerTraits
-      const makerTraits = MakerTraits.default()
-        .withExpiration(expiration)
-        .withNonce(randBigInt(UINT_40_MAX))
-        .allowPartialFills()
-        .allowMultipleFills()
-        .withExtension();
-      
-      console.log('🔧 Creating order...');
-      
-      // Create order (exact backend pattern with extension)
-      const order = await sdk.createOrder({
-        makerAsset: new Address(fromTokenInfo.address),
-        takerAsset: new Address(toTokenInfo.address),
-        makingAmount: makingAmount,
-        takingAmount: takingAmount,
-        maker: new Address(currentAccount),
-        extension: extension.encode()  // ✅ Include extension like backend
-      } as any, makerTraits);
-      
-      const orderHash = order.getOrderHash(CONFIG.CHAIN_ID);
-      console.log(`✅ Order created: ${orderHash}`);
-      
-      // Sign order with MetaMask
-      console.log('✍️ Signing order with MetaMask...');
-      const typedData = order.getTypedData(CONFIG.CHAIN_ID);
-      
-      // Request signature from MetaMask (like 1inch-service.ts)
       const ethereum = window.ethereum as ExtendedEthereum;
       const signature = await ethereum.request({
         method: 'eth_signTypedData_v4',
-        params: [currentAccount, JSON.stringify(typedData)],
+        params: [currentAccount, JSON.stringify(prepareResult.signingData.typedData)]
       });
       
-      console.log('✅ Order signed');
+      console.log('✅ Order signed successfully');
       
-      // Submit order to 1inch
-      console.log('📤 Submitting to 1inch...');
-      let submitResult = null;
-      let submitError = null;
+      // STEP 3: Submit signed order back to server
+      console.log('📤 Step 3: Submitting signed order to server...');
       
-      try {
-        submitResult = await sdk.submitOrder(order, signature);
-        console.log('✅ Order submitted successfully!');
-      } catch (error) {
-        submitError = error instanceof Error ? error.message : String(error);
-        console.log(`⚠️ Submit failed: ${submitError}`);
+      const submitData = {
+        orderData: prepareResult.signingData,
+        signature: signature
+      };
+
+      const submitResponse = await fetch('http://localhost:3001/orders/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(submitData)
+      });
+
+      if (!submitResponse.ok) {
+        const errorText = await submitResponse.text();
+        throw new Error(`Server submission failed: ${errorText}`);
+      }
+
+      const submitResult = await submitResponse.json();
+      
+      console.log('📊 FINAL RESULT:', {
+        success: submitResult.success,
+        orderHash: submitResult.orderHash,
+        submitted: submitResult.submission?.submitted || false
+      });
+
+      if (!submitResult.success) {
+        throw new Error(`Order submission failed: ${submitResult.submission?.error || 'Unknown error'}`);
+      }
+
+      console.log('✅ Order submitted successfully to 1inch via server!');
+      
+      // Show success notification
+      if (typeof window !== 'undefined') {
+        // Create and show success popup
+        this.showSuccessPopup(prepareResult.orderHash, params.description);
       }
       
       // Create order object for caching
       const newOrder = {
-        hash: orderHash,
+        hash: prepareResult.orderHash,
         indexId: params.indexId,
         operator: params.operator,
         threshold: params.threshold,
         description: params.description,
         makerAsset: fromTokenInfo.address,
         takerAsset: toTokenInfo.address,
-        makingAmount: makingAmount.toString(),
-        takingAmount: takingAmount.toString(),
+        makingAmount: ethers.utils.parseUnits(params.fromAmount, fromTokenInfo.decimals).toString(),
+        takingAmount: ethers.utils.parseUnits(params.toAmount, toTokenInfo.decimals).toString(),
         fromToken: fromTokenInfo.address,
         toToken: toTokenInfo.address,
         fromAmount: params.fromAmount,
         toAmount: params.toAmount,
         maker: currentAccount,
         receiver: currentAccount,
-        expiry: Math.floor(Date.now() / 1000) + (expirationHours * 3600),
-        status: submitResult ? ("active" as const) : ("cancelled" as const),
+        expiry: Math.floor(Date.now() / 1000) + (orderRequest.expirationHours * 3600),
+        status: submitResult.success ? ("active" as const) : ("cancelled" as const),
         createdAt: Date.now(),
-        transactionHash: orderHash
+        transactionHash: prepareResult.orderHash
       };
 
       // Save to persistent localStorage cache
@@ -336,7 +347,7 @@ export class BlockchainOrders {
           type: 'limit' as const,
           timestamp: newOrder.createdAt,
           date: new Date(newOrder.createdAt).toISOString(),
-          status: submitResult ? 'submitted' as const : 'pending' as const,
+          status: submitResult.success ? 'submitted' as const : 'pending' as const,
           
           description: params.description,
           
@@ -369,7 +380,7 @@ export class BlockchainOrders {
             takerAsset: newOrder.takerAsset,
             makingAmount: newOrder.makingAmount,
             takingAmount: newOrder.takingAmount,
-            salt: order.salt.toString()
+            salt: prepareResult.technical?.salt || '0' // Use salt from server response
           }
         };
         
@@ -427,66 +438,68 @@ export class BlockchainOrders {
   }
 
   /**
-   * Create index predicate (matching backend logic)
+   * Show success popup notification
    */
-  private createIndexPredicate(condition: IndexCondition): string {
-    console.log(`   Index ID: ${condition.indexId}`);
-    console.log(`   Operator: ${condition.operator}`);
-    console.log(`   Threshold: ${condition.threshold}`);
+  private showSuccessPopup(orderHash: string, description: string): void {
+    // Create popup element
+    const popup = document.createElement('div');
+    popup.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-4 rounded-lg shadow-lg z-50 max-w-md';
+    popup.style.animation = 'slideInRight 0.3s ease-out';
     
-    // Oracle call encoding
-    const getIndexValueSelector = ethers.utils.id('getIndexValue(uint256)').slice(0, 10);
-    const oracleCallData = ethers.utils.defaultAbiCoder.encode(
-      ['bytes4', 'uint256'],
-      [getIndexValueSelector, condition.indexId]
-    );
-    
-    // Predicate structure: operator(threshold, arbitraryStaticCall(oracle, callData))
-    const arbitraryStaticCallData = ethers.utils.defaultAbiCoder.encode(
-      ['address', 'bytes'],
-      [CONFIG.INDEX_ORACLE_ADDRESS, oracleCallData]
-    );
-    
-    let predicateData;
-    
-    // Map our operator to 1inch methods (only gt, lt, eq are commonly supported)
-    switch (condition.operator) {
-      case 'gt':
-      case 'gte': // Treat >= as > for simplicity
-        predicateData = ethers.utils.defaultAbiCoder.encode(
-          ['uint256', 'bytes'],
-          [condition.threshold, arbitraryStaticCallData]
-        );
-        break;
-      case 'lt':
-      case 'lte': // Treat <= as < for simplicity
-        predicateData = ethers.utils.defaultAbiCoder.encode(
-          ['uint256', 'bytes'],
-          [condition.threshold, arbitraryStaticCallData]
-        );
-        break;
-      case 'eq':
-        predicateData = ethers.utils.defaultAbiCoder.encode(
-          ['uint256', 'bytes'],
-          [condition.threshold, arbitraryStaticCallData]
-        );
-        break;
-      default:
-        // Default to gt
-        predicateData = ethers.utils.defaultAbiCoder.encode(
-          ['uint256', 'bytes'],
-          [condition.threshold, arbitraryStaticCallData]
-        );
+    popup.innerHTML = `
+      <div class="flex items-center">
+        <div class="flex-shrink-0">
+          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+          </svg>
+        </div>
+        <div class="flex-1">
+          <h4 class="font-medium">🎉 Order Submitted Successfully!</h4>
+          <p class="text-sm mt-1 opacity-90">${description}</p>
+          <p class="text-xs mt-1 opacity-75 font-mono">${orderHash.slice(0, 10)}...${orderHash.slice(-8)}</p>
+        </div>
+        <button class="ml-4 text-white hover:text-gray-200" onclick="this.parentElement.parentElement.remove()">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+    `;
+
+    // Add CSS animation if not already added
+    if (!document.querySelector('#success-popup-styles')) {
+      const styles = document.createElement('style');
+      styles.id = 'success-popup-styles';
+      styles.textContent = `
+        @keyframes slideInRight {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOutRight {
+          from { transform: translateX(0); opacity: 1; }
+          to { transform: translateX(100%); opacity: 0; }
+        }
+      `;
+      document.head.appendChild(styles);
     }
-    
-    // Complete predicate with protocol address
-    const completePredicate = ethers.utils.solidityPack(
-      ['address', 'bytes'],
-      [CONFIG.LIMIT_ORDER_PROTOCOL, predicateData]
-    );
-    
-    return completePredicate;
+
+    // Add to page
+    document.body.appendChild(popup);
+
+    // Auto-remove after 8 seconds
+    setTimeout(() => {
+      popup.style.animation = 'slideOutRight 0.3s ease-in';
+      setTimeout(() => {
+        if (popup.parentElement) {
+          popup.remove();
+        }
+      }, 300);
+    }, 8000);
+
+    console.log('🎉 Success popup displayed for order:', orderHash);
   }
+
+
 
   /**
    * Cancel an existing order using 1inch SDK directly

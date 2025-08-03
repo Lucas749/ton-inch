@@ -108,8 +108,10 @@ async function getAllActiveOrdersForMaker(makerAddress, oneInchApiKey, options =
         
         console.log(`✅ Found ${activeOrders.length} active orders`);
         
-        // Process and format orders
-        const processedOrders = activeOrders.map(order => processOrder(order));
+        // Process and format orders with detailed information
+        const processedOrders = await Promise.all(
+            activeOrders.map(async (order) => await processOrderWithDetails(order, sdk))
+        );
         
         const result = {
             success: true,
@@ -255,8 +257,10 @@ async function getAllHistoryOrdersForMaker(makerAddress, oneInchApiKey, options 
         
         console.log(`✅ Found ${historicalOrders.length} historical orders`);
         
-        // Process and format orders
-        const processedOrders = historicalOrders.map(order => processOrder(order));
+        // Process and format orders with detailed information
+        const processedOrders = await Promise.all(
+            historicalOrders.map(async (order) => await processOrderWithDetails(order, sdk))
+        );
         
         // Group by status for summary
         const statusSummary = processedOrders.reduce((acc, order) => {
@@ -336,21 +340,139 @@ async function getAllHistoryOrdersForMaker(makerAddress, oneInchApiKey, options 
  * Convert status code to readable name
  */
 function getStatusName(statusCode) {
-    switch (statusCode) {
-        case 1: return 'active';
-        case 2: return 'cancelled';
-        case 3: return 'filled';
-        default: return 'unknown';
+    // Handle both numeric and string status values from 1inch API
+    const status = String(statusCode).toLowerCase();
+    
+    switch (status) {
+        // Numeric codes
+        case '1': return 'active';
+        case '2': return 'cancelled'; 
+        case '3': return 'filled';
+        
+        // String values that 1inch API might return
+        case 'active':
+        case 'valid':
+        case 'open':
+            return 'active';
+            
+        case 'cancelled':
+        case 'canceled':
+        case 'invalid':
+            return 'cancelled';
+            
+        case 'filled':
+        case 'executed':
+        case 'completed':
+            return 'filled';
+            
+        case 'expired':
+            return 'cancelled'; // Treat expired as cancelled
+            
+        // If we don't recognize the status, assume it's active (most common case)
+        default: 
+            console.log(`⚠️ Unknown status received: ${statusCode} (type: ${typeof statusCode})`);
+            return 'active'; // Default to active instead of unknown
     }
 }
 
 /**
- * Process and format order data
+ * Process order with detailed information from 1inch API
+ */
+async function processOrderWithDetails(order, sdk) {
+    if (!order) return null;
+    
+    const orderHash = order.orderHash || order.hash;
+    if (!orderHash) {
+        console.warn('⚠️ Order missing hash, using basic processing');
+        return processOrder(order);
+    }
+    
+    try {
+        console.log(`🔍 Fetching detailed info for order: ${orderHash.substring(0, 10)}...`);
+        
+        // Fetch detailed order information
+        let detailedOrder = null;
+        try {
+            if (sdk.api && typeof sdk.api.getOrder === 'function') {
+                detailedOrder = await sdk.api.getOrder(orderHash);
+                console.log(`✅ Got detailed order info for ${orderHash.substring(0, 10)}...`);
+            } else {
+                console.log('⚠️ SDK getOrder method not available, using basic data');
+            }
+        } catch (detailError) {
+            console.log(`⚠️ Failed to get detailed order info: ${detailError.message}`);
+        }
+        
+        // Use detailed order if available, otherwise fall back to basic order
+        const orderData = detailedOrder || order;
+        
+        // Extract token information (always try, even with basic order data)
+        const tokenInfo = await extractTokenInformation(orderData);
+        
+        console.log(`🔍 Token info for ${orderHash.substring(0, 10)}...:`, {
+            makerAsset: orderData.makerAsset,
+            takerAsset: orderData.takerAsset,
+            makerToken: tokenInfo.makerToken?.symbol,
+            takerToken: tokenInfo.takerToken?.symbol
+        });
+        
+        // If we don't have asset addresses, this is likely an external order
+        // We'll provide a generic description
+        let condition = extractCondition(orderData);
+        if (!orderData.makerAsset && !orderData.takerAsset) {
+            condition = 'External 1inch order - view on Basescan for details';
+        }
+        
+        return {
+            hash: orderHash,
+            maker: orderData.maker || order.maker,
+            makerAsset: orderData.makerAsset || order.makerAsset || 'Unknown',
+            takerAsset: orderData.takerAsset || order.takerAsset || 'Unknown',
+            makingAmount: orderData.makingAmount || order.makingAmount || '0',
+            takingAmount: orderData.takingAmount || order.takingAmount || '0',
+            salt: orderData.salt || order.salt,
+            extension: orderData.extension || order.extension,
+            status: getStatusName(orderData.status || order.status),
+            createdAt: orderData.createDateTime || orderData.createdAt || order.createDateTime || order.createdAt,
+            expiration: orderData.expiry || orderData.expiration || order.expiry || order.expiration,
+            filled: orderData.filledAmount || orderData.filled || order.filled || '0',
+            remaining: orderData.remainingAmount || orderData.remaining || order.remaining,
+            trading: formatTradingWithTokens(orderData, tokenInfo),
+            condition: condition, // Use computed condition
+            tokenInfo: tokenInfo, // Include resolved token info
+            technical: {
+                signature: orderData.signature || order.signature,
+                chainId: orderData.chainId || order.chainId || CONFIG.CHAIN_ID,
+                protocolVersion: orderData.protocolVersion || order.protocolVersion,
+                statusCode: orderData.status || order.status
+            }
+        };
+    } catch (error) {
+        console.warn(`Warning: Failed to process detailed order ${orderHash.substring(0, 10)}...:`, error.message);
+        // Fall back to basic processing
+        return processOrder(order);
+    }
+}
+
+/**
+ * Process and format order data (legacy function for backward compatibility)
  */
 function processOrder(order) {
     if (!order) return null;
     
     try {
+        // Debug: Log the raw order data to understand status format
+        console.log('🔍 Processing order (basic):', {
+            hash: order.orderHash || order.hash,
+            rawStatus: order.status,
+            statusType: typeof order.status,
+            maker: order.maker?.substring(0, 10) + '...',
+            makerAsset: order.makerAsset,
+            takerAsset: order.takerAsset,
+            makingAmount: order.makingAmount,
+            takingAmount: order.takingAmount
+        });
+        
         return {
             hash: order.orderHash || order.hash,
             maker: order.maker,
@@ -385,7 +507,95 @@ function processOrder(order) {
 }
 
 /**
- * Format trading pair info
+ * Extract and resolve token information
+ */
+async function extractTokenInformation(order) {
+    try {
+        const tokenInfo = {
+            makerToken: null,
+            takerToken: null
+        };
+        
+        // Base Mainnet token mapping (expand as needed)
+        const TOKEN_MAP = {
+            '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913': { symbol: 'USDC', decimals: 6 },
+            '0x4200000000000000000000000000000000000006': { symbol: 'WETH', decimals: 18 },
+            '0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb': { symbol: 'DAI', decimals: 18 },
+            '0x0b3e328455c4059EEb9e3f84b5543F74E24e7E1b': { symbol: 'WBTC', decimals: 8 },
+            '0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22': { symbol: 'cbETH', decimals: 18 },
+            '0x65a2508C429a6078a7BC2f7dF81aB575BD9D9275': { symbol: 'USDbC', decimals: 6 }
+        };
+        
+        if (order.makerAsset) {
+            const makerAddress = order.makerAsset.toLowerCase();
+            tokenInfo.makerToken = TOKEN_MAP[makerAddress] || {
+                symbol: order.makerAsset.substring(0, 8) + '...',
+                decimals: 18
+            };
+        }
+        
+        if (order.takerAsset) {
+            const takerAddress = order.takerAsset.toLowerCase();
+            tokenInfo.takerToken = TOKEN_MAP[takerAddress] || {
+                symbol: order.takerAsset.substring(0, 8) + '...',
+                decimals: 18
+            };
+        }
+        
+        return tokenInfo;
+    } catch (error) {
+        console.warn('Failed to extract token information:', error.message);
+        return {
+            makerToken: { symbol: 'Unknown', decimals: 18 },
+            takerToken: { symbol: 'Unknown', decimals: 18 }
+        };
+    }
+}
+
+/**
+ * Format trading pair info with resolved tokens
+ */
+function formatTradingWithTokens(order, tokenInfo) {
+    try {
+        if (!tokenInfo || !tokenInfo.makerToken || !tokenInfo.takerToken) {
+            return formatTrading(order); // Fall back to basic formatting
+        }
+        
+        // Format amounts with proper decimals
+        let makerAmount = 'Unknown';
+        let takerAmount = 'Unknown';
+        
+        if (order.makingAmount && tokenInfo.makerToken.decimals) {
+            try {
+                const amount = BigInt(order.makingAmount);
+                const divisor = BigInt(10 ** tokenInfo.makerToken.decimals);
+                const formatted = Number(amount) / Number(divisor);
+                makerAmount = formatted.toFixed(6).replace(/\.?0+$/, ''); // Remove trailing zeros
+            } catch (e) {
+                makerAmount = 'Unknown';
+            }
+        }
+        
+        if (order.takingAmount && tokenInfo.takerToken.decimals) {
+            try {
+                const amount = BigInt(order.takingAmount);
+                const divisor = BigInt(10 ** tokenInfo.takerToken.decimals);
+                const formatted = Number(amount) / Number(divisor);
+                takerAmount = formatted.toFixed(6).replace(/\.?0+$/, ''); // Remove trailing zeros
+            } catch (e) {
+                takerAmount = 'Unknown';
+            }
+        }
+        
+        return `${makerAmount} ${tokenInfo.makerToken.symbol} → ${takerAmount} ${tokenInfo.takerToken.symbol}`;
+    } catch (error) {
+        console.warn('Failed to format trading with tokens:', error.message);
+        return formatTrading(order);
+    }
+}
+
+/**
+ * Format trading pair info (legacy function)
  */
 function formatTrading(order) {
     try {
@@ -408,12 +618,25 @@ function formatTrading(order) {
  */
 function extractCondition(order) {
     try {
-        if (!order.extension) {
+        if (!order.extension || order.extension === '0x') {
             return 'No condition';
         }
         
-        // If extension exists, it likely has a predicate
-        return 'Index-based condition';
+        // Try to decode extension data to extract meaningful condition
+        const extension = order.extension;
+        
+        // Check if it's a complex extension with predicate
+        if (extension && extension.length > 10) {
+            // This is likely an index-based conditional order
+            // In a real implementation, you'd decode the extension to extract:
+            // - Index ID
+            // - Operator (>, <, >=, <=, ==, !=)
+            // - Threshold value
+            // For now, return a generic message
+            return 'Index-based conditional order';
+        }
+        
+        return 'Standard limit order';
     } catch (error) {
         return 'Unknown condition';
     }
