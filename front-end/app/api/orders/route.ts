@@ -622,6 +622,18 @@ async function createIndexBasedOrderStandalone(params: any) {
         makerTraits: order.makerTraits.build ? order.makerTraits.build().toString() : (order.makerTraits.value || order.makerTraits).toString(),
         nonce: nonce.toString(),
         extension: extension ? extension.encode() : null // Store the EXACT encoded extension used in order creation
+      },
+      // Store the complete order object for exact reuse
+      completeOrder: {
+        makerAsset: order.makerAsset.toString(),
+        takerAsset: order.takerAsset.toString(),
+        makingAmount: order.makingAmount.toString(),
+        takingAmount: order.takingAmount.toString(),
+        maker: order.maker.toString(),
+        salt: order.salt.toString(),
+        receiver: order.receiver.toString(),
+        makerTraits: order.makerTraits,
+        extension: order.extension
       }
     };
     
@@ -1095,87 +1107,45 @@ export async function POST(request: NextRequest) {
       }
 
     } else if (action === 'create-and-submit-order') {
-      // EXACT BACKEND APPROACH: Create, sign, and submit in one go
+      // Use pre-created order object (no recreation)
       const { 
-        fromToken, 
-        toToken, 
-        amount, 
-        expectedAmount, 
-        condition, 
-        expirationHours, 
-        walletAddress, 
+        completeOrder,
         oneInchApiKey,
         signature 
       } = body;
 
-      if (!fromToken || !toToken || !amount || !expectedAmount || !condition || !walletAddress || !oneInchApiKey || !signature) {
+      if (!completeOrder || !oneInchApiKey || !signature) {
         return NextResponse.json({ 
-          error: 'Missing required parameters for create-and-submit-order' 
+          error: 'Missing required parameters: completeOrder, oneInchApiKey, signature' 
         }, { status: 400 });
       }
 
       try {
-        console.log('🚀 BACKEND APPROACH: Create and submit order in one go');
+        console.log('🚀 USING PRE-CREATED ORDER: No recreation, exact same object');
         
-        // Initialize SDK (exact same as backend)
+        // Initialize SDK
         const sdk = new Sdk({
           authKey: oneInchApiKey,
           networkId: CONFIG.CHAIN_ID,
           httpConnector: new FetchProviderConnector()
         });
 
-        // Get tokens (exact same as backend)
-        const fromTokenInfo = TOKENS.find(t => t.address.toLowerCase() === fromToken.toLowerCase());
-        const toTokenInfo = TOKENS.find(t => t.address.toLowerCase() === toToken.toLowerCase());
+        // Reconstruct the exact same order object using stored data
+        const order = new LimitOrder({
+          makerAsset: new Address(completeOrder.makerAsset),
+          takerAsset: new Address(completeOrder.takerAsset),
+          makingAmount: BigInt(completeOrder.makingAmount),
+          takingAmount: BigInt(completeOrder.takingAmount),
+          maker: new Address(completeOrder.maker),
+          salt: BigInt(completeOrder.salt),
+          receiver: new Address(completeOrder.receiver),
+          extension: completeOrder.extension
+        }, completeOrder.makerTraits);
 
-        if (!fromTokenInfo || !toTokenInfo) {
-          throw new Error('Token not found');
-        }
+        console.log(`✅ Using pre-created order: ${order.getOrderHash()}`);
+        console.log('📤 Submitting to 1inch with exact same order object...');
 
-        // Calculate amounts (exact same as backend)
-        const makingAmount = BigInt(Math.floor(parseFloat(amount) * Math.pow(10, fromTokenInfo.decimals)));
-        const takingAmount = BigInt(Math.floor(parseFloat(expectedAmount) * Math.pow(10, toTokenInfo.decimals)));
-
-        // Create extension with predicate (exact same as backend)
-        const extension = new ExtensionBuilder()
-          .addPredicateCall(
-            new Address(INDEX_ORACLE_ADDRESS),
-            new Address(INDEX_ORACLE_ADDRESS).call(
-              'b4fed844', // checkCondition selector
-              condition.indexId.toString().padStart(64, '0'),
-              condition.operator.toString().padStart(64, '0'),
-              condition.threshold.toString().padStart(64, '0')
-            )
-          );
-
-        // Setup timing (following 1inch docs exactly)
-        const expiration = BigInt(Math.floor(Date.now() / 1000) + ((expirationHours || 24) * 3600));
-        const UINT_40_MAX = (BigInt(1) << BigInt(40)) - BigInt(1);
-
-        // Create MakerTraits (exact same as backend)
-        const makerTraits = MakerTraits.default()
-          .withExpiration(expiration)
-          .withNonce(randBigInt(UINT_40_MAX))
-          .allowPartialFills()
-          .allowMultipleFills()
-          .withExtension();
-
-        console.log('🔧 Creating order via SDK (exact backend approach)...');
-
-        // Create order (exact same as backend - let SDK handle salt)
-        const order = await sdk.createOrder({
-          makerAsset: new Address(fromTokenInfo.address),
-          takerAsset: new Address(toTokenInfo.address),
-          makingAmount: makingAmount,
-          takingAmount: takingAmount,
-          maker: new Address(walletAddress),
-          extension: extension.encode()
-        }, makerTraits);
-
-        console.log(`✅ Order created: ${order.getOrderHash()}`);
-        console.log('📤 Submitting to 1inch (backend approach)...');
-
-        // Submit order (exact same as backend)
+        // Submit order using the exact same order object that was signed
         const submitResult = await sdk.submitOrder(order, signature);
         
         console.log('✅ Order submitted successfully via backend approach!');

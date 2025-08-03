@@ -188,16 +188,10 @@ export class BlockchainOrders {
           // Use EXACT backend approach: create and submit in one go
           console.log('📤 Using backend approach: create and submit in one go...');
           
-          // Use the exact backend approach
+          // Use the pre-created order object (no recreation)
           const backendPayload = {
             action: 'create-and-submit-order',
-            fromToken: orderParams.fromToken,
-            toToken: orderParams.toToken,
-            amount: orderParams.amount,
-            expectedAmount: orderParams.expectedAmount,
-            condition: orderParams.condition,
-            expirationHours: orderParams.expirationHours,
-            walletAddress: this.wallet.currentAccount,
+            completeOrder: result.completeOrder,
             oneInchApiKey: process.env.NEXT_PUBLIC_ONEINCH_API_KEY,
             signature: signature
           };
