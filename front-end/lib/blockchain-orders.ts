@@ -481,11 +481,7 @@ export class BlockchainOrders {
               // Mark the order as cancelled in local storage
               OrderCacheService.updateOrderStatus(orderHash, 'cancelled');
               
-              return {
-                success: true,
-                message: 'Order cancelled locally (was not found on 1inch)',
-                localOnly: true
-              };
+              return true;
             }
             throw new Error('Failed to get order details from 1inch API');
           }
