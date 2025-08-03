@@ -879,15 +879,75 @@ export class BlockchainIndices {
       
       console.log(`💰 Using your connected wallet: ${this.wallet.currentAccount}`);
 
+      // Verify network and contract before gas estimation
+      const networkId = await this.web3.eth.net.getId();
+      const chainId = await this.web3.eth.getChainId();
+      console.log(`🌐 Network verification: networkId=${networkId}, chainId=${chainId} (should be 8453 for Base Mainnet)`);
+      
+      // Verify contract exists at address
+      const contractCode = await this.web3.eth.getCode(this.oracle.options.address);
+      console.log(`📄 Contract verification: address=${this.oracle.options.address}, hasCode=${contractCode !== '0x'}, codeLength=${contractCode.length}`);
+      
+      if (contractCode === '0x') {
+        throw new Error(`Contract not found at address ${this.oracle.options.address}. Are you on the correct network (Base Mainnet)?`);
+      }
+
+      // Test contract accessibility with a simple read call first
+      try {
+        console.log(`🔍 Testing contract accessibility...`);
+        const owner = await this.oracle.methods.owner().call();
+        console.log(`✅ Contract accessible, owner: ${owner}`);
+      } catch (readError) {
+        console.error(`❌ Contract read test failed:`, readError);
+        throw new Error(`Contract is not accessible: ${readError instanceof Error ? readError.message : 'Unknown error'}`);
+      }
+
+      // Debug the exact parameters being sent to the contract
+      const contractParams = {
+        initialValue: initialValue.toString(),
+        sourceUrl: sourceUrl,
+        oracleType: oracleType,
+        chainlinkOracleAddress: '0x0000000000000000000000000000000000000000'
+      };
+      console.log(`📝 Contract parameters:`, contractParams);
+      console.log(`📝 Parameter types:`, {
+        initialValue: typeof contractParams.initialValue,
+        sourceUrl: typeof contractParams.sourceUrl,
+        oracleType: typeof contractParams.oracleType,
+        chainlinkOracleAddress: typeof contractParams.chainlinkOracleAddress
+      });
+
+      // Log wallet balance to ensure sufficient funds
+      const balance = await this.web3.eth.getBalance(this.wallet.currentAccount);
+      console.log(`💰 Wallet balance: ${this.web3.utils.fromWei(balance, 'ether')} ETH`);
+
       // Estimate gas first
-      const gasEstimate = await this.oracle.methods
-        .createCustomIndex(
-          initialValue.toString(),
-          sourceUrl,
-          oracleType,
-          '0x0000000000000000000000000000000000000000' // null address for chainlink oracle
-        )
-        .estimateGas({ from: this.wallet.currentAccount });
+      console.log(`⛽ Attempting gas estimation...`);
+      let gasEstimate: any;
+      try {
+        gasEstimate = await this.oracle.methods
+          .createCustomIndex(
+            contractParams.initialValue,
+            contractParams.sourceUrl,
+            contractParams.oracleType,
+            contractParams.chainlinkOracleAddress
+          )
+          .estimateGas({ from: this.wallet.currentAccount });
+        
+        console.log(`✅ Gas estimation successful: ${gasEstimate}`);
+      } catch (gasError: any) {
+        console.error(`❌ Gas estimation failed:`, gasError);
+        
+        // Try to get more specific error information
+        if (gasError?.message && gasError.message.includes('revert')) {
+          console.error(`🔍 Contract reverted - possible reasons:`);
+          console.error(`  - Incorrect parameters`);
+          console.error(`  - Insufficient permissions`);
+          console.error(`  - Contract in wrong state`);
+        }
+        
+        throw new Error(`Gas estimation failed: ${gasError instanceof Error ? gasError.message : 'Unknown error'}`);
+      }
 
       console.log(`⛽ Estimated gas: ${gasEstimate}`);
 
