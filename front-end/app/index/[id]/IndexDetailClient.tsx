@@ -646,6 +646,50 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                   isPositive = currentPrice >= prevPrice;
                 }
               }
+            } else if (['GDP', 'INFLATION', 'UNEMPLOYMENT', 'FEDERAL_FUNDS_RATE', 'TREASURY_YIELD', 'CPI', 'RETAIL_SALES', 'DURABLES', 'CONSUMER_SENTIMENT'].includes(alphaVantageFunction)) {
+              // Economic indicator functions - use cached API route
+              console.log(`📈 Fetching economic data for: ${alphaVantageFunction} via cached API`);
+              let economicResponse: any;
+              
+              const apiResponse = await fetch(`/api/alphavantage?function=${alphaVantageFunction}`);
+              economicResponse = await apiResponse.json();
+              
+              if (!apiResponse.ok) {
+                console.warn(`Failed to fetch economic data for ${alphaVantageFunction}, falling back to SPY`);
+                // For economic indicators, fallback to SPY data
+                const fallbackResponse = await fetch(`/api/alphavantage?function=TIME_SERIES_DAILY&symbol=SPY&outputsize=compact`);
+                response = await fallbackResponse.json();
+                if (!fallbackResponse.ok) throw new Error((response as any)?.error || 'Failed to fetch fallback data');
+                parsedData = AlphaVantageService.parseTimeSeriesData(response!);
+              } else {
+                // Parse economic indicator data using the correct parser
+                parsedData = AlphaVantageService.parseEconomicIndicatorData(economicResponse);
+              }
+            } else if (['CORN', 'WHEAT', 'WTI', 'BRENT', 'NATURAL_GAS', 'COPPER', 'ALUMINUM', 'ZINC', 'NICKEL', 'GOLD', 'SILVER'].includes(alphaVantageFunction)) {
+              // Commodity functions - use cached API route
+              console.log(`�� Fetching commodity data for: ${alphaVantageFunction} via cached API`);
+              let commodityResponse: any;
+              
+              const apiResponse = await fetch(`/api/alphavantage?function=${alphaVantageFunction}`);
+              commodityResponse = await apiResponse.json();
+              
+              if (!apiResponse.ok) {
+                console.warn(`Failed to fetch commodity data for ${alphaVantageFunction}, falling back to SPY`);
+                // For other commodities, fallback to SPY data
+                const fallbackResponse = await fetch(`/api/alphavantage?function=TIME_SERIES_DAILY&symbol=SPY&outputsize=compact`);
+                response = await fallbackResponse.json();
+                if (!fallbackResponse.ok) throw new Error((response as any)?.error || 'Failed to fetch fallback data');
+                parsedData = AlphaVantageService.parseTimeSeriesData(response!);
+              } else {
+                parsedData = AlphaVantageService.parseTimeSeriesData(commodityResponse);
+              }
+            } else {
+              // Fallback to stock data
+              console.log(`📈 Fallback: fetching stock data for: ${symbol} via cached API`);
+              const apiResponse = await fetch(`/api/alphavantage?function=TIME_SERIES_DAILY&symbol=${symbol}&outputsize=compact`);
+              response = await apiResponse.json();
+              if (!apiResponse.ok) throw new Error((response as any)?.error || 'Failed to fetch stock data');
+              parsedData = AlphaVantageService.parseTimeSeriesData(response!);
             }
           }
         } catch (alphaVantageError) {
@@ -830,6 +874,23 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
           const cryptoResponse = await apiResponse.json();
           if (!apiResponse.ok) throw new Error(cryptoResponse.error || 'Failed to fetch crypto data');
           parsedData = AlphaVantageService.parseTimeSeriesData(cryptoResponse);
+        } else if (['GDP', 'INFLATION', 'UNEMPLOYMENT', 'FEDERAL_FUNDS_RATE', 'TREASURY_YIELD', 'CPI', 'RETAIL_SALES', 'DURABLES', 'CONSUMER_SENTIMENT'].includes(alphaVantageFunction)) {
+          // Economic indicator functions - use cached API route
+          console.log(`📈 Fetching economic data for: ${alphaVantageFunction} via cached API`);
+          const apiResponse = await fetch(`/api/alphavantage?function=${alphaVantageFunction}`);
+          const economicResponse = await apiResponse.json();
+          
+          if (!apiResponse.ok) {
+            console.warn(`Failed to fetch economic data for ${alphaVantageFunction}, falling back to SPY`);
+            // For economic indicators, fallback to SPY data
+            const fallbackResponse = await fetch(`/api/alphavantage?function=TIME_SERIES_DAILY&symbol=SPY&outputsize=compact`);
+            response = await fallbackResponse.json();
+            if (!fallbackResponse.ok) throw new Error((response as any)?.error || 'Failed to fetch fallback data');
+            parsedData = AlphaVantageService.parseTimeSeriesData(response!);
+          } else {
+            // Parse economic indicator data using the correct parser
+            parsedData = AlphaVantageService.parseEconomicIndicatorData(economicResponse);
+          }
         } else if (['CORN', 'WHEAT', 'WTI', 'BRENT', 'NATURAL_GAS', 'COPPER', 'ALUMINUM', 'ZINC', 'NICKEL', 'GOLD', 'SILVER'].includes(alphaVantageFunction)) {
           // Commodity functions - use cached API route
           console.log(`📈 Fetching commodity data for: ${alphaVantageFunction} via cached API`);

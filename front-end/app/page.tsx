@@ -10,6 +10,7 @@ import { IndicesExplorer } from '@/components/IndicesExplorer';
 import { CustomIndexDialog } from '@/components/CustomIndexDialog';
 import { WalletConnect } from '@/components/WalletConnect';
 import { useBlockchain } from '@/hooks/useBlockchain';
+import { formatIndexValueForDisplay } from '@/lib/blockchain-utils';
 import { TrendingUp, BarChart3, ArrowRight, Sparkles, Activity, Users, Zap, Crown, Star, DollarSign, Bitcoin, TrendingDown, Target, Globe, Layers, ShieldCheck, Plus } from 'lucide-react';
 
 
@@ -255,7 +256,7 @@ export default function Home() {
                     </div>
                   </div>
                   <div className="flex items-center justify-between text-xs text-gray-500">
-                    <span>Value: {(index.value / 100).toFixed(2)}</span>
+                    <span>Value: {formatIndexValueForDisplay(index.id, index.value)}</span>
                     <Badge variant="secondary" className="text-xs">{index.category || 'Index'}</Badge>
                   </div>
                 </CardContent>
@@ -309,7 +310,7 @@ export default function Home() {
                       </div>
                     </div>
                     <div className="text-xs font-medium px-2 py-1 rounded text-blue-600 bg-blue-50">
-                      {(index.value / 100).toFixed(2)}
+                      {formatIndexValueForDisplay(index.id, index.value)}
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
