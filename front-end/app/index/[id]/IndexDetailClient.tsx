@@ -1691,6 +1691,39 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
       return;
     }
 
+    // Check if user is on Base Mainnet (chain ID 8453)
+    try {
+      const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+      console.log('🔍 Current network chain ID:', chainId);
+      
+      if (chainId !== '0x2105') { // Base Mainnet is 0x2105 (8453 in hex)
+        console.log('⚠️ User is not on Base Mainnet, attempting to switch...');
+        setRequestError("Switching to Base Mainnet network...");
+        
+        // Import blockchain wallet and switch network
+        const { BlockchainWallet } = await import('@/lib/blockchain-wallet');
+        const { Web3 } = await import('web3');
+        const web3 = new Web3(window.ethereum);
+        const wallet = new BlockchainWallet(web3);
+        
+        const switched = await wallet.switchToBaseMainnet();
+        if (!switched) {
+          setRequestError("Failed to switch to Base Mainnet. Please switch manually in your wallet.");
+          return;
+        }
+        
+        console.log('✅ Successfully switched to Base Mainnet');
+        setRequestError(null);
+        
+        // Wait a moment for the network switch to complete
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    } catch (networkError) {
+      console.error('❌ Network check/switch failed:', networkError);
+      setRequestError("Failed to verify network. Please ensure you're connected to Base Mainnet.");
+      return;
+    }
+
     setIsRequestingIndex(true);
     setRequestError(null);
     setRequestSuccess(null);
