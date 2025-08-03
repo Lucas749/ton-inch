@@ -1642,7 +1642,7 @@ This matches the backend test-index-order-creator.js values exactly!`);
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="text-sm font-medium">Condition</label>
-                      <Select value={orderForm.operator.toString()} onValueChange={(value) => setOrderForm(prev => ({ ...prev, operator: parseInt(value) }))}>
+                      <Select value={orderForm.operator.toString()} onValueChange={(value: string) => setOrderForm(prev => ({ ...prev, operator: parseInt(value) }))}>
                         <SelectTrigger className="h-12">
                           <SelectValue />
                         </SelectTrigger>
@@ -1668,7 +1668,7 @@ This matches the backend test-index-order-creator.js values exactly!`);
                   {/* Expiration Time */}
                   <div>
                     <label className="text-sm font-medium">Expiry Time</label>
-                    <Select value={orderForm.expiry} onValueChange={(value) => setOrderForm(prev => ({ ...prev, expiry: value }))}>
+                    <Select value={orderForm.expiry} onValueChange={(value: string) => setOrderForm(prev => ({ ...prev, expiry: value }))}>
                       <SelectTrigger className="h-12">
                         <SelectValue />
                       </SelectTrigger>

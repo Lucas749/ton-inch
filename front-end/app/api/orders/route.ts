@@ -1260,7 +1260,7 @@ export async function POST(request: NextRequest) {
             index: Object.values(BLOCKCHAIN_INDICES).find((index: any) => index.id === condition.indexId),
             operator: condition.operator,
             threshold: condition.threshold,
-            currentValue: Object.values(BLOCKCHAIN_INDICES).find((index: any) => index.id === condition.indexId)?.currentValue
+            currentValue: (Object.values(BLOCKCHAIN_INDICES).find((index: any) => index.id === condition.indexId) as any)?.currentValue
           },
           submission: {
             submitted: submitResult !== null,
