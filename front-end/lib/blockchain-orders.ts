@@ -44,6 +44,9 @@ interface IndexCondition {
   description: string;
 }
 
+// Base URL for backend API
+const API_BASE_URL = 'https://ton-inch-production.up.railway.app';
+
 // Configuration matching backend
 const CONFIG = {
   CHAIN_ID: 8453, // Base Mainnet
@@ -242,7 +245,7 @@ export class BlockchainOrders {
       };
 
       console.log('📤 Sending order parameters to server...');
-      const prepareResponse = await fetch('http://localhost:3001/orders/prepare', {
+      const prepareResponse = await fetch(`${API_BASE_URL}/orders/prepare`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderRequest)
@@ -284,7 +287,7 @@ export class BlockchainOrders {
         signature: signature
       };
 
-      const submitResponse = await fetch('http://localhost:3001/orders/submit', {
+      const submitResponse = await fetch(`${API_BASE_URL}/orders/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(submitData)

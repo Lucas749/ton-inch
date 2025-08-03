@@ -1,10 +1,12 @@
-# 🌍 Index-Based Limit Orders: Real-World Event Trading Protocol
+# 🌍 c1nch
 
 > **Trade on real-world events, not just prices.** Execute sophisticated limit orders triggered by inflation rates, social media metrics, economic indicators, and any custom data source through our advanced oracle-powered trading protocol.
 
 [![Base](https://img.shields.io/badge/Base-Mainnet-blue)](https://base.org)
 [![1inch](https://img.shields.io/badge/1inch-Limit%20Orders-orange)](https://1inch.io)
 [![Chainlink](https://img.shields.io/badge/Chainlink-Functions-red)](https://functions.chain.link)
+
+🌐 **Website**: [https://c1nch.xyz/](https://c1nch.xyz/)
 
 ## 🎯 What We Built
 
@@ -387,6 +389,6 @@ MIT License - see [LICENSE](./LICENSE) for details.
 
 ---
 
-**Built with ❤️ by the Index Trading Team**
+**Built with ❤️ by the c1nch**
 
 *Transforming how DeFi thinks about conditional orders - from simple price limits to complex real-world event triggers.*
