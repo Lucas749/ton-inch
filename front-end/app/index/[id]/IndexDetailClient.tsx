@@ -125,7 +125,22 @@ function createAlphaVantageUrl(index: RealIndexData): string {
     return `${baseUrl}?${params.toString()}`;
   };
   
-  return buildUrl(index.symbol, index.category);
+  // Extract correct symbol for Alpha Vantage API
+  let alphaVantageSymbol = index.symbol;
+  
+  // Handle stock symbols that have "STOCK" suffix (e.g., "GOOGLSTOCK" -> "GOOGL")
+  if (index.category === 'Stocks' && index.symbol && index.symbol.includes('STOCK')) {
+    alphaVantageSymbol = index.symbol.replace(/STOCK$/i, '');
+  }
+  
+  // Handle index IDs that need mapping (e.g., "googl_stock" -> "GOOGL")
+  if (index.id && index.id.includes('_STOCK')) {
+    alphaVantageSymbol = index.id.split('_')[0].toUpperCase();
+  }
+  
+  console.log(`🔍 Alpha Vantage symbol extraction: ${index.symbol} -> ${alphaVantageSymbol} (category: ${index.category})`);
+  
+  return buildUrl(alphaVantageSymbol, index.category);
 }
 
 // Helper function to determine the correct AlphaVantage function and parameters based on symbol
