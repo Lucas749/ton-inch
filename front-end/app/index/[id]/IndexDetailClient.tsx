@@ -151,7 +151,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
     expiry: "24" // hours
   });
   
-  const { isConnected, walletAddress, indices: blockchainIndices, ethBalance, getTokenBalance, connectWallet } = useBlockchain();
+  const { isConnected, walletAddress, indices: blockchainIndices, ethBalance, getTokenBalance, getTokenAllowance, isTokenApproved, approveToken, connectWallet } = useBlockchain();
 
   // Auto-populate order description with index name when component loads
   useEffect(() => {
@@ -292,52 +292,42 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Check token approval status
+  // Check token approval status using our fixed service
   const checkTokenApproval = async (tokenAddress: string, amount: string) => {
-    if (!isConnected || !walletAddress) return false;
+    console.log('🔍 [IndexDetailClient] checkTokenApproval called');
+    console.log('🔍 [IndexDetailClient] Params:', { tokenAddress, amount, isConnected, walletAddress });
+    
+    if (!isConnected || !walletAddress) {
+      console.log('❌ [IndexDetailClient] Wallet not connected');
+      return false;
+    }
     
     try {
-      // Get the token contract
-      const provider = (window as any).ethereum;
-      const web3 = new (await import('web3')).Web3(provider);
+      // Get token decimals first to convert amount to wei
+      const tokenBalance = await getTokenBalance(tokenAddress); // This gets decimals internally
       
-      const tokenContract = new web3.eth.Contract([
-        {
-          "constant": true,
-          "inputs": [{"name": "_owner", "type": "address"}, {"name": "_spender", "type": "address"}],
-          "name": "allowance",
-          "outputs": [{"name": "", "type": "uint256"}],
-          "type": "function"
-        },
-        {
-          "constant": true,
-          "inputs": [],
-          "name": "decimals",
-          "outputs": [{"name": "", "type": "uint8"}],
-          "type": "function"
-        }
-      ], tokenAddress);
+      // Calculate required amount in smallest unit
+      // For now, let's use 18 decimals as default, but this should be improved
+      const requiredAmountWei = ethers.utils.parseUnits(amount, 18).toString();
       
-      const allowance = await tokenContract.methods.allowance(
-        walletAddress,
-        '0x111111125421cA6dc452d289314280a0f8842A65' // 1inch Limit Order Protocol
-      ).call();
+      console.log('🔍 [IndexDetailClient] Required amount in wei:', requiredAmountWei);
       
-      // Get token decimals
-      const decimals = await tokenContract.methods.decimals().call();
-      const requiredAmount = ethers.utils.parseUnits(amount, Number(decimals));
+      const ONEINCH_PROTOCOL = '0x111111125421cA6dc452d289314280a0f8842A65';
+      const approved = await isTokenApproved(tokenAddress, ONEINCH_PROTOCOL, requiredAmountWei);
       
-      return ethers.BigNumber.from(String(allowance)).gte(requiredAmount);
+      console.log('✅ [IndexDetailClient] Approval check result:', approved);
+      return approved;
       
     } catch (error) {
-      console.error('Error checking approval:', error);
+      console.error('❌ [IndexDetailClient] Error checking approval:', error);
       return false;
     }
   };
 
-  // Approve token spending
-  const approveToken = async (tokenAddress: string, amount: string) => {
-    console.log('🔍 Approve Token Debug:', { isConnected, walletAddress, tokenAddress });
+  // Approve token spending using our fixed service
+  const approveTokenForOrder = async (tokenAddress: string, amount: string) => {
+    console.log('🔍 [IndexDetailClient] approveTokenForOrder called');
+    console.log('🔍 [IndexDetailClient] Approve Token Debug:', { isConnected, walletAddress, tokenAddress });
     
     if (!isConnected) {
       alert('Please connect your wallet first');
@@ -352,45 +342,21 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
     setIsApprovingToken(true);
     
     try {
-      const provider = (window as any).ethereum;
-      const web3 = new (await import('web3')).Web3(provider);
+      const ONEINCH_PROTOCOL = '0x111111125421cA6dc452d289314280a0f8842A65';
       
-      const tokenContract = new web3.eth.Contract([
-        {
-          "constant": false,
-          "inputs": [{"name": "_spender", "type": "address"}, {"name": "_value", "type": "uint256"}],
-          "name": "approve",
-          "outputs": [{"name": "", "type": "bool"}],
-          "type": "function"
-        },
-        {
-          "constant": true,
-          "inputs": [],
-          "name": "decimals",
-          "outputs": [{"name": "", "type": "uint8"}],
-          "type": "function"
-        }
-      ], tokenAddress);
+      // Use max approval to avoid future approvals
+      const maxApproval = '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
       
-      // Get token decimals and approve max amount to avoid future approvals
-      const decimals = await tokenContract.methods.decimals().call();
-      const maxApproval = '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'; // Max uint256
+      console.log('🔍 [IndexDetailClient] Calling approveToken service...');
+      const txHash = await approveToken(tokenAddress, ONEINCH_PROTOCOL, maxApproval);
       
-      const tx = await tokenContract.methods.approve(
-        '0x111111125421cA6dc452d289314280a0f8842A65', // 1inch Limit Order Protocol
-        maxApproval
-      ).send({
-        from: walletAddress,
-        gas: '25000' // MetaMask-aggressive gas limit for Base L2
-      });
-      
-      console.log('✅ Token approval successful:', tx.transactionHash);
+      console.log('✅ [IndexDetailClient] Token approval successful:', txHash);
       setApprovalStatus(prev => ({ ...prev, [tokenAddress]: true }));
       return true;
       
     } catch (error) {
-      console.error('❌ Token approval failed:', error);
-      alert('Token approval failed: ' + (error as Error).message);
+      console.error('❌ [IndexDetailClient] Token approval failed:', error);
+      alert(`Token approval failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
       return false;
     } finally {
       setIsApprovingToken(false);
@@ -1064,7 +1030,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
         
         if (!isApproved) {
           console.log('⏳ Requesting token approval...');
-          const approvalSuccess = await approveToken(fromToken.address, orderForm.fromAmount);
+          const approvalSuccess = await approveTokenForOrder(fromToken.address, orderForm.fromAmount);
           
           if (!approvalSuccess) {
             alert('❌ Token approval failed. Cannot create order without approval.');

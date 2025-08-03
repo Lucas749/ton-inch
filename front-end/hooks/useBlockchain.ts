@@ -43,6 +43,9 @@ export interface UseBlockchainReturn {
   clearIndexCache: () => Promise<void>;
   validateCondition: (condition: OrderCondition) => Promise<boolean>;
   getTokenBalance: (tokenAddress: string) => Promise<string>;
+  getTokenAllowance: (tokenAddress: string, spenderAddress: string) => Promise<string>;
+  isTokenApproved: (tokenAddress: string, spenderAddress: string, requiredAmount: string) => Promise<boolean>;
+  approveToken: (tokenAddress: string, spenderAddress: string, amount: string) => Promise<string>;
   switchToBaseMainnet: () => Promise<boolean>;
   getPrivateKeyForDemo: () => Promise<string>;
 
@@ -253,16 +256,83 @@ export function useBlockchain(): UseBlockchainReturn {
   // Get token balance
   const getTokenBalance = useCallback(
     async (tokenAddress: string): Promise<string> => {
+      console.log('🔍 [useBlockchain] getTokenBalance called');
+      console.log('🔍 [useBlockchain] tokenAddress:', tokenAddress);
+      console.log('🔍 [useBlockchain] isConnected:', isConnected);
+      console.log('🔍 [useBlockchain] walletAddress:', walletAddress);
+      console.log('🔍 [useBlockchain] wagmiIsConnected:', wagmiIsConnected);
+      console.log('🔍 [useBlockchain] address from wagmi:', address);
+      
       try {
-        return await blockchainService.getTokenBalance(tokenAddress);
+        const result = await blockchainService.getTokenBalance(tokenAddress);
+        console.log('✅ [useBlockchain] getTokenBalance result:', result);
+        return result;
       } catch (err) {
+        console.error('❌ [useBlockchain] getTokenBalance failed:', err);
         const errorMessage =
           err instanceof Error ? err.message : "Failed to get token balance";
         setError(errorMessage);
         throw err;
       }
     },
-    []
+    [isConnected, walletAddress, wagmiIsConnected, address]
+  );
+
+  // Get token allowance
+  const getTokenAllowance = useCallback(
+    async (tokenAddress: string, spenderAddress: string): Promise<string> => {
+      console.log('🔍 [useBlockchain] getTokenAllowance called');
+      try {
+        const result = await blockchainService.getTokenAllowance(tokenAddress, spenderAddress);
+        console.log('✅ [useBlockchain] getTokenAllowance result:', result);
+        return result;
+      } catch (err) {
+        console.error('❌ [useBlockchain] getTokenAllowance failed:', err);
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to get token allowance";
+        setError(errorMessage);
+        throw err;
+      }
+    },
+    [isConnected, walletAddress]
+  );
+
+  // Check if token is approved
+  const isTokenApproved = useCallback(
+    async (tokenAddress: string, spenderAddress: string, requiredAmount: string): Promise<boolean> => {
+      console.log('🔍 [useBlockchain] isTokenApproved called');
+      try {
+        const result = await blockchainService.isTokenApproved(tokenAddress, spenderAddress, requiredAmount);
+        console.log('✅ [useBlockchain] isTokenApproved result:', result);
+        return result;
+      } catch (err) {
+        console.error('❌ [useBlockchain] isTokenApproved failed:', err);
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to check token approval";
+        setError(errorMessage);
+        throw err;
+      }
+    },
+    [isConnected, walletAddress]
+  );
+
+  // Approve token
+  const approveToken = useCallback(
+    async (tokenAddress: string, spenderAddress: string, amount: string): Promise<string> => {
+      console.log('🔍 [useBlockchain] approveToken called');
+      try {
+        const result = await blockchainService.approveToken(tokenAddress, spenderAddress, amount);
+        console.log('✅ [useBlockchain] approveToken result:', result);
+        return result;
+      } catch (err) {
+        console.error('❌ [useBlockchain] approveToken failed:', err);
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to approve token";
+        setError(errorMessage);
+        throw err;
+      }
+    },
+    [isConnected, walletAddress]
   );
 
   // Switch to Base Mainnet network
@@ -380,6 +450,9 @@ export function useBlockchain(): UseBlockchainReturn {
     clearIndexCache,
     validateCondition,
     getTokenBalance,
+    getTokenAllowance,
+    isTokenApproved,
+    approveToken,
     switchToBaseMainnet,
     getPrivateKeyForDemo,
 
