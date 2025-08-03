@@ -1504,6 +1504,14 @@ This matches the backend test-index-order-creator.js values exactly!`);
               </CardContent>
             </Card>
 
+            {/* Admin Box - Show for all indices when connected - moved below chart */}
+            {blockchainIndexId !== null && isConnected && (
+              <AdminBox 
+                indexId={blockchainIndexId}
+                indexName={realIndexData.name}
+                className="mt-0"
+              />
+            )}
 
           </div>
 
@@ -1742,16 +1750,6 @@ This matches the backend test-index-order-creator.js values exactly!`);
                 </CardContent>
               </Card>
             )}
-
-            {/* Admin Box - Show for all indices when connected */}
-            {blockchainIndexId !== null && isConnected && (
-              <AdminBox 
-                indexId={blockchainIndexId}
-                indexName={realIndexData.name}
-                className="mt-0"
-              />
-            )}
-
 
             {/* Connection Warning */}
             {!isConnected && (
