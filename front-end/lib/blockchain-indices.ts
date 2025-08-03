@@ -40,17 +40,21 @@ export class BlockchainIndices {
    * Get all custom indices from the oracle (always fresh data)
    */
   async getAllIndices(): Promise<CustomIndex[]> {
+    console.log('💀 DEBUG: getAllIndices() called in blockchain-indices.ts');
     try {
       // If there's already a pending request, return it to avoid duplicate calls
       if (globalPendingRequest) {
+        console.log('💀 DEBUG: Using existing globalPendingRequest');
         return globalPendingRequest;
       }
       
+      console.log('💀 DEBUG: Creating new fetchAllIndices() request');
       // Create and store the global promise
       globalPendingRequest = this.fetchAllIndices();
       
       try {
         const indices = await globalPendingRequest;
+        console.log('💀 DEBUG: fetchAllIndices() returned:', indices.length, 'indices');
         return indices;
       } finally {
         // Clear the global pending request
@@ -67,6 +71,7 @@ export class BlockchainIndices {
    * Internal method to actually fetch indices from the blockchain
    */
   private async fetchAllIndices(): Promise<CustomIndex[]> {
+    console.log('💀 DEBUG: fetchAllIndices() called - starting blockchain fetch');
     const indices: CustomIndex[] = [];
 
     // First, load predefined indices (0-5) from the blockchain - these represent various economic and financial indicators
