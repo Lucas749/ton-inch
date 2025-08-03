@@ -128,6 +128,14 @@ export function AdminBox({ indexId, indexName, className = "" }: AdminBoxProps) 
       if (isNaN(numValue)) {
         throw new Error("Invalid number format");
       }
+
+      // Additional wallet connection check
+      if (!isConnected || !walletAddress) {
+        throw new Error("Wallet not connected. Please connect your wallet and try again.");
+      }
+
+      console.log(`🔄 AdminBox: Updating index ${indexId} to ${numValue}`);
+      console.log(`👤 AdminBox: Using wallet ${walletAddress}`);
       
       await blockchainService.updateIndex(indexId, Math.floor(numValue));
       
@@ -141,6 +149,7 @@ export function AdminBox({ indexId, indexName, className = "" }: AdminBoxProps) 
       
     } catch (err: any) {
       setError(`Failed to update index: ${err.message}`);
+      console.error('❌ AdminBox error:', err);
     } finally {
       setIsUpdating(false);
     }

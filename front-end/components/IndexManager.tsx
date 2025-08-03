@@ -131,9 +131,9 @@ export function IndexManager({
     return new Date(timestamp * 1000).toLocaleString();
   };
 
-  const formatValue = (value: number, indexId?: number) => {
+  const formatValue = (value: number, indexId?: number, indexName?: string) => {
     if (indexId !== undefined) {
-      return formatIndexValueForDisplay(indexId, value);
+      return formatIndexValueForDisplay(indexId, value, indexName);
     }
     return value.toLocaleString();
   };
@@ -320,7 +320,7 @@ export function IndexManager({
                             </p>
                           )}
                           <div className="flex items-center space-x-4 text-xs text-gray-500">
-                            <span>Value: {formatValue(index.value, index.id)}</span>
+                            <span>Value: {formatValue(index.value, index.id, index.name)}</span>
                             <span>
                               Updated: {formatTimestamp(index.timestamp)}
                             </span>

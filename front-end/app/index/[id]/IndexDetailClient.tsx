@@ -2241,7 +2241,7 @@ This matches the backend test-index-order-creator.js values exactly!`);
                           formatter={(value: number, name: string) => [
                             name === 'price' ? 
                               (blockchainIndexId !== null 
-                                ? formatIndexValueForDisplay(blockchainIndexId, value)
+                                ? formatIndexValueForDisplay(blockchainIndexId, value, realIndexData.name)
                                 : realIndexData.category === 'Forex' 
                                   ? value.toFixed(4) 
                                   : `$${value.toFixed(2)}`) :

@@ -157,17 +157,32 @@ export function CustomIndexDialog({ onIndexCreated, trigger }: CustomIndexDialog
         oracleType
       );
 
-      if (result.success && result.indexId) {
+      if (result.success) {
         const oracleTypeName = formData.oracleType === "custom" 
           ? "Chainlink (Custom Address)" 
           : ORACLE_TYPE_NAMES[oracleType as keyof typeof ORACLE_TYPE_NAMES];
         
-        setSuccess(`✅ Successfully created "${formData.name}" with ID ${result.indexId} using ${oracleTypeName}!`);
+        // Show success message with or without indexId
+        const successMessage = result.indexId 
+          ? `✅ Successfully created "${formData.name}" with ID ${result.indexId} using ${oracleTypeName}!`
+          : `✅ Successfully created "${formData.name}" using ${oracleTypeName}! Transaction: ${result.transactionHash?.slice(0, 10)}...`;
         
-        // Notify parent component
-        if (onIndexCreated) {
+        setSuccess(successMessage);
+        
+        // Notify parent component if we have indexId
+        if (onIndexCreated && result.indexId) {
           onIndexCreated(result.indexId);
         }
+
+        // Reset form
+        setFormData({
+          name: "",
+          description: "",
+          initialValue: "",
+          sourceUrl: "",
+          oracleType: "0",
+          chainlinkOracleAddress: ""
+        });
 
         // Auto-close dialog after success
         setTimeout(() => {

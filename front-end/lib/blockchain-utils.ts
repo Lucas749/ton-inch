@@ -123,7 +123,7 @@ export function getRpcDescription(url: string): string {
 /**
  * Format index value for display based on index type
  */
-export function formatIndexValueForDisplay(indexId: number, value: number): string {
+export function formatIndexValueForDisplay(indexId: number, value: number, indexName?: string): string {
   switch (indexId) {
     case 0: // Inflation Rate (basis points)
     case 4: // Unemployment Rate (basis points)
@@ -136,11 +136,19 @@ export function formatIndexValueForDisplay(indexId: number, value: number): stri
     case 3: // VIX Index (basis points)
       return `${(value / 100).toFixed(2)}`;
     default:
-      // For custom indices, try to determine if it's a percentage based on value range
-      if (value <= 1000 && value > 0) {
-        // Likely a percentage value (basis points)
+      // For custom indices (ID >= 6), display raw value unless it's an Alpha Vantage index
+      const isCustomIndex = indexName && indexName.toLowerCase().includes('custom index');
+      const isAlphaVantageIndex = indexName && !indexName.toLowerCase().includes('custom index');
+      
+      if (isCustomIndex) {
+        // Custom indices should display raw values (e.g., 100 stays as 100, not 1%)
+        return value.toLocaleString();
+      } else if (isAlphaVantageIndex && value <= 1000 && value > 0) {
+        // Alpha Vantage indices might be percentages (basis points)
         return `${(value / 100).toFixed(2)}%`;
       }
+      
+      // Default: display raw value
       return value.toLocaleString();
   }
 }
