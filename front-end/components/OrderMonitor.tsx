@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
 import { useBlockchain } from "@/hooks/useBlockchain";
+import { formatIndexValueForDisplay } from "@/lib/blockchain-utils";
 
 interface OrderMonitorProps {
   compact?: boolean;
@@ -217,7 +218,9 @@ export function OrderMonitor({
           <div className="space-y-3">
             {displayOrders.map((order) => {
               const index = indices.find((i) => i.id === order.indexId);
-              const currentValue = index?.value || "N/A";
+              const currentValue = index?.value 
+                ? formatIndexValueForDisplay(order.indexId, index.value)
+                : "N/A";
               const conditionMet = false; // validateOrderCondition not available
                 // index && validateOrderCondition(order.indexId, order.operator, order.threshold);
 

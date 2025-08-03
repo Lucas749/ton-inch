@@ -150,12 +150,46 @@ export function SwapBox({
       } else {
         getIntentQuote();
       }
-    } else {
-      setToAmount("");
-      setQuote(null);
-      setIntentQuote(null);
     }
-  }, [fromAmount, fromToken, toToken, slippage, swapMode, isConfigured]);
+  }, [fromAmount, fromToken, toToken, swapMode, slippage, isConfigured]);
+
+  // Fetch from token balance when fromToken changes
+  useEffect(() => {
+    const fetchFromTokenBalance = async () => {
+      if (fromToken && walletAddress && fromToken.symbol !== 'ETH') {
+        try {
+          const balance = await getTokenBalance(fromToken.address);
+          setFromTokenBalance(balance);
+        } catch (error) {
+          console.error('❌ Error fetching from token balance:', error);
+          setFromTokenBalance('0');
+        }
+      } else {
+        setFromTokenBalance(null);
+      }
+    };
+
+    fetchFromTokenBalance();
+  }, [fromToken, walletAddress, getTokenBalance]);
+
+  // Fetch to token balance when toToken changes
+  useEffect(() => {
+    const fetchToTokenBalance = async () => {
+      if (toToken && walletAddress && toToken.symbol !== 'ETH') {
+        try {
+          const balance = await getTokenBalance(toToken.address);
+          setToTokenBalance(balance);
+        } catch (error) {
+          console.error('❌ Error fetching to token balance:', error);
+          setToTokenBalance('0');
+        }
+      } else {
+        setToTokenBalance(null);
+      }
+    };
+
+    fetchToTokenBalance();
+  }, [toToken, walletAddress, getTokenBalance]);
 
   const getQuote = async () => {
     console.log('📊 [SwapBox] Getting classic quote:', {
@@ -278,15 +312,8 @@ export function SwapBox({
   };
 
   const handleClassicSwap = async () => {
-    console.log('🚀 [SwapBox] Starting classic swap:', {
-      hasOneInchService: !!oneInchService,
-      fromAmount,
-      hasQuote: !!quote,
-      fromToken: fromToken?.symbol,
-      toToken: toToken?.symbol,
-      actualWalletAddress,
-      isConnected
-    });
+
+
 
     if (!oneInchService || !fromAmount || !quote || !fromToken || !toToken)
       return;
@@ -294,6 +321,21 @@ export function SwapBox({
     if (!actualWalletAddress) {
       console.error('❌ [SwapBox] No wallet address available for swap');
       setError("Wallet address is required for swaps");
+      return;
+    }
+
+    // Validate minimum swap amounts to prevent transaction reverts
+    const swapAmount = parseFloat(fromAmount);
+    const minimumETH = 0.00001; // 0.00001 ETH minimum (1000x lower)
+    const minimumToken = 1; // 1 token minimum for others
+
+    if (fromToken.symbol === 'ETH' && swapAmount < minimumETH) {
+      setError(`Minimum swap amount is ${minimumETH} ETH. Current amount (${swapAmount} ETH) is too small and would fail due to gas costs exceeding swap value.`);
+      return;
+    }
+
+    if (fromToken.symbol !== 'ETH' && swapAmount < minimumToken) {
+      setError(`Minimum swap amount is ${minimumToken} ${fromToken.symbol}. Current amount is too small for successful execution.`);
       return;
     }
 
@@ -377,6 +419,21 @@ export function SwapBox({
       !toToken
     )
       return;
+
+    // Validate minimum swap amounts to prevent transaction reverts
+    const swapAmount = parseFloat(fromAmount);
+    const minimumETH = 0.00001; // 0.00001 ETH minimum (1000x lower)
+    const minimumToken = 1; // 1 token minimum for others
+
+    if (fromToken.symbol === 'ETH' && swapAmount < minimumETH) {
+      setError(`Minimum swap amount is ${minimumETH} ETH. Current amount (${swapAmount} ETH) is too small and would fail due to gas costs exceeding swap value.`);
+      return;
+    }
+
+    if (fromToken.symbol !== 'ETH' && swapAmount < minimumToken) {
+      setError(`Minimum swap amount is ${minimumToken} ${fromToken.symbol}. Current amount is too small for successful execution.`);
+      return;
+    }
 
     setIsSwapping(true);
     setError("");
@@ -487,7 +544,7 @@ export function SwapBox({
               <span className="text-xs text-gray-500">
                 Balance: {fromToken.symbol === 'ETH' 
                   ? (ethBalance ? parseFloat(ethBalance).toFixed(4) : '0.00')
-                  : '0.00'
+                  : (fromTokenBalance !== null ? parseFloat(fromTokenBalance).toFixed(4) : 'Loading...')
                 } {fromToken.symbol}
               </span>
             )}
@@ -508,6 +565,7 @@ export function SwapBox({
                 onChange={(e) => setFromAmount(e.target.value)}
                 className="text-right pr-12 h-12"
               />
+              {/* MAX button for ETH */}
               {fromToken?.symbol === 'ETH' && ethBalance && parseFloat(ethBalance) > 0 && (
                 <Button
                   variant="ghost"
@@ -524,8 +582,27 @@ export function SwapBox({
                   MAX
                 </Button>
               )}
+              {/* MAX button for other tokens */}
+              {fromToken?.symbol !== 'ETH' && fromTokenBalance && parseFloat(fromTokenBalance) > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    const userBalance = parseFloat(fromTokenBalance);
+                    setFromAmount(userBalance.toFixed(6)); // Use 6 decimals for precision
+                  }}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-6 px-2 text-xs text-blue-600 hover:text-blue-800"
+                >
+                  MAX
+                </Button>
+              )}
             </div>
           </div>
+          {fromToken && (
+            <p className="text-xs text-gray-500 mt-1 text-right">
+                                    Minimum: {fromToken.symbol === 'ETH' ? '0.00001 ETH' : `1 ${fromToken.symbol}`}
+            </p>
+          )}
         </div>
 
         {/* Swap Direction Button */}
@@ -549,7 +626,7 @@ export function SwapBox({
               <span className="text-xs text-gray-500">
                 Balance: {toToken.symbol === 'ETH' 
                   ? (ethBalance ? parseFloat(ethBalance).toFixed(4) : '0.00')
-                  : '0.00'
+                  : (toTokenBalance !== null ? parseFloat(toTokenBalance).toFixed(4) : 'Loading...')
                 } {toToken.symbol}
               </span>
             )}
@@ -653,8 +730,7 @@ export function SwapBox({
               Getting Quote...
             </>
           ) : (
-            `Swap ${fromToken?.symbol || 'Token'} → ${toToken?.symbol || 'Token'}`
-          )}
+            `Swap ${fromToken?.symbol || 'Token'} → ${toToken?.symbol || 'Token'}`          )}
         </Button>
 
         {/* Swap Mode Badge */}

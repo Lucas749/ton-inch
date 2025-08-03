@@ -119,3 +119,87 @@ export function getRpcDescription(url: string): string {
   if (url.includes('mainnet.base.org')) return 'Base Mainnet (Public - Limited)';
   return 'Custom RPC';
 }
+
+/**
+ * Format index value for display based on index type
+ */
+export function formatIndexValueForDisplay(indexId: number, value: number, indexName?: string): string {
+  switch (indexId) {
+    case 0: // Inflation Rate (basis points)
+    case 4: // Unemployment Rate (basis points)
+      return `${(value / 100).toFixed(2)}%`;
+    case 1: // Elon Followers
+      return `${(value / 1000000).toFixed(1)}M followers`;
+    case 2: // BTC Price (scaled by 100)
+    case 5: // Tesla Stock (scaled by 100)
+      return `$${(value / 100).toFixed(2)}`;
+    case 3: // VIX Index (basis points)
+      return `${(value / 100).toFixed(2)}`;
+    default:
+      // For custom indices (ID >= 6), display raw value unless it's an Alpha Vantage index
+      const isCustomIndex = indexName && indexName.toLowerCase().includes('custom index');
+      const isAlphaVantageIndex = indexName && !indexName.toLowerCase().includes('custom index');
+      
+      if (isCustomIndex) {
+        // Custom indices should display raw values (e.g., 100 stays as 100, not 1%)
+        return value.toLocaleString();
+      } else if (isAlphaVantageIndex && value <= 1000 && value > 0) {
+        // Alpha Vantage indices might be percentages (basis points)
+        return `${(value / 100).toFixed(2)}%`;
+      }
+      
+      // Default: display raw value
+      return value.toLocaleString();
+  }
+}
+
+/**
+ * Get index type information for formatting
+ */
+export function getIndexTypeInfo(indexId: number): { 
+  isPercentage: boolean; 
+  isCurrency: boolean; 
+  isFollowers: boolean;
+  scalingFactor: number;
+  unit: string;
+} {
+  switch (indexId) {
+    case 0: // Inflation Rate
+    case 4: // Unemployment Rate
+      return { isPercentage: true, isCurrency: false, isFollowers: false, scalingFactor: 100, unit: '%' };
+    case 1: // Elon Followers
+      return { isPercentage: false, isCurrency: false, isFollowers: true, scalingFactor: 1000000, unit: 'M followers' };
+    case 2: // BTC Price
+    case 5: // Tesla Stock
+      return { isPercentage: false, isCurrency: true, isFollowers: false, scalingFactor: 100, unit: '$' };
+    case 3: // VIX Index
+      return { isPercentage: false, isCurrency: false, isFollowers: false, scalingFactor: 100, unit: '' };
+    default:
+      // For custom indices, make an educated guess based on value
+      return { isPercentage: false, isCurrency: false, isFollowers: false, scalingFactor: 1, unit: '' };
+  }
+}
+
+/**
+ * Get optimal Y-axis configuration for different index types
+ */
+export function getYAxisConfig(indexId: number): {
+  width: number;
+  tickCount: number;
+  fontSize: number;
+} {
+  switch (indexId) {
+    case 1: // Elon Followers - needs more width for "150.0M followers"
+      return { width: 100, tickCount: 5, fontSize: 10 };
+    case 0: // Inflation Rate - percentage values
+    case 4: // Unemployment Rate - percentage values
+      return { width: 50, tickCount: 6, fontSize: 11 };
+    case 2: // BTC Price - large dollar amounts
+    case 5: // Tesla Stock - dollar amounts
+      return { width: 70, tickCount: 6, fontSize: 11 };
+    case 3: // VIX Index - simple numbers
+      return { width: 45, tickCount: 6, fontSize: 11 };
+    default:
+      return { width: 60, tickCount: 6, fontSize: 11 };
+  }
+}

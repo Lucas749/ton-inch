@@ -155,6 +155,50 @@ export class BlockchainWallet {
   }
 
   /**
+   * Refresh wallet connection state - useful for fixing race conditions
+   */
+  async refreshWalletConnection(): Promise<boolean> {
+    try {
+      if (typeof window !== "undefined" && window.ethereum) {
+        // Try to get current accounts
+        const accounts = await window.ethereum.request({
+          method: "eth_accounts",
+        });
+
+        if (accounts && accounts.length > 0) {
+          const newAccount = accounts[0];
+          
+          // Update our state if account changed or wasn't set
+          if (this.account !== newAccount) {
+            console.log(`🔄 Wallet account updated: ${this.account} → ${newAccount}`);
+            this.account = newAccount;
+          }
+          
+          // Ensure web3 provider is set
+          this.web3.setProvider(window.ethereum);
+          this.isInitialized = true;
+          
+          console.log("✅ Wallet connection refreshed:", this.account);
+          return true;
+        } else {
+          // No accounts found
+          this.account = null;
+          this.isInitialized = false;
+          console.log("❌ No wallet accounts found during refresh");
+          return false;
+        }
+      }
+    } catch (error) {
+      console.error("❌ Failed to refresh wallet connection:", error);
+      this.account = null;
+      this.isInitialized = false;
+      return false;
+    }
+    
+    return false;
+  }
+
+  /**
    * Get connected wallet address
    */
   getWalletAddress(): string | null {

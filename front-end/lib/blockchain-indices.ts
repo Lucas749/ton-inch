@@ -433,63 +433,81 @@ export class BlockchainIndices {
   async updateIndex(indexId: number, newValue: number): Promise<boolean> {
     try {
       if (!this.wallet.isWalletConnected() || !this.wallet.currentAccount) {
-        throw new Error("Wallet not connected. Please connect your wallet first.");
+        // Try to refresh wallet connection first
+        console.log('⚠️ Wallet not connected, attempting to refresh connection...');
+        const refreshSuccess = await this.wallet.refreshWalletConnection();
+        if (!refreshSuccess) {
+          throw new Error("Wallet not connected. Please connect your wallet first.");
+        }
       }
 
-      console.log(`📝 Updating Index ${indexId} to ${newValue}`);
-      
-      // Check current oracle type to provide better feedback
-      try {
-        const { oracleType, oracleTypeName } = await this.getIndexOracleType(indexId);
-        console.log(`🔍 Index ${indexId} uses ${oracleTypeName}`);
-        
-        if (oracleType === ORACLE_TYPES.CHAINLINK) {
-          console.log("📡 Note: This index uses Chainlink Functions - manual updates will override oracle data temporarily");
-          console.log("💡 Chainlink Functions will continue to update this index automatically based on its source URL");
-        } else {
-          console.log("🏭 Note: This index uses Mock Oracle - manual updates will persist until next manual update");
-        }
-      } catch (error) {
-        console.log("⚠️ Could not determine oracle type, proceeding with update...");
+      if (!this.oracle) {
+        throw new Error("Oracle contract not initialized");
+      }
+
+      // Double-check wallet address is still available after refresh
+      const currentAccount = this.wallet.currentAccount;
+      if (!currentAccount) {
+        throw new Error("Wallet account not available. Please reconnect your wallet.");
+      }
+
+      console.log(`🔄 Updating index ${indexId} to ${newValue}`);
+      console.log(`👤 Using wallet address: ${currentAccount}`);
+      console.log(`📋 Parameters: indexId=${indexId}, newValue=${newValue}`);
+
+      // Validate parameters
+      if (typeof indexId !== 'number' || indexId < 0) {
+        throw new Error(`Invalid indexId: ${indexId}. Must be a non-negative number.`);
       }
       
-      // Determine if it's predefined or custom index (matches backend logic)
+      if (typeof newValue !== 'number' || isNaN(newValue)) {
+        throw new Error(`Invalid newValue: ${newValue}. Must be a valid number.`);
+      }
+
+      // Ensure values are integers for contract calls (based on backend oracle manager)
+      const intIndexId = Math.floor(indexId);
+      const intNewValue = Math.floor(newValue);
+
+      console.log(`🔧 Contract parameters: indexId=${intIndexId}, newValue=${intNewValue}`);
+
+      // Skip gas estimation (problematic) and use fixed gas parameters like backend and createIndex
+      console.log(`⛽ Using fixed gas parameters (like backend) instead of estimation...`);
+      const gasLimit = 80000; // Same as backend oracle manager
+      const gasPrice = '2000000'; // 0.002 gwei in wei (Base L2 is very cheap)
+      
+      console.log(`⛽ Gas Limit: ${gasLimit}, Gas Price: ${gasPrice} wei (0.002 gwei)`);
+
+      // Log wallet balance to ensure sufficient funds
+      const balance = await this.web3.eth.getBalance(currentAccount);
+      const balanceInEth = parseFloat(this.web3.utils.fromWei(balance, 'ether'));
+      console.log(`💰 Wallet balance: ${balanceInEth} ETH`);
+      
+      // Check minimum balance for Base L2 (very cheap transactions)
+      const minimumBalanceEth = 0.0001; // Reduced minimum since Base L2 is very cheap
+      if (balanceInEth < minimumBalanceEth) {
+        throw new Error(`Insufficient ETH balance. You have ${balanceInEth.toFixed(6)} ETH but need at least ${minimumBalanceEth} ETH for gas fees. Please add more ETH to your wallet.`);
+      }
+
       let tx;
-      if (indexId <= 5) {
+      if (intIndexId <= 5) {
         console.log('📤 Updating predefined index...');
         
-        // Estimate gas first to catch any issues early
-        const gasEstimate = await this.oracle.methods
-          .updateIndex(indexId, newValue)
-          .estimateGas({ from: this.wallet.currentAccount });
-        
-        console.log(`⛽ Estimated gas: ${gasEstimate}`);
-        
         tx = await this.oracle.methods
-          .updateIndex(indexId, newValue)
+          .updateIndex(intIndexId, intNewValue)
           .send({
-            from: this.wallet.currentAccount,
-            gas: Math.floor(gasEstimate * 1.2), // Add 20% buffer
-            maxFeePerGas: '10000000', // 0.01 gwei - proper Base L2 max fee
-            maxPriorityFeePerGas: '1000000', // 0.001 gwei - proper Base L2 priority fee
+            from: currentAccount,
+            gas: gasLimit.toString(),
+            gasPrice: gasPrice, // Fixed gas price like backend
           });
       } else {
         console.log('📤 Updating custom index...');
         
-        // Estimate gas first to catch any issues early
-        const gasEstimate = await this.oracle.methods
-          .updateCustomIndex(indexId, newValue)
-          .estimateGas({ from: this.wallet.currentAccount });
-        
-        console.log(`⛽ Estimated gas: ${gasEstimate}`);
-        
         tx = await this.oracle.methods
-          .updateCustomIndex(indexId, newValue)
+          .updateCustomIndex(intIndexId, intNewValue)
           .send({
-            from: this.wallet.currentAccount,
-            gas: Math.floor(gasEstimate * 1.2), // Add 20% buffer
-            maxFeePerGas: '10000000', // 0.01 gwei - proper Base L2 max fee
-            maxPriorityFeePerGas: '1000000', // 0.001 gwei - proper Base L2 priority fee
+            from: currentAccount,
+            gas: gasLimit.toString(),
+            gasPrice: gasPrice, // Fixed gas price like backend
           });
       }
 
@@ -879,39 +897,104 @@ export class BlockchainIndices {
       
       console.log(`💰 Using your connected wallet: ${this.wallet.currentAccount}`);
 
-      // Estimate gas first
-      const gasEstimate = await this.oracle.methods
-        .createCustomIndex(
-          initialValue.toString(),
-          sourceUrl,
-          oracleType,
-          '0x0000000000000000000000000000000000000000' // null address for chainlink oracle
-        )
-        .estimateGas({ from: this.wallet.currentAccount });
+      // Verify network and contract before gas estimation
+      const networkId = await this.web3.eth.net.getId();
+      const chainId = await this.web3.eth.getChainId();
+      console.log(`🌐 Network verification: networkId=${networkId}, chainId=${chainId} (should be 8453 for Base Mainnet)`);
+      
+      // Verify contract exists at address
+      const contractCode = await this.web3.eth.getCode(this.oracle.options.address);
+      console.log(`📄 Contract verification: address=${this.oracle.options.address}, hasCode=${contractCode !== '0x'}, codeLength=${contractCode.length}`);
+      
+      if (contractCode === '0x') {
+        throw new Error(`Contract not found at address ${this.oracle.options.address}. Are you on the correct network (Base Mainnet)?`);
+      }
 
-      console.log(`⛽ Estimated gas: ${gasEstimate}`);
+      // Test contract accessibility with a simple read call first
+      try {
+        console.log(`🔍 Testing contract accessibility...`);
+        const owner = await this.oracle.methods.owner().call();
+        console.log(`✅ Contract accessible, owner: ${owner}`);
+      } catch (readError) {
+        console.error(`❌ Contract read test failed:`, readError);
+        throw new Error(`Contract is not accessible: ${readError instanceof Error ? readError.message : 'Unknown error'}`);
+      }
 
-      // Execute transaction
+      // Debug the exact parameters being sent to the contract
+      const contractParams = {
+        initialValue: initialValue.toString(),
+        sourceUrl: sourceUrl,
+        oracleType: oracleType,
+        chainlinkOracleAddress: '0x0000000000000000000000000000000000000000'
+      };
+      console.log(`📝 Contract parameters:`, contractParams);
+      console.log(`📝 Parameter types:`, {
+        initialValue: typeof contractParams.initialValue,
+        sourceUrl: typeof contractParams.sourceUrl,
+        oracleType: typeof contractParams.oracleType,
+        chainlinkOracleAddress: typeof contractParams.chainlinkOracleAddress
+      });
+
+      // Skip gas estimation (problematic) and use fixed gas parameters like backend
+      console.log(`⛽ Using fixed gas parameters (like backend) instead of estimation...`);
+      const gasLimit = 250000; // Same as backend
+      const gasPrice = '2000000'; // 0.002 gwei in wei (Base L2 is very cheap)
+      
+      console.log(`⛽ Gas Limit: ${gasLimit}, Gas Price: ${gasPrice} wei (0.002 gwei)`);
+
+      // Log wallet balance to ensure sufficient funds
+      const balance = await this.web3.eth.getBalance(this.wallet.currentAccount);
+      const balanceInEth = parseFloat(this.web3.utils.fromWei(balance, 'ether'));
+      console.log(`💰 Wallet balance: ${balanceInEth} ETH`);
+      
+      // Check minimum balance for Base L2 (very cheap transactions)
+      const minimumBalanceEth = 0.0001; // Reduced minimum since Base L2 is very cheap
+      if (balanceInEth < minimumBalanceEth) {
+        throw new Error(`Insufficient ETH balance. You have ${balanceInEth.toFixed(6)} ETH but need at least ${minimumBalanceEth} ETH for gas fees. Please add more ETH to your wallet.`);
+      }
+      
+      // Calculate estimated cost: gasLimit * gasPrice
+      const estimatedCostWei = gasLimit * parseInt(gasPrice);
+      const estimatedCostEth = parseFloat(this.web3.utils.fromWei(estimatedCostWei.toString(), 'ether'));
+      console.log(`💰 Estimated transaction cost: ${estimatedCostEth.toFixed(8)} ETH (you have ${balanceInEth.toFixed(6)} ETH)`);
+
+      // Execute transaction with fixed gas parameters (same as backend)
       const tx = await this.oracle.methods
         .createCustomIndex(
-          initialValue.toString(),
-          sourceUrl,
-          oracleType,
-          '0x0000000000000000000000000000000000000000'
+          contractParams.initialValue,
+          contractParams.sourceUrl,
+          contractParams.oracleType,
+          contractParams.chainlinkOracleAddress
         )
         .send({
           from: this.wallet.currentAccount,
-          gas: Math.floor(Number(gasEstimate) * 1.2), // Convert BigInt to Number and add 20% buffer
-          maxFeePerGas: '10000000', // 0.01 gwei - proper Base L2 max fee
-          maxPriorityFeePerGas: '1000000', // 0.001 gwei - proper Base L2 priority fee
+          gas: gasLimit.toString(),
+          gasPrice: gasPrice, // Fixed gas price like backend
         });
 
       console.log("✅ Index created successfully:", tx.transactionHash);
 
-      // Parse the events to get the new index ID
+      // Parse the events to get the new index ID with better error handling
       let indexId: number | undefined = undefined;
-      if (tx.events && tx.events.CustomIndexCreated) {
-        indexId = parseInt(tx.events.CustomIndexCreated.returnValues.indexId);
+      try {
+        console.log("🔍 Transaction receipt events:", tx.events);
+        
+        if (tx.events && tx.events.CustomIndexCreated) {
+          const event = tx.events.CustomIndexCreated;
+          console.log("🔍 CustomIndexCreated event:", event);
+          
+          if (event.returnValues && event.returnValues.indexId) {
+            indexId = parseInt(event.returnValues.indexId);
+            console.log("✅ Parsed indexId from event:", indexId);
+          } else {
+            console.warn("⚠️ Could not find indexId in event returnValues");
+          }
+        } else {
+          console.warn("⚠️ CustomIndexCreated event not found in transaction receipt");
+        }
+      } catch (eventError) {
+        console.warn("⚠️ Error parsing events (transaction still succeeded):", eventError);
+        // Don't throw error - transaction succeeded even if we can't parse the event
       }
 
       // Clear cache so next fetch gets fresh data

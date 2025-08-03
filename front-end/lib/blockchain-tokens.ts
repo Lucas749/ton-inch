@@ -188,6 +188,7 @@ export class BlockchainTokens {
       console.log('✅ [BlockchainTokens] Final result:', result);
       
       return result;
+
     } catch (error) {
       console.error("❌ [BlockchainTokens] Error getting token balance:", error);
       console.error("❌ [BlockchainTokens] Error type:", (error as any)?.constructor?.name);

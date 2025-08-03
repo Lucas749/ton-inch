@@ -84,7 +84,7 @@ export const POPULAR_BASE_MAINNET_TOKENS: Token[] = [
     name: 'USD Coin',
     symbol: 'USDC',
     decimals: 6,
-    logoURI: 'https://tokens.1inch.io/0xa0b86a33e6f8c2b9c9c2b4d0e0b4e4b4e4b4e4b4.png',
+    logoURI: 'https://tokens.1inch.io/0xa0b86991c6fe18c309719ef6b85b151c4e0ab6b61.png',
     tags: ['tokens', 'stablecoin']
   }
 ];

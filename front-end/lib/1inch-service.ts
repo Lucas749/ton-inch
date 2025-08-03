@@ -431,6 +431,8 @@ export class OneInchService {
       proxyPath += '/swap';  
     } else if (path.includes('/fusion')) {
       proxyPath += '/fusion';
+    } else if (path.includes('/approve')) {
+      proxyPath += '/approve';
     } else {
       // Default to swap endpoint for other paths
       proxyPath += '/swap';
@@ -881,20 +883,56 @@ export class OneInchService {
         throw new Error("No wallet provider found. Please connect your wallet.");
       }
 
+      // Validate that we have all required signing parameters
+      if (!orderResponse.domain || !orderResponse.types || !orderResponse.order) {
+        console.error("❌ Missing signing parameters:", {
+          hasDomain: !!orderResponse.domain,
+          hasTypes: !!orderResponse.types,
+          hasOrder: !!orderResponse.order
+        });
+        throw new Error("Missing required signing parameters from server");
+      }
+
       try {
         // Request wallet signature using EIP-712
         console.log("🔐 Requesting wallet signature...");
+        console.log("🔍 Signing parameters:", {
+          domain: orderResponse.domain,
+          types: orderResponse.types,
+          order: orderResponse.order
+        });
+        
+        const signParams = {
+          domain: orderResponse.domain,
+          types: orderResponse.types,
+          primaryType: 'Order',
+          message: orderResponse.order
+        };
+
+        // Validate the signing parameters structure
+        if (!signParams.domain.name || !signParams.domain.chainId || !signParams.types.Order) {
+          console.error("❌ Invalid EIP-712 structure:", {
+            domainName: signParams.domain.name,
+            chainId: signParams.domain.chainId,
+            hasOrderTypes: !!signParams.types.Order,
+            orderTypes: signParams.types.Order
+          });
+          throw new Error("Invalid EIP-712 parameters structure");
+        }
+
+        // Additional validation for the message/order
+        if (!signParams.message || typeof signParams.message !== 'object') {
+          console.error("❌ Invalid order message:", signParams.message);
+          throw new Error("Invalid order message for signing");
+        }
+
+        console.log("🔍 Final signing parameters:", JSON.stringify(signParams, null, 2));
         
         const signature = await window.ethereum.request({
           method: 'eth_signTypedData_v4',
           params: [
             params.walletAddress,
-            JSON.stringify({
-              domain: orderResponse.domain,
-              types: orderResponse.types,
-              primaryType: 'Order',
-              message: orderResponse.order
-            })
+            JSON.stringify(signParams)
           ]
         });
 
@@ -925,6 +963,46 @@ export class OneInchService {
         
         if (signError.code === 4001) {
           throw new Error("User rejected the signing request. Fusion orders require wallet signature.");
+        }
+        
+        // Provide more specific error messages
+        if (signError.message.includes('Missing or invalid parameters')) {
+          console.log("🔄 EIP-712 signing failed, attempting simple signature fallback...");
+          
+          try {
+            // Fallback: Try simple message signing instead of EIP-712
+            const simpleMessage = `Sign this message to create a Fusion order:\n\nFrom: ${params.amount} ${params.srcToken}\nTo: ${orderResponse.order.toAmount} ${params.dstToken}\nWallet: ${params.walletAddress}\nNonce: ${orderResponse.order.nonce}`;
+            
+            const fallbackSignature = await window.ethereum.request({
+              method: 'personal_sign',
+              params: [simpleMessage, params.walletAddress]
+            });
+
+            console.log("✅ Fallback signature successful");
+
+            // Submit with fallback signature
+            const submitResponse = await this.submitSignedIntentOrder(
+              orderResponse.order,
+              fallbackSignature,
+              params.chainId
+            );
+
+            console.log("🎯 Intent swap order submitted with fallback:", {
+              orderHash: submitResponse.orderHash,
+              status: submitResponse.status
+            });
+
+            await this.saveOrderToCache(orderResponse.order, submitResponse, params);
+
+            return {
+              orderHash: submitResponse.orderHash,
+              message: submitResponse.message + " (Used fallback signing)"
+            };
+            
+          } catch (fallbackError) {
+            console.error("❌ Fallback signing also failed:", fallbackError);
+            throw new Error("Both EIP-712 and fallback signing failed. Please try Classic swap mode.");
+          }
         }
         
         throw new Error(`Wallet signing failed: ${signError.message || 'Unknown error'}`);

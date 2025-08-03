@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { useBlockchain } from "@/hooks/useBlockchain";
 import { blockchainService } from "@/lib/blockchain-service";
+import { formatIndexValueForDisplay } from "@/lib/blockchain-utils";
 
 interface AdminBoxProps {
   indexId: number;
@@ -127,6 +128,14 @@ export function AdminBox({ indexId, indexName, className = "" }: AdminBoxProps) 
       if (isNaN(numValue)) {
         throw new Error("Invalid number format");
       }
+
+      // Additional wallet connection check
+      if (!isConnected || !walletAddress) {
+        throw new Error("Wallet not connected. Please connect your wallet and try again.");
+      }
+
+      console.log(`🔄 AdminBox: Updating index ${indexId} to ${numValue}`);
+      console.log(`👤 AdminBox: Using wallet ${walletAddress}`);
       
       await blockchainService.updateIndex(indexId, Math.floor(numValue));
       
@@ -140,6 +149,7 @@ export function AdminBox({ indexId, indexName, className = "" }: AdminBoxProps) 
       
     } catch (err: any) {
       setError(`Failed to update index: ${err.message}`);
+      console.error('❌ AdminBox error:', err);
     } finally {
       setIsUpdating(false);
     }
@@ -293,7 +303,7 @@ export function AdminBox({ indexId, indexName, className = "" }: AdminBoxProps) 
       await blockchainService.updateIndex(indexId, newSimulatedValue);
       
       const direction = percentage > 0 ? "increased" : "decreased";
-      setSuccessMessage(`🎯 Simulated ${Math.abs(percentage)}% price ${direction}: ${currentValue.toLocaleString()} → ${newSimulatedValue.toLocaleString()}`);
+      setSuccessMessage(`🎯 Simulated ${Math.abs(percentage)}% price ${direction}: ${formatIndexValueForDisplay(indexId, currentValue)} → ${formatIndexValueForDisplay(indexId, newSimulatedValue)}`);
       
       // Refresh indices to show updated values everywhere
       await refreshIndices();
@@ -366,7 +376,7 @@ export function AdminBox({ indexId, indexName, className = "" }: AdminBoxProps) 
             <span className="font-medium">Current Value:</span>
           </div>
           <div className="text-right">
-            <div className="font-mono text-lg font-bold">{currentValue.toLocaleString()}</div>
+            <div className="font-mono text-lg font-bold">{formatIndexValueForDisplay(indexId, currentValue)}</div>
             <div className="text-xs text-gray-500">
               {lastUpdated || "Never updated"}
             </div>

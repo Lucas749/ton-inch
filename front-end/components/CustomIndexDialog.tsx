@@ -94,6 +94,43 @@ export function CustomIndexDialog({ onIndexCreated, trigger }: CustomIndexDialog
     setError(null);
     setSuccess(null);
 
+    // Check if user is on Base Mainnet (chain ID 8453)
+    try {
+      if (typeof window !== "undefined" && window.ethereum) {
+        const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+        console.log('🔍 Current network chain ID:', chainId);
+        
+        if (chainId !== '0x2105') { // Base Mainnet is 0x2105 (8453 in hex)
+          console.log('⚠️ User is not on Base Mainnet, attempting to switch...');
+          setError("Switching to Base Mainnet network...");
+          
+          // Import blockchain wallet and switch network
+          const { BlockchainWallet } = await import('@/lib/blockchain-wallet');
+          const { Web3 } = await import('web3');
+          const web3 = new Web3(window.ethereum);
+          const wallet = new BlockchainWallet(web3);
+          
+          const switched = await wallet.switchToBaseMainnet();
+          if (!switched) {
+            setError("Failed to switch to Base Mainnet. Please switch manually in your wallet.");
+            setIsCreating(false);
+            return;
+          }
+          
+          console.log('✅ Successfully switched to Base Mainnet');
+          setError(null);
+          
+          // Wait a moment for the network switch to complete
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+    } catch (networkError) {
+      console.error('❌ Network check/switch failed:', networkError);
+      setError("Failed to verify network. Please ensure you're connected to Base Mainnet.");
+      setIsCreating(false);
+      return;
+    }
+
     try {
       // Determine oracle type and address
       let oracleType = parseInt(formData.oracleType);
@@ -120,17 +157,32 @@ export function CustomIndexDialog({ onIndexCreated, trigger }: CustomIndexDialog
         oracleType
       );
 
-      if (result.success && result.indexId) {
+      if (result.success) {
         const oracleTypeName = formData.oracleType === "custom" 
           ? "Chainlink (Custom Address)" 
           : ORACLE_TYPE_NAMES[oracleType as keyof typeof ORACLE_TYPE_NAMES];
         
-        setSuccess(`✅ Successfully created "${formData.name}" with ID ${result.indexId} using ${oracleTypeName}!`);
+        // Show success message with or without indexId
+        const successMessage = result.indexId 
+          ? `✅ Successfully created "${formData.name}" with ID ${result.indexId} using ${oracleTypeName}!`
+          : `✅ Successfully created "${formData.name}" using ${oracleTypeName}! Transaction: ${result.transactionHash?.slice(0, 10)}...`;
         
-        // Notify parent component
-        if (onIndexCreated) {
+        setSuccess(successMessage);
+        
+        // Notify parent component if we have indexId
+        if (onIndexCreated && result.indexId) {
           onIndexCreated(result.indexId);
         }
+
+        // Reset form
+        setFormData({
+          name: "",
+          description: "",
+          initialValue: "",
+          sourceUrl: "",
+          oracleType: "0",
+          chainlinkOracleAddress: ""
+        });
 
         // Auto-close dialog after success
         setTimeout(() => {

@@ -158,6 +158,39 @@ class IndexDataFetcher extends IndexWorkflow {
     }
 
     /**
+     * Format index value for display based on index type
+     */
+    formatIndexValueForDisplay(indexId, value, indexName) {
+        switch (indexId) {
+            case 0: // Inflation Rate (basis points)
+            case 4: // Unemployment Rate (basis points)
+                return `${(value / 100).toFixed(2)}%`;
+            case 1: // Elon Followers
+                return `${(value / 1000000).toFixed(1)}M followers`;
+            case 2: // BTC Price (scaled by 100)
+            case 5: // Tesla Stock (scaled by 100)
+                return `$${(value / 100).toFixed(2)}`;
+            case 3: // VIX Index (basis points)
+                return `${(value / 100).toFixed(2)}`;
+            default:
+                // For custom indices (ID >= 6), display raw value unless it's an Alpha Vantage index
+                const isCustomIndex = indexName && indexName.toLowerCase().includes('custom index');
+                const isAlphaVantageIndex = indexName && !indexName.toLowerCase().includes('custom index');
+                
+                if (isCustomIndex) {
+                    // Custom indices should display raw values (e.g., 100 stays as 100, not 1%)
+                    return value.toLocaleString();
+                } else if (isAlphaVantageIndex && value <= 1000 && value > 0) {
+                    // Alpha Vantage indices might be percentages (basis points)
+                    return `${(value / 100).toFixed(2)}%`;
+                }
+                
+                // Default: display raw value
+                return value.toLocaleString();
+        }
+    }
+
+    /**
      * Format and display index data
      */
     displayIndexData(indices) {
@@ -173,7 +206,7 @@ class IndexDataFetcher extends IndexWorkflow {
         predefined.forEach(index => {
             const status = index.isActive ? '✅ Active' : '❌ Inactive';
             console.log(`\n  [${index.id}] ${index.indexType} - ${index.name}`);
-            console.log(`      Value: ${index.currentValue.toLocaleString()}`);
+            console.log(`      Value: ${this.formatIndexValueForDisplay(index.id, index.currentValue, index.name)}`);
             console.log(`      Description: ${index.description}`);
             console.log(`      Status: ${status}`);
             console.log(`      Last Updated: ${index.lastUpdatedDate}`);
@@ -184,7 +217,7 @@ class IndexDataFetcher extends IndexWorkflow {
             const status = index.isActive ? '✅ Active' : '❌ Inactive';
             const creator = index.creator === this.account.address ? 'YOU' : index.creator.slice(0, 8) + '...';
             console.log(`\n  [${index.id}] ${index.name}`);
-            console.log(`      Value: ${index.currentValue.toLocaleString()}`);
+            console.log(`      Value: ${this.formatIndexValueForDisplay(index.id, index.currentValue, index.name)}`);
             console.log(`      Description: ${index.description}`);
             console.log(`      Creator: ${creator}`);
             console.log(`      Status: ${status}`);
@@ -197,7 +230,7 @@ class IndexDataFetcher extends IndexWorkflow {
             userCreated.forEach(index => {
                 const status = index.isActive ? '✅ Active' : '❌ Inactive';
                 console.log(`\n  [${index.id}] ${index.name}`);
-                console.log(`      Value: ${index.currentValue.toLocaleString()}`);
+                console.log(`      Value: ${this.formatIndexValueForDisplay(index.id, index.currentValue, index.name)}`);
                 console.log(`      Description: ${index.description}`);
                 console.log(`      Status: ${status}`);
                 console.log(`      Created: ${index.createdDate}`);
