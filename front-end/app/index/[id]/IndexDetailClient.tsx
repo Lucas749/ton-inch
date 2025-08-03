@@ -31,7 +31,7 @@ import { useOrders, OPERATORS } from "@/hooks/useOrders";
 import { blockchainService, CONTRACTS } from "@/lib/blockchain-service";
 import AlphaVantageService, { TimeSeriesResponse } from "@/lib/alphavantage-service";
 import { RealIndicesService, RealIndexData } from "@/lib/real-indices-service";
-import { formatIndexValueForDisplay, getIndexTypeInfo } from "@/lib/blockchain-utils";
+import { formatIndexValueForDisplay, getIndexTypeInfo, getYAxisConfig } from "@/lib/blockchain-utils";
 import { SwapBox } from "@/components/SwapBox";
 import { AdminBox } from "@/components/AdminBox";
 import { TokenSelector } from "@/components/TokenSelector";
@@ -1001,17 +1001,45 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
       });
       setChartError(`Failed to load chart data for ${symbol}. Using demo visualization.`);
       
-      // Generate fallback demo data with realistic prices for different asset types
-      const basePrice = 
-        symbol === 'BTCUSD' ? 45000 : 
-        symbol === 'ETHUSD' ? 2500 :
-        symbol === 'CORN' ? 450 :  // Corn price in cents per bushel
-        symbol === 'WHEAT' ? 650 :  // Wheat price in cents per bushel
-        symbol === 'WTI' ? 75 :     // Oil price per barrel
-        symbol === 'BRENT' ? 78 :   // Brent oil price per barrel
-        symbol === 'GLD' ? 180 :    // Gold ETF price
-        symbol === 'VIX' ? 20 :     // VIX volatility index
-        index.price || 100;         // Default fallback
+      // Generate fallback demo data with realistic values for different index types
+      let basePrice;
+      if (blockchainIndexId !== null) {
+        // Use blockchain-specific realistic values based on index type
+        switch (blockchainIndexId) {
+          case 0: // Inflation Rate (basis points) - ~3.2%
+            basePrice = 320; 
+            break;
+          case 1: // Elon Followers - ~150M followers
+            basePrice = 150000000; 
+            break;
+          case 2: // BTC Price (scaled by 100) - ~$45,000
+            basePrice = 4500000; 
+            break;
+          case 3: // VIX Index (basis points) - ~20
+            basePrice = 2000; 
+            break;
+          case 4: // Unemployment Rate (basis points) - ~3.7%
+            basePrice = 370; 
+            break;
+          case 5: // Tesla Stock (scaled by 100) - ~$250
+            basePrice = 25000; 
+            break;
+          default:
+            basePrice = 10000; // Custom index fallback
+        }
+      } else {
+        // Alpha Vantage-based fallback for non-blockchain indices
+        basePrice = 
+          symbol === 'BTCUSD' ? 45000 : 
+          symbol === 'ETHUSD' ? 2500 :
+          symbol === 'CORN' ? 450 :  // Corn price in cents per bushel
+          symbol === 'WHEAT' ? 650 :  // Wheat price in cents per bushel
+          symbol === 'WTI' ? 75 :     // Oil price per barrel
+          symbol === 'BRENT' ? 78 :   // Brent oil price per barrel
+          symbol === 'GLD' ? 180 :    // Gold ETF price
+          symbol === 'VIX' ? 20 :     // VIX volatility index
+          index.price || 100;         // Default fallback
+      }
       
       // Get demo base prices for selected tokens
       let fromTokenBasePrice = 0;
@@ -1043,7 +1071,30 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
         const date = new Date();
         date.setDate(date.getDate() - (89 - i));
         
-        const variation = (Math.random() - 0.5) * 0.1; // ±5% variation
+        // Adjust variation based on index type for more realistic movement
+        let variationRange = 0.1; // Default ±5% variation
+        if (blockchainIndexId !== null) {
+          switch (blockchainIndexId) {
+            case 0: // Inflation Rate - smaller variations
+            case 4: // Unemployment Rate - smaller variations
+              variationRange = 0.05; // ±2.5% variation
+              break;
+            case 1: // Elon Followers - very small variations (followers don't change much daily)
+              variationRange = 0.02; // ±1% variation
+              break;
+            case 2: // BTC Price - larger variations
+              variationRange = 0.15; // ±7.5% variation  
+              break;
+            case 3: // VIX Index - can be volatile
+              variationRange = 0.2; // ±10% variation
+              break;
+            case 5: // Tesla Stock - can be volatile
+              variationRange = 0.12; // ±6% variation
+              break;
+          }
+        }
+        
+        const variation = (Math.random() - 0.5) * variationRange;
         const price = basePrice * (1 + variation);
         
         const dataPoint: any = {
@@ -1537,7 +1588,13 @@ This matches the backend test-index-order-creator.js values exactly!`);
                         {/* @ts-ignore */}
                         <YAxis 
                           yAxisId="left"
-                          tick={{ fontSize: 12, fill: '#3b82f6' }}
+                          tick={{ 
+                            fontSize: blockchainIndexId !== null ? getYAxisConfig(blockchainIndexId).fontSize : 11, 
+                            fill: '#3b82f6' 
+                          }}
+                          width={blockchainIndexId !== null ? getYAxisConfig(blockchainIndexId).width : 60}
+                          tickCount={blockchainIndexId !== null ? getYAxisConfig(blockchainIndexId).tickCount : 6}
+                          domain={['dataMin', 'dataMax']}
                           tickFormatter={(value) => {
                             if (blockchainIndexId !== null) {
                               return formatIndexValueForDisplay(blockchainIndexId, value);

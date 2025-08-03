@@ -171,3 +171,27 @@ export function getIndexTypeInfo(indexId: number): {
       return { isPercentage: false, isCurrency: false, isFollowers: false, scalingFactor: 1, unit: '' };
   }
 }
+
+/**
+ * Get optimal Y-axis configuration for different index types
+ */
+export function getYAxisConfig(indexId: number): {
+  width: number;
+  tickCount: number;
+  fontSize: number;
+} {
+  switch (indexId) {
+    case 1: // Elon Followers - needs more width for "150.0M followers"
+      return { width: 100, tickCount: 5, fontSize: 10 };
+    case 0: // Inflation Rate - percentage values
+    case 4: // Unemployment Rate - percentage values
+      return { width: 50, tickCount: 6, fontSize: 11 };
+    case 2: // BTC Price - large dollar amounts
+    case 5: // Tesla Stock - dollar amounts
+      return { width: 70, tickCount: 6, fontSize: 11 };
+    case 3: // VIX Index - simple numbers
+      return { width: 45, tickCount: 6, fontSize: 11 };
+    default:
+      return { width: 60, tickCount: 6, fontSize: 11 };
+  }
+}
