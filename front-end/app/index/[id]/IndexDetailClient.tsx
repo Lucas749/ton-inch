@@ -12,7 +12,6 @@ import {
   Plus,
   Activity,
   BarChart3,
-
   Loader2,
   RefreshCw,
   ArrowUpDown
@@ -31,7 +30,7 @@ import { useBlockchain } from "@/hooks/useBlockchain";
 import { useOrders, OPERATORS } from "@/hooks/useOrders";
 import { blockchainService, CONTRACTS } from "@/lib/blockchain-service";
 import AlphaVantageService, { TimeSeriesResponse } from "@/lib/alphavantage-service";
-import { RealIndicesService } from "@/lib/real-indices-service";
+import { RealIndicesService, RealIndexData } from "@/lib/real-indices-service";
 import { SwapBox } from "@/components/SwapBox";
 import { AdminBox } from "@/components/AdminBox";
 import { TokenSelector } from "@/components/TokenSelector";
@@ -39,9 +38,93 @@ import { Token, tokenService } from "@/lib/token-service";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ethers } from "ethers";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface IndexDetailClientProps {
   indexData: any;
+}
+
+/**
+ * Create proper Alpha Vantage URL based on index type
+ */
+function createAlphaVantageUrl(index: RealIndexData): string {
+  const apiKey = process.env.NEXT_PUBLIC_ALPHAVANTAGE || '123';
+  const baseUrl = 'https://www.alphavantage.co/query';
+  
+  // Generic Alpha Vantage URL builder - works with any symbol/category combination
+  const buildUrl = (symbol: string, category: string) => {
+    const params = new URLSearchParams();
+    params.set('apikey', apiKey);
+    
+    // Smart function detection based on symbol patterns
+    
+    // 1. Check if symbol contains slash (forex pairs like EUR/USD)
+    if (symbol.includes('/')) {
+      const [from, to] = symbol.split('/');
+      params.set('function', 'FX_DAILY');
+      params.set('from_symbol', from);
+      params.set('to_symbol', to);
+      return `${baseUrl}?${params.toString()}`;
+    }
+    
+    // 2. Check for 6-character currency pairs (EURUSD, GBPJPY)
+    if (symbol.length === 6 && symbol.match(/^[A-Z]{6}$/)) {
+      params.set('function', 'FX_DAILY');
+      params.set('from_symbol', symbol.slice(0, 3));
+      params.set('to_symbol', symbol.slice(3));
+      return `${baseUrl}?${params.toString()}`;
+    }
+    
+    // 3. Known cryptocurrency patterns
+    const cryptoPatterns = /^(BTC|ETH|LTC|XRP|ADA|DOT|LINK|UNI|MATIC|SOL|DOGE|SHIB|AVAX|ATOM|ALGO|XLM)$/i;
+    if (category === 'Crypto' || cryptoPatterns.test(symbol)) {
+      params.set('function', 'DIGITAL_CURRENCY_DAILY');
+      params.set('symbol', symbol);
+      params.set('market', 'USD');
+      return `${baseUrl}?${params.toString()}`;
+    }
+    
+    // 4. Commodity function names (symbol IS the function)
+    const commodityFunctions = [
+      'CORN', 'WHEAT', 'WTI', 'BRENT', 'NATURAL_GAS', 'COPPER', 'ALUMINUM', 
+      'ZINC', 'NICKEL', 'GOLD', 'SILVER', 'PLATINUM', 'PALLADIUM'
+    ];
+    if (category === 'Commodities' || commodityFunctions.includes(symbol.toUpperCase())) {
+      params.set('function', symbol.toUpperCase());
+      return `${baseUrl}?${params.toString()}`;
+    }
+    
+    // 5. Economic indicators (function names)
+    const economicFunctions = [
+      'GDP', 'INFLATION', 'UNEMPLOYMENT', 'FEDERAL_FUNDS_RATE', 'TREASURY_YIELD',
+      'CPI', 'RETAIL_SALES', 'DURABLES', 'CONSUMER_SENTIMENT'
+    ];
+    if (category === 'Economics' || economicFunctions.includes(symbol.toUpperCase())) {
+      params.set('function', symbol.toUpperCase());
+      return `${baseUrl}?${params.toString()}`;
+    }
+    
+    // 6. Special functions that need specific handling
+    if (symbol.toLowerCase().includes('earnings')) {
+      params.set('function', 'EARNINGS_ESTIMATES');
+      // Extract actual symbol from earnings notation (e.g., "MSTR EPS" -> "MSTR")
+      const actualSymbol = symbol.replace(/\s*(EPS|EARNINGS).*$/i, '');
+      params.set('symbol', actualSymbol);
+      return `${baseUrl}?${params.toString()}`;
+    }
+    
+    if (category === 'Intelligence' || symbol.toLowerCase().includes('gainers') || symbol.toLowerCase().includes('losers')) {
+      params.set('function', 'TOP_GAINERS_LOSERS');
+      return `${baseUrl}?${params.toString()}`;
+    }
+    
+    // 7. Default to GLOBAL_QUOTE for stocks, ETFs, indices, and unknown types
+    params.set('function', 'GLOBAL_QUOTE');
+    params.set('symbol', symbol);
+    return `${baseUrl}?${params.toString()}`;
+  };
+  
+  return buildUrl(index.symbol, index.category);
 }
 
 // Map index IDs to Alpha Vantage symbols
@@ -99,6 +182,8 @@ const shouldSkipToken = (tokenSymbol: string): boolean => {
 export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) {
   const router = useRouter();
   const [isRequestingIndex, setIsRequestingIndex] = useState(false);
+  const [requestSuccess, setRequestSuccess] = useState<string | null>(null);
+  const [requestError, setRequestError] = useState<string | null>(null);
   const [chartData, setChartData] = useState<Array<{
     date: string;
     price: number;
@@ -151,7 +236,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
     expiry: "24" // hours
   });
   
-  const { isConnected, walletAddress, indices: blockchainIndices, ethBalance, getTokenBalance, connectWallet } = useBlockchain();
+  const { isConnected, walletAddress, indices: blockchainIndices, ethBalance, getTokenBalance, connectWallet, refreshIndices } = useBlockchain();
 
   // Auto-populate order description with index name when component loads
   useEffect(() => {
@@ -1013,14 +1098,57 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
   }, [fromToken, toToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleRequestIndex = async () => {
+    if (!isConnected || !walletAddress) {
+      setRequestError("Please connect your wallet first");
+      return;
+    }
+
+    if (!window.ethereum) {
+      setRequestError("MetaMask or compatible wallet required");
+      return;
+    }
+
     setIsRequestingIndex(true);
-    
+    setRequestError(null);
+    setRequestSuccess(null);
+
     try {
-      // Simulate request submission
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      alert(`📝 Request submitted for ${realIndexData.name}! We'll notify you when it's available on-chain.`);
+      // Use the current Alpha Vantage price as initial value
+      const initialValue = Math.floor(realIndexData.price || 0);
+      
+      // Create proper Alpha Vantage URL based on index category
+      const sourceUrl = createAlphaVantageUrl(realIndexData);
+
+      // Use the blockchain service directly instead of API route
+      const { ORACLE_TYPES } = await import('@/lib/blockchain-constants');
+      const { blockchainService } = await import('@/lib/blockchain-service');
+      
+      const result = await blockchainService.createIndexWithOracleType(
+        realIndexData.name,
+        initialValue,
+        sourceUrl,
+        ORACLE_TYPES.CHAINLINK
+      );
+
+      if (result.success) {
+        setRequestSuccess(`✅ Successfully created blockchain index "${realIndexData.name}" with ID ${result.indexId}! Transaction: ${result.transactionHash}`);
+        
+        // Refresh blockchain indices to show the new index
+        if (refreshIndices) {
+          await refreshIndices();
+        }
+        
+        // Refresh the page to show updated state
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      } else {
+        throw new Error(result.error || 'Failed to create index');
+      }
+
     } catch (error) {
-      alert("Failed to submit request. Please try again.");
+      console.error('❌ Error requesting index:', error);
+      setRequestError(`Failed to create blockchain index: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsRequestingIndex(false);
     }
@@ -1270,6 +1398,23 @@ This matches the backend test-index-order-creator.js values exactly!`);
                 )}
               </div>
             </div>
+
+            {/* Request Index Success/Error Messages */}
+            {requestSuccess && (
+              <Alert className="border-green-200 bg-green-50">
+                <AlertDescription className="text-green-800">
+                  {requestSuccess}
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            {requestError && (
+              <Alert className="border-red-200 bg-red-50">
+                <AlertDescription className="text-red-800">
+                  {requestError}
+                </AlertDescription>
+              </Alert>
+            )}
 
             {/* Key Metrics */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
