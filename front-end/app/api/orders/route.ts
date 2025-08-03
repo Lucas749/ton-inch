@@ -455,9 +455,10 @@ async function createIndexBasedOrderStandalone(params: any) {
     const UINT_40_MAX = (BigInt(1) << BigInt(40)) - BigInt(1);
     
     // Create MakerTraits
+    const nonce = randBigInt(UINT_40_MAX);
     const makerTraits = MakerTraits.default()
       .withExpiration(expiration)
-      .withNonce(randBigInt(UINT_40_MAX))
+      .withNonce(nonce)
       .allowPartialFills()
       .allowMultipleFills()
       .withExtension();
@@ -602,7 +603,7 @@ async function createIndexBasedOrderStandalone(params: any) {
         salt: order.salt.toString(),
         receiver: userWalletAddress,
         expiration: expiration.toString(),
-        nonce: order.salt.toString(),
+        nonce: nonce.toString(),
         extension: extension ? extension.encode() : null
       }
     };
@@ -918,7 +919,7 @@ export async function POST(request: NextRequest) {
         // Recreate MakerTraits
         const makerTraits = MakerTraits.default()
           .withExpiration(BigInt(orderData.expiration))
-          .withNonce(BigInt(orderData.salt))
+          .withNonce(BigInt(orderData.nonce))
           .allowPartialFills()
           .allowMultipleFills();
 
