@@ -127,6 +127,14 @@ export class BlockchainIndices {
         
         console.log(`📋 Found ${indexIds.length} custom indices:`, indexIds.map((id: any) => Number(id)));
         
+        // DEBUG: Check if index 15 is in the custom indices
+        const has15 = indexIds.some((id: any) => Number(id) === 15);
+        console.log('🐛 DEBUG: Index 15 in custom indices?', has15);
+        if (!has15) {
+          console.log('🚨 PROBLEM: Index 15 NOT found in getAllCustomIndices() response!');
+          console.log('🚨 This means it might be coming from predefined indices or another source');
+        }
+        
         // For each custom index, get its detailed information from the oracle
         for (let i = 0; i < indexIds.length; i++) {
           const id = Number(indexIds[i]);
