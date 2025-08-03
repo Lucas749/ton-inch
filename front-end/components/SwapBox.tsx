@@ -264,7 +264,7 @@ export function SwapBox({
 
     // Validate minimum swap amounts to prevent transaction reverts
     const swapAmount = parseFloat(fromAmount);
-    const minimumETH = 0.01; // 0.01 ETH minimum
+    const minimumETH = 0.00001; // 0.00001 ETH minimum (1000x lower)
     const minimumToken = 1; // 1 token minimum for others
 
     if (fromToken.symbol === 'ETH' && swapAmount < minimumETH) {
@@ -350,7 +350,7 @@ export function SwapBox({
 
     // Validate minimum swap amounts to prevent transaction reverts
     const swapAmount = parseFloat(fromAmount);
-    const minimumETH = 0.01; // 0.01 ETH minimum
+    const minimumETH = 0.00001; // 0.00001 ETH minimum (1000x lower)
     const minimumToken = 1; // 1 token minimum for others
 
     if (fromToken.symbol === 'ETH' && swapAmount < minimumETH) {
@@ -517,7 +517,7 @@ export function SwapBox({
           </div>
           {fromToken && (
             <p className="text-xs text-gray-500 mt-1 text-right">
-              Minimum: {fromToken.symbol === 'ETH' ? '0.01 ETH' : `1 ${fromToken.symbol}`}
+                                    Minimum: {fromToken.symbol === 'ETH' ? '0.00001 ETH' : `1 ${fromToken.symbol}`}
             </p>
           )}
         </div>
