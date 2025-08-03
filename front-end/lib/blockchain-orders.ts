@@ -477,7 +477,7 @@ export class BlockchainOrders {
               console.log('🔄 Marking order as cancelled locally...');
               
               // Mark the order as cancelled in local storage
-              this.orderCacheService.updateOrderStatus(orderHash, 'cancelled');
+              OrderCacheService.updateOrderStatus(orderHash, 'cancelled');
               
               return {
                 success: true,
