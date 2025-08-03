@@ -1,9 +1,7 @@
 import { IndexDetailClient } from "./IndexDetailClient";
 import { redirect } from 'next/navigation';
 
-// Disable static generation to fix Netlify deployment issues
-// This will make the route server-side rendered instead
-export const dynamic = 'force-dynamic';
+// Dynamic route for index details
 
 // Comprehensive index details for all supported indices
 const indexDetails: Record<string, any> = {

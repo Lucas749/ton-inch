@@ -1,7 +1,13 @@
 [build]
-  command = "npm ci && npm run build"
+  command = "npm ci --legacy-peer-deps && npm run build" 
   publish = ".next"
 
 [build.environment]
   NODE_VERSION = "18"
-  NETLIFY_NEXT_PLUGIN_SKIP = "true"
+  NPM_FLAGS = "--legacy-peer-deps"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+  
+[build.processing]
+  skip_processing = false
