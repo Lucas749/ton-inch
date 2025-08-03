@@ -619,7 +619,7 @@ async function createIndexBasedOrderStandalone(params: any) {
         salt: order.salt.toString(), // Store SDK-generated salt (already aligned with extension)
         receiver: order.receiver.toString(),
         expiration: expiration.toString(),
-        makerTraits: order.makerTraits.value.toString(),
+        makerTraits: order.makerTraits.toString(),
         nonce: nonce.toString(),
         extension: extension ? extension.encode() : null // Store the EXACT encoded extension used in order creation
       }
