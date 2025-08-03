@@ -159,7 +159,9 @@ export async function GET(request: NextRequest) {
     hasApiKey: !!apikey,
     apiKeyLength: apikey?.length || 0,
     envKeys: Object.keys(process.env).filter(key => key.includes('ALPHA')),
-    function: function_
+    function: function_,
+    cacheDir: cacheDir,
+    isVercel: !!process.env.VERCEL
   });
   
   if (!function_ || !apikey) {
@@ -173,26 +175,30 @@ export async function GET(request: NextRequest) {
     }, { status: 400 });
   }
 
-  // Check if we should use cached data
+  // Check if we should use cached data (with error handling for serverless)
   // Create a unique cache symbol that includes all relevant parameters for proper caching
   const cacheSymbol = symbol || from_currency || market || 'unknown';
   const extendedInterval = interval ? 
     `${interval}_${market || ''}_${from_currency || ''}_${to_currency || ''}`.replace(/_+$/, '') : 
     `${market || ''}_${from_currency || ''}_${to_currency || ''}`.replace(/^_+|_+$/g, '') || undefined;
   
-  if (cacheService.shouldUseCache(cacheSymbol, function_, extendedInterval)) {
-    const cachedData = cacheService.getCachedData(cacheSymbol, function_, extendedInterval);
-    if (cachedData) {
-      console.log(`🎯 Cache HIT for ${function_} - ${cacheSymbol}${extendedInterval ? ` (${extendedInterval})` : ''}`);
-      return NextResponse.json(cachedData, {
-        headers: {
-          'X-Cache-Status': 'HIT',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        },
-      });
+  try {
+    if (cacheService.shouldUseCache(cacheSymbol, function_, extendedInterval)) {
+      const cachedData = cacheService.getCachedData(cacheSymbol, function_, extendedInterval);
+      if (cachedData) {
+        console.log(`🎯 Cache HIT for ${function_} - ${cacheSymbol}${extendedInterval ? ` (${extendedInterval})` : ''}`);
+        return NextResponse.json(cachedData, {
+          headers: {
+            'X-Cache-Status': 'HIT',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          },
+        });
+      }
     }
+  } catch (cacheError) {
+    console.warn('⚠️ Cache read failed, proceeding without cache:', cacheError);
   }
 
   try {
@@ -240,10 +246,14 @@ export async function GET(request: NextRequest) {
     // Validate data structure
     validateResponseData(data, function_);
 
-    // Cache the successful response
+    // Cache the successful response (with error handling for serverless)
     if (cacheSymbol && cacheSymbol !== 'unknown') {
-      cacheService.cacheData(cacheSymbol, function_, extendedInterval, data);
-      console.log(`💾 Cache MISS - Cached fresh data for ${function_} - ${cacheSymbol}${extendedInterval ? ` (${extendedInterval})` : ''}`);
+      try {
+        cacheService.cacheData(cacheSymbol, function_, extendedInterval, data);
+        console.log(`💾 Cache MISS - Cached fresh data for ${function_} - ${cacheSymbol}${extendedInterval ? ` (${extendedInterval})` : ''}`);
+      } catch (cacheError) {
+        console.warn('⚠️ Cache write failed, continuing without caching:', cacheError);
+      }
     }
     
     return NextResponse.json(data, {
@@ -257,9 +267,13 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Alpha Vantage API proxy error:', error);
     
-    // Mark failed request for retry logic
+    // Mark failed request for retry logic (with error handling for serverless)
     if (cacheSymbol && cacheSymbol !== 'unknown') {
-      cacheService.markFailedRequest(cacheSymbol, function_, extendedInterval);
+      try {
+        cacheService.markFailedRequest(cacheSymbol, function_, extendedInterval);
+      } catch (cacheError) {
+        console.warn('⚠️ Cache error marking failed, continuing:', cacheError);
+      }
     }
     
     return NextResponse.json(
