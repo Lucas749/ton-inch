@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -404,9 +404,72 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
   const isAvailableOnBlockchain = blockchainIndexId !== null || index.isBlockchainIndex;
   const blockchainIndex = blockchainIndices.find(idx => idx.id === blockchainIndexId);
 
+  // Load real index data from oracle API using useCallback
+  const loadRealIndexData = useCallback(async (indexId: number) => {
+    try {
+      console.log(`🔍 Loading real index data for blockchain index ${indexId} from oracle API...`);
+      
+      const response = await fetch(`/api/oracle?action=get-index-by-id&indexId=${indexId}`);
+      const oracleData = await response.json();
+      
+      if (oracleData.success && oracleData.index) {
+        const indexData = oracleData.index;
+        console.log(`✅ Got real index data from oracle:`, indexData);
+        
+        // Determine avatar and color based on category or type
+        let avatar = "🔗";
+        let color = "bg-purple-600";
+        
+        if (indexData.category === 'Commodities') {
+          avatar = indexData.name.toLowerCase().includes('corn') ? '🌽' : 
+                   indexData.name.toLowerCase().includes('wheat') ? '🌾' :
+                   indexData.name.toLowerCase().includes('oil') ? '🛢️' : 
+                   indexData.name.toLowerCase().includes('gold') ? '🥇' : '📊';
+          color = "bg-yellow-600";
+        } else if (indexData.category === 'Stocks') {
+          avatar = "📈";
+          color = "bg-blue-500";
+        } else if (indexData.category === 'Crypto') {
+          avatar = "₿";
+          color = "bg-orange-500";
+        } else if (indexData.category === 'Forex') {
+          avatar = "💱";
+          color = "bg-green-500";
+        } else if (indexData.category === 'Economics') {
+          avatar = "📊";
+          color = "bg-indigo-600";
+        }
+        
+        // Update real index data with oracle data
+        setRealIndexData((prev: any) => ({
+          ...prev,
+          name: indexData.name, // This will be "Corn" if parsed from sourceUrl, or "Custom Index 15" if not
+          symbol: indexData.symbol,
+          avatar: avatar,
+          color: color,
+          category: indexData.category || 'Custom',
+          description: `${indexData.name} • ${indexData.isActive ? 'Active' : 'Inactive'} • Oracle: ${indexData.oracleType === 0 ? 'Mock' : 'Chainlink'}`,
+          sourceUrl: indexData.sourceUrl,
+          isActive: indexData.isActive,
+          creator: indexData.creator,
+          oracleType: indexData.oracleType,
+          blockchainValue: indexData.value,
+          blockchainTimestamp: indexData.timestamp
+        }));
+        
+        console.log(`🎯 Updated realIndexData with: ${indexData.name} (${indexData.isActive ? 'Active' : 'Inactive'})`);
+      } else {
+        console.warn(`⚠️  Failed to get oracle data for index ${indexId}:`, oracleData.error);
+      }
+    } catch (error) {
+      console.error(`❌ Error loading real index data for index ${indexId}:`, error);
+    }
+  }, []);
+
   // Update realIndexData with blockchain parsed names when available
   useEffect(() => {
     if (blockchainIndex && blockchainIndex.name && !blockchainIndex.name.startsWith('Custom Index')) {
+      console.log(`🔄 Using old blockchain index data: ${blockchainIndex.name}`);
       setRealIndexData((prev: any) => ({
         ...prev,
         name: blockchainIndex.name,
@@ -417,8 +480,13 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
         description: (blockchainIndex as any).description || prev.description,
         sourceUrl: (blockchainIndex as any).sourceUrl || prev.sourceUrl
       }));
+    } else if (blockchainIndexId !== null) {
+      // For custom indices or when blockchain index name starts with "Custom Index", 
+      // use the oracle API to get the real data with proper name parsing
+      console.log(`🔄 Loading real index data via oracle API for index ${blockchainIndexId}...`);
+      loadRealIndexData(blockchainIndexId);
     }
-  }, [blockchainIndex]);
+  }, [blockchainIndex, blockchainIndexId, loadRealIndexData]);
 
   // Check oracle status when blockchain index is available
   useEffect(() => {
@@ -529,7 +597,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
   };
 
   // Load real Alpha Vantage data for this index (fallback for predefined indices)
-  const loadRealIndexData = async () => {
+  const loadAlphaVantageIndexData = async () => {
     try {
       const apiKey = process.env.NEXT_PUBLIC_ALPHAVANTAGE || "123";
       const realIndicesService = new RealIndicesService(apiKey);
@@ -929,10 +997,13 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
 
   // Load data on component mount
   useEffect(() => {
-    loadRealIndexData();
+    // Only call loadRealIndexData if we have a blockchain index ID
+    if (blockchainIndexId !== null) {
+      loadRealIndexData(blockchainIndexId);
+    }
     loadCurrentPrice();
     loadChartData();
-  }, [index.id, blockchainIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [index.id, blockchainIndex, blockchainIndexId, loadRealIndexData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reload chart when tokens change (for correlation analysis)
   useEffect(() => {

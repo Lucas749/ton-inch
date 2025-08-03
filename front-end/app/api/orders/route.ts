@@ -890,6 +890,7 @@ export async function POST(request: NextRequest) {
             submission: successResult.submission,
             technical: successResult.technical,
             orderData: successResult.orderData,
+            typedData: successResult.typedData, // Include typed data for MetaMask signing
             message: `Order ${successResult.orderHash} created successfully!`
           }, {
             headers: {
