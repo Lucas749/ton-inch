@@ -1903,8 +1903,21 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
 
   const fillDemoOrderData = async () => {
     try {
-      const popularTokens = tokenService.getPopularTokensSync() || [];
-      const validTokens = popularTokens.filter(token => 
+      // Try to get tokens from 1inch API first, then fallback to sync
+      let availableTokens = tokenService.getPopularTokensSync() || [];
+      
+      try {
+        console.log('🔍 Fetching fresh tokens from 1inch API for demo...');
+        const freshTokens = await tokenService.getTop25PopularTokens();
+        if (freshTokens && freshTokens.length > 0) {
+          availableTokens = freshTokens;
+          console.log(`✅ Using ${freshTokens.length} fresh tokens from 1inch API`);
+        }
+      } catch (apiError) {
+        console.warn('⚠️ Failed to fetch fresh tokens from API, using fallback:', apiError);
+      }
+      
+      const validTokens = availableTokens.filter(token => 
         token && token.address && token.symbol
       );
       
@@ -1912,6 +1925,13 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
         // Set tokens: USDC -> WETH (matching backend test)
         const usdcToken = validTokens.find(t => t.symbol === 'USDC') || validTokens.find(t => t.symbol.includes('USD'));
         const wethToken = validTokens.find(t => t.symbol === 'WETH') || validTokens[1];
+        
+        console.log('🔍 Demo tokens selected:', {
+          usdc: usdcToken ? `${usdcToken.symbol} (${usdcToken.name})` : 'Not found',
+          weth: wethToken ? `${wethToken.symbol} (${wethToken.name})` : 'Not found',
+          usdcLogo: usdcToken?.logoURI,
+          wethLogo: wethToken?.logoURI
+        });
         
         // If USDC not found, fallback to a stablecoin or first token
         setFromToken(usdcToken || validTokens[0]);

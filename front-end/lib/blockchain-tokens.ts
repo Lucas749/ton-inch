@@ -35,12 +35,28 @@ export class BlockchainTokens {
         tokenContract.methods.decimals().call()
       ]);
 
-      // Properly handle the balance as string
+      // Properly handle the balance calculation based on actual token decimals
       const balanceStr = String(balance);
-      return this.web3.utils.fromWei(
-        balanceStr,
-        Number(decimals) === 18 ? "ether" : "mwei"
-      );
+      const decimalPlaces = Number(decimals);
+      
+      // Convert balance from smallest unit to readable format
+      const divisor = BigInt(10 ** decimalPlaces);
+      const balanceBigInt = BigInt(balanceStr);
+      
+      const wholePart = balanceBigInt / divisor;
+      const fractionalPart = balanceBigInt % divisor;
+      
+      if (fractionalPart === BigInt(0)) {
+        return wholePart.toString();
+      }
+      
+      // Format fractional part with proper padding
+      const fractionalStr = fractionalPart.toString().padStart(decimalPlaces, '0');
+      // Remove trailing zeros
+      const trimmedFractional = fractionalStr.replace(/0+$/, '');
+      
+      return trimmedFractional ? `${wholePart}.${trimmedFractional}` : wholePart.toString();
+      
     } catch (error) {
       console.error("❌ Error getting token balance:", error);
       throw error;

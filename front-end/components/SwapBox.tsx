@@ -57,6 +57,10 @@ export function SwapBox({
   
   // Get blockchain data for real balances
   const { ethBalance, getTokenBalance } = useBlockchain();
+  
+  // Add state for token balances
+  const [fromTokenBalance, setFromTokenBalance] = useState<string | null>(null);
+  const [toTokenBalance, setToTokenBalance] = useState<string | null>(null);
 
   const oneInchService =
     apiKey && rpcUrl && walletAddress
@@ -105,12 +109,46 @@ export function SwapBox({
       } else {
         getIntentQuote();
       }
-    } else {
-      setToAmount("");
-      setQuote(null);
-      setIntentQuote(null);
     }
-  }, [fromAmount, fromToken, toToken, slippage, swapMode, isConfigured]);
+  }, [fromAmount, fromToken, toToken, swapMode, slippage, isConfigured]);
+
+  // Fetch from token balance when fromToken changes
+  useEffect(() => {
+    const fetchFromTokenBalance = async () => {
+      if (fromToken && walletAddress && fromToken.symbol !== 'ETH') {
+        try {
+          const balance = await getTokenBalance(fromToken.address);
+          setFromTokenBalance(balance);
+        } catch (error) {
+          console.error('❌ Error fetching from token balance:', error);
+          setFromTokenBalance('0');
+        }
+      } else {
+        setFromTokenBalance(null);
+      }
+    };
+
+    fetchFromTokenBalance();
+  }, [fromToken, walletAddress, getTokenBalance]);
+
+  // Fetch to token balance when toToken changes
+  useEffect(() => {
+    const fetchToTokenBalance = async () => {
+      if (toToken && walletAddress && toToken.symbol !== 'ETH') {
+        try {
+          const balance = await getTokenBalance(toToken.address);
+          setToTokenBalance(balance);
+        } catch (error) {
+          console.error('❌ Error fetching to token balance:', error);
+          setToTokenBalance('0');
+        }
+      } else {
+        setToTokenBalance(null);
+      }
+    };
+
+    fetchToTokenBalance();
+  }, [toToken, walletAddress, getTokenBalance]);
 
   const getQuote = async () => {
     if (
@@ -423,7 +461,7 @@ export function SwapBox({
               <span className="text-xs text-gray-500">
                 Balance: {fromToken.symbol === 'ETH' 
                   ? (ethBalance ? parseFloat(ethBalance).toFixed(4) : '0.00')
-                  : '0.00'
+                  : (fromTokenBalance !== null ? parseFloat(fromTokenBalance).toFixed(4) : 'Loading...')
                 } {fromToken.symbol}
               </span>
             )}
@@ -444,6 +482,7 @@ export function SwapBox({
                 onChange={(e) => setFromAmount(e.target.value)}
                 className="text-right pr-12 h-12"
               />
+              {/* MAX button for ETH */}
               {fromToken?.symbol === 'ETH' && ethBalance && parseFloat(ethBalance) > 0 && (
                 <Button
                   variant="ghost"
@@ -454,6 +493,20 @@ export function SwapBox({
                     const gasBuffer = 0.0002;
                     const maxAmount = Math.max(0, userBalance - gasBuffer);
                     setFromAmount(maxAmount.toFixed(6)); // Use 6 decimals for precision
+                  }}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-6 px-2 text-xs text-blue-600 hover:text-blue-800"
+                >
+                  MAX
+                </Button>
+              )}
+              {/* MAX button for other tokens */}
+              {fromToken?.symbol !== 'ETH' && fromTokenBalance && parseFloat(fromTokenBalance) > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    const userBalance = parseFloat(fromTokenBalance);
+                    setFromAmount(userBalance.toFixed(6)); // Use 6 decimals for precision
                   }}
                   className="absolute right-1 top-1/2 -translate-y-1/2 h-6 px-2 text-xs text-blue-600 hover:text-blue-800"
                 >
@@ -490,7 +543,7 @@ export function SwapBox({
               <span className="text-xs text-gray-500">
                 Balance: {toToken.symbol === 'ETH' 
                   ? (ethBalance ? parseFloat(ethBalance).toFixed(4) : '0.00')
-                  : '0.00'
+                  : (toTokenBalance !== null ? parseFloat(toTokenBalance).toFixed(4) : 'Loading...')
                 } {toToken.symbol}
               </span>
             )}
