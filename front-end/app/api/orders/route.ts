@@ -619,7 +619,7 @@ async function createIndexBasedOrderStandalone(params: any) {
         salt: order.salt.toString(), // Store SDK-generated salt (already aligned with extension)
         receiver: order.receiver.toString(),
         expiration: expiration.toString(),
-        makerTraits: order.makerTraits.build ? order.makerTraits.build().toString() : (order.makerTraits.value || order.makerTraits).toString(),
+        makerTraits: order.makerTraits.toString(),
         nonce: nonce.toString(),
         extension: extension ? extension.encode() : null // Store the EXACT encoded extension used in order creation
       },
@@ -677,8 +677,8 @@ async function createIndexBasedOrderStandalone(params: any) {
         result.success = true;
         result.submission = {
           submitted: true,
-          method: 'SDK submitOrder (backend approach)',
-          result: submitResult
+          result: String(submitResult),
+          error: null
         };
         result.technical.signature = params.signature;
         
@@ -689,8 +689,8 @@ async function createIndexBasedOrderStandalone(params: any) {
         console.error('❌ Order submission failed:', submitError);
         result.submission = {
           submitted: false,
-          error: submitError.message,
-          method: 'SDK submitOrder (backend approach)'
+          result: '',
+          error: submitError.message
         };
       }
     }
@@ -1041,7 +1041,7 @@ export async function POST(request: NextRequest) {
         });
 
         // Recreate MakerTraits from stored value (exact match)
-        const makerTraits = MakerTraits.from(BigInt(orderData.makerTraits));
+        const makerTraits = new MakerTraits(BigInt(orderData.makerTraits));
 
         // DON'T recreate the order - use manual LimitOrder with EXACT original data
         // The SDK can't recreate orders with custom salts - it breaks alignment
@@ -1073,7 +1073,7 @@ export async function POST(request: NextRequest) {
         console.log('📤 Submitting to 1inch orderbook via SDK...');
 
         // Submit order using SDK (this is the backend approach)
-        const submitResult = await sdk.submitOrder(order, signature);
+        const submitResult = await sdk.submitOrder(order as any, signature);
         
         console.log('✅ Order submitted successfully via SDK!');
         console.log('📋 Submit result:', submitResult);
@@ -1138,22 +1138,21 @@ export async function POST(request: NextRequest) {
           takingAmount: BigInt(completeOrder.takingAmount),
           maker: new Address(completeOrder.maker),
           salt: BigInt(completeOrder.salt),
-          receiver: new Address(completeOrder.receiver),
-          extension: completeOrder.extension
-        }, completeOrder.makerTraits);
+          receiver: new Address(completeOrder.receiver)
+        }, completeOrder.makerTraits, completeOrder.extension);
 
-        console.log(`✅ Using pre-created order: ${order.getOrderHash()}`);
+        console.log(`✅ Using pre-created order: ${order.getOrderHash(CONFIG.CHAIN_ID)}`);
         console.log('📤 Submitting to 1inch with exact same order object...');
 
         // Submit order using the exact same order object that was signed
-        const submitResult = await sdk.submitOrder(order, signature);
+        const submitResult = await sdk.submitOrder(order as any, signature);
         
         console.log('✅ Order submitted successfully via backend approach!');
         console.log('📋 Submit result:', submitResult);
 
         return NextResponse.json({
           success: true,
-          orderHash: order.getOrderHash(),
+          orderHash: order.getOrderHash(CONFIG.CHAIN_ID),
           message: 'Order created and submitted successfully using backend approach',
           submitResult,
           submission: {

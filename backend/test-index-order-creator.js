@@ -18,18 +18,18 @@ async function testIndexOrderCreator() {
     console.log('\n🎯 CREATING TEST ORDER');
     console.log('======================');
     
-    // Example 1: Apple Stock conditional order
-    console.log('\n📱 Example 1: Apple Stock > $180');
-    const appleOrder = {
+    // Example 1: Tesla Stock conditional order
+    console.log('\n📱 Example 1: Tesla Stock > $250');
+    const teslaOrder = {
         fromToken: 'USDC',                    // Sell USDC
         toToken: 'WETH',                      // Buy WETH  
         amount: '0.1',                        // Sell 0.1 USDC
         expectedAmount: '0.00003',            // Expect 0.00003 WETH
         condition: {
-            indexId: INDICES.APPLE_STOCK.id,  // Apple Stock (ID: 0)
+            indexId: INDICES.TESLA_STOCK.id,  // Tesla Stock (ID: 5)
             operator: 'gt',                   // Greater than
-            threshold: 18000,                 // $180.00 (in basis points)
-            description: 'Apple Stock > $180'
+            threshold: 25000,                 // $250.00 (in basis points)
+            description: 'Tesla Stock > $250'
         },
         expirationHours: 2,                   // Expires in 2 hours
         privateKey: process.env.PRIVATE_KEY,
@@ -37,9 +37,9 @@ async function testIndexOrderCreator() {
     };
     
     try {
-        const result = await createIndexBasedOrder(appleOrder);
+        const result = await createIndexBasedOrder(teslaOrder);
         
-        console.log('\n📊 APPLE ORDER RESULT:');
+        console.log('\n📊 TESLA ORDER RESULT:');
         console.log('======================');
         console.log(`Success: ${result.success}`);
         console.log(`Order Hash: ${result.orderHash}`);
