@@ -470,55 +470,45 @@ export class BlockchainIndices {
 
       console.log(`🔧 Contract parameters: indexId=${intIndexId}, newValue=${intNewValue}`);
 
+      // Skip gas estimation (problematic) and use fixed gas parameters like backend and createIndex
+      console.log(`⛽ Using fixed gas parameters (like backend) instead of estimation...`);
+      const gasLimit = 80000; // Same as backend oracle manager
+      const gasPrice = '2000000'; // 0.002 gwei in wei (Base L2 is very cheap)
+      
+      console.log(`⛽ Gas Limit: ${gasLimit}, Gas Price: ${gasPrice} wei (0.002 gwei)`);
+
+      // Log wallet balance to ensure sufficient funds
+      const balance = await this.web3.eth.getBalance(currentAccount);
+      const balanceInEth = parseFloat(this.web3.utils.fromWei(balance, 'ether'));
+      console.log(`💰 Wallet balance: ${balanceInEth} ETH`);
+      
+      // Check minimum balance for Base L2 (very cheap transactions)
+      const minimumBalanceEth = 0.0001; // Reduced minimum since Base L2 is very cheap
+      if (balanceInEth < minimumBalanceEth) {
+        throw new Error(`Insufficient ETH balance. You have ${balanceInEth.toFixed(6)} ETH but need at least ${minimumBalanceEth} ETH for gas fees. Please add more ETH to your wallet.`);
+      }
+
       let tx;
       if (intIndexId <= 5) {
         console.log('📤 Updating predefined index...');
         
-        // Estimate gas first to catch any issues early
-        try {
-          const gasEstimate = await this.oracle.methods
-            .updateIndex(intIndexId, intNewValue)
-            .estimateGas({ from: currentAccount });
-          
-          console.log(`⛽ Estimated gas: ${gasEstimate}`);
-          
-          tx = await this.oracle.methods
-            .updateIndex(intIndexId, intNewValue)
-            .send({
-              from: currentAccount,
-              gas: Math.floor(Number(gasEstimate) * 1.2), // Add 20% buffer
-              maxFeePerGas: '10000000', // 0.01 gwei - proper Base L2 max fee
-              maxPriorityFeePerGas: '1000000', // 0.001 gwei - proper Base L2 priority fee
-            });
-        } catch (estimateError: any) {
-          console.error('❌ Gas estimation failed for predefined index:', estimateError);
-          console.error('❌ Full error details:', JSON.stringify(estimateError, null, 2));
-          throw new Error(`Gas estimation failed: ${estimateError.message || 'Unknown error'}`);
-        }
+        tx = await this.oracle.methods
+          .updateIndex(intIndexId, intNewValue)
+          .send({
+            from: currentAccount,
+            gas: gasLimit.toString(),
+            gasPrice: gasPrice, // Fixed gas price like backend
+          });
       } else {
         console.log('📤 Updating custom index...');
         
-        // Estimate gas first to catch any issues early
-        try {
-          const gasEstimate = await this.oracle.methods
-            .updateCustomIndex(intIndexId, intNewValue)
-            .estimateGas({ from: currentAccount });
-          
-          console.log(`⛽ Estimated gas: ${gasEstimate}`);
-          
-          tx = await this.oracle.methods
-            .updateCustomIndex(intIndexId, intNewValue)
-            .send({
-              from: currentAccount,
-              gas: Math.floor(Number(gasEstimate) * 1.2), // Add 20% buffer
-              maxFeePerGas: '10000000', // 0.01 gwei - proper Base L2 max fee
-              maxPriorityFeePerGas: '1000000', // 0.001 gwei - proper Base L2 priority fee
-            });
-        } catch (estimateError: any) {
-          console.error('❌ Gas estimation failed for custom index:', estimateError);
-          console.error('❌ Full error details:', JSON.stringify(estimateError, null, 2));
-          throw new Error(`Gas estimation failed: ${estimateError.message || 'Unknown error'}`);
-        }
+        tx = await this.oracle.methods
+          .updateCustomIndex(intIndexId, intNewValue)
+          .send({
+            from: currentAccount,
+            gas: gasLimit.toString(),
+            gasPrice: gasPrice, // Fixed gas price like backend
+          });
       }
 
       console.log("✅ Index updated:", tx.transactionHash);

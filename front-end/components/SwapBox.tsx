@@ -216,12 +216,26 @@ export function SwapBox({
 
   const handleClassicSwap = async () => {
 
-
     if (!oneInchService || !fromAmount || !quote || !fromToken || !toToken)
       return;
 
     if (!walletAddress) {
       setError("Wallet address is required for swaps");
+      return;
+    }
+
+    // Validate minimum swap amounts to prevent transaction reverts
+    const swapAmount = parseFloat(fromAmount);
+    const minimumETH = 0.01; // 0.01 ETH minimum
+    const minimumToken = 1; // 1 token minimum for others
+
+    if (fromToken.symbol === 'ETH' && swapAmount < minimumETH) {
+      setError(`Minimum swap amount is ${minimumETH} ETH. Current amount (${swapAmount} ETH) is too small and would fail due to gas costs exceeding swap value.`);
+      return;
+    }
+
+    if (fromToken.symbol !== 'ETH' && swapAmount < minimumToken) {
+      setError(`Minimum swap amount is ${minimumToken} ${fromToken.symbol}. Current amount is too small for successful execution.`);
       return;
     }
 
@@ -295,6 +309,21 @@ export function SwapBox({
       !toToken
     )
       return;
+
+    // Validate minimum swap amounts to prevent transaction reverts
+    const swapAmount = parseFloat(fromAmount);
+    const minimumETH = 0.01; // 0.01 ETH minimum
+    const minimumToken = 1; // 1 token minimum for others
+
+    if (fromToken.symbol === 'ETH' && swapAmount < minimumETH) {
+      setError(`Minimum swap amount is ${minimumETH} ETH. Current amount (${swapAmount} ETH) is too small and would fail due to gas costs exceeding swap value.`);
+      return;
+    }
+
+    if (fromToken.symbol !== 'ETH' && swapAmount < minimumToken) {
+      setError(`Minimum swap amount is ${minimumToken} ${fromToken.symbol}. Current amount is too small for successful execution.`);
+      return;
+    }
 
     setIsSwapping(true);
     setError("");
@@ -433,6 +462,11 @@ export function SwapBox({
               )}
             </div>
           </div>
+          {fromToken && (
+            <p className="text-xs text-gray-500 mt-1 text-right">
+              Minimum: {fromToken.symbol === 'ETH' ? '0.01 ETH' : `1 ${fromToken.symbol}`}
+            </p>
+          )}
         </div>
 
         {/* Swap Direction Button */}
@@ -560,8 +594,7 @@ export function SwapBox({
               Getting Quote...
             </>
           ) : (
-            `Swap ${fromToken?.symbol || 'Token'} → ${toToken?.symbol || 'Token'}`
-          )}
+            `Swap ${fromToken?.symbol || 'Token'} → ${toToken?.symbol || 'Token'}`          )}
         </Button>
 
         {/* Swap Mode Badge */}
