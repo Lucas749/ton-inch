@@ -865,6 +865,7 @@ export async function POST(request: NextRequest) {
             condition: successResult.condition,
             submission: successResult.submission,
             technical: successResult.technical,
+            orderData: successResult.orderData,
             message: `Order ${successResult.orderHash} created successfully!`
           }, {
             headers: {
