@@ -926,7 +926,12 @@ export async function POST(request: NextRequest) {
           oneInchApiKey
         });
 
-        return NextResponse.json(result, {
+        // Convert BigInt values to strings for JSON serialization
+        const jsonSafeResult = JSON.parse(JSON.stringify(result, (key, value) =>
+          typeof value === 'bigint' ? value.toString() : value
+        ));
+
+        return NextResponse.json(jsonSafeResult, {
           headers: {
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
