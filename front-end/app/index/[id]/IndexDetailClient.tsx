@@ -762,6 +762,7 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
               // Economic indicator functions - use cached API route
               console.log(`📈 Fetching economic data for: ${alphaVantageFunction} via cached API`);
               let economicResponse: any;
+              let parsedData: any;
               
               const apiResponse = await fetch(`/api/alphavantage?function=${alphaVantageFunction}`);
               economicResponse = await apiResponse.json();
@@ -770,12 +771,24 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                 console.warn(`Failed to fetch economic data for ${alphaVantageFunction}, falling back to SPY`);
                 // For economic indicators, fallback to SPY data
                 const fallbackResponse = await fetch(`/api/alphavantage?function=TIME_SERIES_DAILY&symbol=SPY&outputsize=compact`);
-                response = await fallbackResponse.json();
-                if (!fallbackResponse.ok) throw new Error((response as any)?.error || 'Failed to fetch fallback data');
-                parsedData = AlphaVantageService.parseTimeSeriesData(response!);
+                const fallbackData = await fallbackResponse.json();
+                if (!fallbackResponse.ok) throw new Error((fallbackData as any)?.error || 'Failed to fetch fallback data');
+                parsedData = AlphaVantageService.parseTimeSeriesData(fallbackData);
               } else {
                 // Parse economic indicator data using the correct parser
                 parsedData = AlphaVantageService.parseEconomicIndicatorData(economicResponse);
+              }
+              
+              // Set price from parsed data
+              if (parsedData && parsedData.length > 0) {
+                currentPrice = Number(parsedData[0]?.value || parsedData[0]?.close);
+                if (parsedData.length > 1) {
+                  const prevPrice = Number(parsedData[1]?.value || parsedData[1]?.close);
+                  if (prevPrice && currentPrice) {
+                    priceChange = ((currentPrice - prevPrice) / prevPrice * 100).toFixed(2);
+                    isPositive = currentPrice >= prevPrice;
+                  }
+                }
               }
             } else if (['CORN', 'WHEAT', 'WTI', 'BRENT', 'NATURAL_GAS', 'COPPER', 'ALUMINUM', 'ZINC', 'NICKEL', 'GOLD', 'SILVER'].includes(alphaVantageFunction)) {
               // Commodity functions - use cached API route
@@ -797,11 +810,23 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
               }
             } else {
               // Fallback to stock data
-              console.log(`📈 Fallback: fetching stock data for: ${symbol} via cached API`);
-              const apiResponse = await fetch(`/api/alphavantage?function=TIME_SERIES_DAILY&symbol=${symbol}&outputsize=compact`);
-              response = await apiResponse.json();
-              if (!apiResponse.ok) throw new Error((response as any)?.error || 'Failed to fetch stock data');
-              parsedData = AlphaVantageService.parseTimeSeriesData(response!);
+              console.log(`📈 Fallback: fetching stock data for: ${alphaVantageSymbol} via cached API`);
+              const apiResponse = await fetch(`/api/alphavantage?function=TIME_SERIES_DAILY&symbol=${alphaVantageSymbol}&outputsize=compact`);
+              const stockData = await apiResponse.json();
+              if (!apiResponse.ok) throw new Error((stockData as any)?.error || 'Failed to fetch stock data');
+              const parsedData = AlphaVantageService.parseTimeSeriesData(stockData);
+              
+              // Set price from parsed data
+              if (parsedData && parsedData.length > 0) {
+                currentPrice = Number(parsedData[0]?.value || parsedData[0]?.close);
+                if (parsedData.length > 1) {
+                  const prevPrice = Number(parsedData[1]?.value || parsedData[1]?.close);
+                  if (prevPrice && currentPrice) {
+                    priceChange = ((currentPrice - prevPrice) / prevPrice * 100).toFixed(2);
+                    isPositive = currentPrice >= prevPrice;
+                  }
+                }
+              }
             }
           }
         } catch (alphaVantageError) {
@@ -1736,9 +1761,6 @@ This matches the backend test-index-order-creator.js values exactly!`);
                 <CardContent className="p-4">
                   <div className="text-sm text-gray-500">Price</div>
                   <div className="text-2xl font-bold text-gray-900">{realIndexData.valueLabel}</div>
-                  <div className={`text-sm ${realIndexData.isPositive ? 'text-green-600' : 'text-red-600'}`}>
-                    {realIndexData.change}
-                  </div>
                 </CardContent>
               </Card>
               
