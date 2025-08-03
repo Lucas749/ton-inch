@@ -1662,8 +1662,8 @@ This matches the backend test-index-order-creator.js values exactly!`);
 
           {/* Right Column - Trading & Social Feed */}
           <div className="space-y-6">
-            {/* Conditional Order Creation Box - Only for indices 0-3 */}
-            {blockchainIndexId !== null && blockchainIndexId <= 3 && (
+            {/* Conditional Order Creation Box - Available for all blockchain indices */}
+            {blockchainIndexId !== null && (
               <Card>
                 <CardHeader>
                   <CardTitle>Create Conditional Order</CardTitle>
