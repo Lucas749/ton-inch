@@ -638,14 +638,30 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
           color = "bg-indigo-600";
         }
         
-        // Update real index data with oracle data
+        // Update real index data with oracle data, detecting category from source URL if not provided
+        let detectedCategory = indexData.category || 'Custom';
+        if (!indexData.category && indexData.sourceUrl) {
+          const url = indexData.sourceUrl.toLowerCase();
+          if (url.includes('global_quote') || url.includes('time_series_daily')) {
+            detectedCategory = 'Stocks';
+          } else if (url.includes('digital_currency')) {
+            detectedCategory = 'Crypto';
+          } else if (url.includes('fx_daily')) {
+            detectedCategory = 'Forex';
+          } else if (url.includes('corn') || url.includes('wheat') || url.includes('wti') || url.includes('brent') || url.includes('gold') || url.includes('silver')) {
+            detectedCategory = 'Commodities';
+          } else if (url.includes('gdp') || url.includes('inflation') || url.includes('unemployment') || url.includes('cpi')) {
+            detectedCategory = 'Economics';
+          }
+        }
+
         setRealIndexData((prev: any) => ({
           ...prev,
           name: indexData.name, // This will be "Corn" if parsed from sourceUrl, or "Custom Index 15" if not
           symbol: indexData.symbol,
           avatar: avatar,
           color: color,
-          category: indexData.category || 'Custom',
+          category: detectedCategory,
           description: `${indexData.name} • ${indexData.isActive ? 'Active' : 'Inactive'} • Oracle: ${indexData.oracleType === 0 ? 'Mock' : 'Chainlink'}`,
           sourceUrl: indexData.sourceUrl,
           isActive: indexData.isActive,
@@ -694,23 +710,206 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
     }
   }, [blockchainIndexId, isAvailableOnBlockchain]);
 
+  // Helper function to format values based on data type
+  const getFormattedValue = (value: number, symbol: string, category: string, indexId: string): string => {
+    // Economic indicators should show as percentages or rates
+    if (category === 'Economics' || 
+        symbol?.match(/UNEMPLOYMENT|INFLATION|CPI|FEDERAL_FUNDS_RATE|TREASURY_YIELD|GDP|RATE/i) ||
+        indexId?.match(/unemployment|inflation|cpi|federal|treasury|gdp|rate/i)) {
+      
+      // Special formatting for different economic indicators
+      if (symbol?.match(/GDP|REAL_GDP/i) || indexId?.match(/gdp/i)) {
+        // GDP in trillions
+        return value >= 1000 ? `$${(value / 1000).toFixed(1)}T` : `$${value.toFixed(0)}B`;
+      } else if (symbol?.match(/UNEMPLOYMENT|INFLATION|FEDERAL_FUNDS_RATE|TREASURY_YIELD|CPI/i) ||
+                 indexId?.match(/unemployment|inflation|federal|treasury|cpi/i)) {
+        // Rates and percentages
+        return `${value.toFixed(2)}%`;
+      }
+    }
+    
+    // Forex pairs should show with more decimal places
+    if (category === 'Forex' || symbol?.match(/USD|EUR|GBP|JPY/i)) {
+      return value.toFixed(4);
+    }
+    
+    // Crypto should show with appropriate decimal places
+    if (category === 'Crypto' || symbol?.match(/BTC|ETH|1INCH/i)) {
+      return value >= 1000 ? 
+        `$${(value / 1000).toFixed(1)}K` :
+        value >= 1 ?
+        `$${value.toFixed(2)}` :
+        `$${value.toFixed(6)}`;
+    }
+    
+    // Commodities - format based on typical ranges
+    if (category === 'Commodities' || symbol?.match(/CORN|WHEAT|WTI|BRENT|GOLD|SILVER|COPPER|NATURAL_GAS/i)) {
+      if (symbol?.match(/CORN|WHEAT/i)) {
+        return `$${value.toFixed(2)}/bu`; // Per bushel
+      } else if (symbol?.match(/WTI|BRENT/i)) {
+        return `$${value.toFixed(2)}/bbl`; // Per barrel
+      } else if (symbol?.match(/GOLD|SILVER|COPPER/i)) {
+        return `$${value >= 1000 ? (value / 1000).toFixed(1) + 'K' : value.toFixed(2)}/oz`;
+      } else if (symbol?.match(/NATURAL_GAS/i)) {
+        return `$${value.toFixed(2)}/MMBtu`;
+      }
+      return `$${value.toFixed(2)}`;
+    }
+    
+    // Default stock/ETF formatting
+    return value >= 1000 ? 
+      `$${(value / 1000).toFixed(1)}K` :
+      value >= 1 ?
+      `$${value.toFixed(2)}` :
+      `$${value.toFixed(4)}`;
+  };
+
   // Load current price from Alpha Vantage (prioritized) or blockchain
   const loadCurrentPrice = async () => {
     try {
-      const apiKey = process.env.NEXT_PUBLIC_ALPHAVANTAGE || "123";
       let currentPrice: number | null = null;
       let priceChange: string | null = null;
       let isPositive = true;
 
-      // Priority 1: Try Alpha Vantage using blockchain sourceUrl
-      if (blockchainIndex && (blockchainIndex as any).sourceUrl && (blockchainIndex as any).sourceUrl.includes('alphavantage.co')) {
+      // PRIORITY 1: Handle predefined indices directly using smart routing 
+      let symbol = index.symbol;
+      const category = index.category;
+      
+      // Extract correct symbol from index data
+      if (index.id.includes('_STOCK')) {
+        // For stock indices like "amzn_stock", extract "AMZN"
+        symbol = index.id.split('_')[0].toUpperCase();
+      } else if (index.symbol && index.symbol.includes('STOCK')) {
+        // For symbols like "AMZNSTOCK", extract "AMZN"
+        symbol = index.symbol.replace(/STOCK$/i, '');
+      }
+      
+      console.log(`🔍 Symbol extraction: ${index.id} -> ${index.symbol} -> ${symbol}`);
+      
+      if (symbol && (category || index.id.includes('_STOCK') || index.id.includes('_'))) {
+        try {
+          console.log(`🎯 SMART PRICE LOADING: ${symbol} (${category})`);
+          
+          // Use the same smart routing logic as elsewhere
+          if (category === 'Stocks' || index.id.includes('_STOCK')) {
+            // Stock data via TIME_SERIES_DAILY
+            const apiResponse = await fetch(`/api/alphavantage?function=TIME_SERIES_DAILY&symbol=${symbol}&outputsize=compact`);
+            const stockData = await apiResponse.json();
+            
+            if (apiResponse.ok && stockData?.['Time Series (Daily)']) {
+              const timeSeries = stockData['Time Series (Daily)'];
+              const dates = Object.keys(timeSeries).sort().reverse();
+              
+              if (dates.length > 0) {
+                const latestData = timeSeries[dates[0]];
+                currentPrice = parseFloat(latestData['4. close']);
+                console.log(`💰 STOCK PRICE: ${symbol} = $${currentPrice}`);
+                
+                if (dates.length > 1) {
+                  const prevData = timeSeries[dates[1]];
+                  const prevPrice = parseFloat(prevData['4. close']);
+                  if (prevPrice) {
+                    priceChange = ((currentPrice - prevPrice) / prevPrice * 100).toFixed(2);
+                    isPositive = currentPrice >= prevPrice;
+                  }
+                }
+              }
+            }
+          } else if (category === 'Crypto' || symbol.match(/BTC|ETH|1INCH/i)) {
+            // Crypto data via DIGITAL_CURRENCY_DAILY
+            const apiResponse = await fetch(`/api/alphavantage?function=DIGITAL_CURRENCY_DAILY&symbol=${symbol}&market=USD`);
+            const cryptoData = await apiResponse.json();
+            
+            if (apiResponse.ok && cryptoData?.data && cryptoData.data.length > 0) {
+              currentPrice = Number(cryptoData.data[0].close);
+              console.log(`💰 CRYPTO PRICE: ${symbol} = $${currentPrice}`);
+              
+              if (cryptoData.data.length > 1) {
+                const prevPrice = Number(cryptoData.data[1].close);
+                if (prevPrice) {
+                  priceChange = ((currentPrice - prevPrice) / prevPrice * 100).toFixed(2);
+                  isPositive = currentPrice >= prevPrice;
+                }
+              }
+            }
+          } else if (category === 'Forex' || symbol.match(/USD|EUR|GBP/i)) {
+            // Forex data via FX_DAILY
+            const apiResponse = await fetch(`/api/alphavantage?function=FX_DAILY&from_symbol=${symbol.slice(0,3)}&to_symbol=${symbol.slice(3,6) || 'USD'}`);
+            const fxData = await apiResponse.json();
+            
+            if (apiResponse.ok && fxData?.data && fxData.data.length > 0) {
+              currentPrice = Number(fxData.data[0].close);
+              console.log(`💰 FOREX PRICE: ${symbol} = $${currentPrice}`);
+              
+              if (fxData.data.length > 1) {
+                const prevPrice = Number(fxData.data[1].close);
+                if (prevPrice) {
+                  priceChange = ((currentPrice - prevPrice) / prevPrice * 100).toFixed(2);
+                  isPositive = currentPrice >= prevPrice;
+                }
+              }
+            }
+          } else if (category === 'Commodities' || symbol.match(/CORN|WHEAT|WTI|BRENT|GOLD|SILVER|COPPER|NATURAL_GAS/i)) {
+            // Commodity data - map symbols to correct function names  
+            let functionName = symbol.toUpperCase();
+            if (symbol.match(/NATURAL_GAS/i)) functionName = 'NATURAL_GAS';
+            else if (symbol.match(/WTI/i)) functionName = 'WTI';
+            else if (symbol.match(/BRENT/i)) functionName = 'BRENT';
+            
+            const apiResponse = await fetch(`/api/alphavantage?function=${functionName}`);
+            const commodityData = await apiResponse.json();
+            
+            if (apiResponse.ok && commodityData?.data && commodityData.data.length > 0) {
+              currentPrice = Number(commodityData.data[0]?.value || commodityData.data[0]?.close);
+              console.log(`💰 COMMODITY PRICE: ${symbol} = $${currentPrice}`);
+              
+              if (commodityData.data.length > 1) {
+                const prevPrice = Number(commodityData.data[1]?.value || commodityData.data[1]?.close);
+                if (prevPrice) {
+                  priceChange = ((currentPrice - prevPrice) / prevPrice * 100).toFixed(2);
+                  isPositive = currentPrice >= prevPrice;
+                }
+              }
+            }
+          } else if (category === 'Economics' || symbol.match(/GDP|INFLATION|UNEMPLOYMENT|CPI|FEDERAL|TREASURY/i)) {
+            // Economic indicators - map symbols to correct function names
+            let functionName = symbol.toUpperCase();
+            if (symbol.match(/UNEMPLOYMENT/i)) functionName = 'UNEMPLOYMENT';
+            else if (symbol.match(/INFLATION|CPI/i)) functionName = 'CPI';
+            else if (symbol.match(/GDP|REAL_GDP/i)) functionName = 'REAL_GDP';
+            else if (symbol.match(/FEDERAL_FUNDS_RATE|FEDERAL/i)) functionName = 'FEDERAL_FUNDS_RATE';
+            else if (symbol.match(/TREASURY_YIELD|TREASURY/i)) functionName = 'TREASURY_YIELD';
+            
+            const apiResponse = await fetch(`/api/alphavantage?function=${functionName}`);
+            const economicData = await apiResponse.json();
+            
+            if (apiResponse.ok && economicData?.data && economicData.data.length > 0) {
+              currentPrice = Number(economicData.data[0].value);
+              console.log(`💰 ECONOMIC PRICE: ${symbol} = ${currentPrice}`);
+              
+              if (economicData.data.length > 1) {
+                const prevPrice = Number(economicData.data[1].value);
+                if (prevPrice) {
+                  priceChange = ((currentPrice - prevPrice) / prevPrice * 100).toFixed(2);
+                  isPositive = currentPrice >= prevPrice;
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.error(`❌ Smart price loading failed for ${symbol}:`, error);
+        }
+      }
+
+      // PRIORITY 2: Try Alpha Vantage using blockchain sourceUrl (for custom indices)
+      if (currentPrice === null && blockchainIndex && (blockchainIndex as any).sourceUrl && (blockchainIndex as any).sourceUrl.includes('alphavantage.co')) {
         try {
           const url = new URL((blockchainIndex as any).sourceUrl);
           const alphaVantageFunction = url.searchParams.get('function');
           const alphaVantageSymbol = url.searchParams.get('symbol');
           
           if (alphaVantageFunction && alphaVantageSymbol) {
-            const alphaVantageService = new AlphaVantageService({ apiKey });
+            const alphaVantageService = new AlphaVantageService({ apiKey: process.env.NEXT_PUBLIC_ALPHAVANTAGE || "123" });
             
             // Handle different Alpha Vantage functions
             if (alphaVantageFunction === 'CORN' && alphaVantageSymbol === 'WTI') {
@@ -733,10 +932,11 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
               }
             } else if (alphaVantageFunction === 'GLOBAL_QUOTE') {
               const quoteData = await (alphaVantageService as any).getGlobalQuote(alphaVantageSymbol);
-              if (quoteData) {
-                currentPrice = parseFloat(quoteData.price);
-                priceChange = quoteData.changePercent;
-                isPositive = !quoteData.changePercent.startsWith('-');
+              if (quoteData && quoteData['Global Quote']) {
+                const quote = quoteData['Global Quote'];
+                currentPrice = parseFloat(quote['05. price']);
+                priceChange = quote['10. change percent'].replace('%', '');
+                isPositive = !quote['10. change percent'].startsWith('-');
               }
             } else if (alphaVantageFunction === 'DIGITAL_CURRENCY_DAILY') {
               const cryptoData = await alphaVantageService.getCryptoTimeSeries(alphaVantageSymbol);
@@ -781,10 +981,10 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
               
               // Set price from parsed data
               if (parsedData && parsedData.length > 0) {
-                currentPrice = Number(parsedData[0]?.value || parsedData[0]?.close);
-                if (parsedData.length > 1) {
-                  const prevPrice = Number(parsedData[1]?.value || parsedData[1]?.close);
-                  if (prevPrice && currentPrice) {
+                currentPrice = Number(parsedData[0]?.close || parsedData[0]?.value);
+                if (parsedData.length > 1 && currentPrice) {
+                  const prevPrice = Number(parsedData[1]?.close || parsedData[1]?.value);
+                  if (prevPrice) {
                     priceChange = ((currentPrice - prevPrice) / prevPrice * 100).toFixed(2);
                     isPositive = currentPrice >= prevPrice;
                   }
@@ -809,23 +1009,34 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
                 parsedData = AlphaVantageService.parseTimeSeriesData(commodityResponse);
               }
             } else {
-              // Fallback to stock data
-              console.log(`📈 Fallback: fetching stock data for: ${alphaVantageSymbol} via cached API`);
+              // Fallback to stock data - DIRECT FIX for stock prices
+              console.log(`📈 DIRECT FIX: fetching stock data for: ${alphaVantageSymbol}`);
               const apiResponse = await fetch(`/api/alphavantage?function=TIME_SERIES_DAILY&symbol=${alphaVantageSymbol}&outputsize=compact`);
               const stockData = await apiResponse.json();
-              if (!apiResponse.ok) throw new Error((stockData as any)?.error || 'Failed to fetch stock data');
-              const parsedData = AlphaVantageService.parseTimeSeriesData(stockData);
               
-              // Set price from parsed data
-              if (parsedData && parsedData.length > 0) {
-                currentPrice = Number(parsedData[0]?.value || parsedData[0]?.close);
-                if (parsedData.length > 1) {
-                  const prevPrice = Number(parsedData[1]?.value || parsedData[1]?.close);
-                  if (prevPrice && currentPrice) {
-                    priceChange = ((currentPrice - prevPrice) / prevPrice * 100).toFixed(2);
-                    isPositive = currentPrice >= prevPrice;
+              if (apiResponse.ok && stockData && stockData['Time Series (Daily)']) {
+                // Direct extraction - bypass parsing complexity
+                const timeSeries = stockData['Time Series (Daily)'];
+                const dates = Object.keys(timeSeries).sort().reverse(); // Most recent first
+                
+                if (dates.length > 0) {
+                  const latestData = timeSeries[dates[0]];
+                  currentPrice = parseFloat(latestData['4. close']);
+                  console.log(`💰 DIRECT: Set currentPrice to ${currentPrice} from ${dates[0]}`);
+                  
+                  if (dates.length > 1) {
+                    const prevData = timeSeries[dates[1]];
+                    const prevPrice = parseFloat(prevData['4. close']);
+                    if (prevPrice) {
+                      priceChange = ((currentPrice - prevPrice) / prevPrice * 100).toFixed(2);
+                      isPositive = currentPrice >= prevPrice;
+                    }
                   }
+                } else {
+                  console.warn(`⚠️ No time series data for ${alphaVantageSymbol}`);
                 }
+              } else {
+                console.error(`❌ Failed to fetch stock data for ${alphaVantageSymbol}`, stockData);
               }
             }
           }
@@ -834,7 +1045,38 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
         }
       }
 
-      // Priority 2: Fallback to blockchain value
+      // Priority 2: Handle predefined stock indices directly 
+      if (currentPrice === null && index.symbol && (index.category === 'Stocks' || index.id.includes('_STOCK'))) {
+        try {
+          console.log(`💪 DIRECT STOCK FETCH: ${index.symbol}`);
+          const apiResponse = await fetch(`/api/alphavantage?function=TIME_SERIES_DAILY&symbol=${index.symbol}&outputsize=compact`);
+          const stockData = await apiResponse.json();
+          
+          if (apiResponse.ok && stockData && stockData['Time Series (Daily)']) {
+            const timeSeries = stockData['Time Series (Daily)'];
+            const dates = Object.keys(timeSeries).sort().reverse(); // Most recent first
+            
+            if (dates.length > 0) {
+              const latestData = timeSeries[dates[0]];
+              currentPrice = parseFloat(latestData['4. close']);
+              console.log(`💰 STOCK PRICE SET: ${index.symbol} = $${currentPrice}`);
+              
+              if (dates.length > 1) {
+                const prevData = timeSeries[dates[1]];
+                const prevPrice = parseFloat(prevData['4. close']);
+                if (prevPrice) {
+                  priceChange = ((currentPrice - prevPrice) / prevPrice * 100).toFixed(2);
+                  isPositive = currentPrice >= prevPrice;
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.error(`❌ Direct stock fetch failed for ${index.symbol}:`, error);
+        }
+      }
+
+      // Priority 3: Fallback to blockchain value
       if (currentPrice === null && blockchainIndex && blockchainIndex.value) {
         currentPrice = Number(blockchainIndex.value);
         // For blockchain data, we don't have historical data for change calculation
@@ -848,15 +1090,17 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
           price: currentPrice,
           valueLabel: blockchainIndexId !== null 
             ? formatIndexValueForDisplay(blockchainIndexId, currentPrice!)
-            : currentPrice! >= 1000 ? 
-              `$${(currentPrice! / 1000).toFixed(1)}K` :
-              currentPrice! >= 1 ?
-              `$${currentPrice!.toFixed(2)}` :
-              `$${currentPrice!.toFixed(4)}`,
-          change: priceChange ? 
-            (isPositive ? `+${priceChange}%` : `${priceChange}%`) : 
-            'N/A',
-          isPositive: isPositive
+            : getFormattedValue(currentPrice!, symbol, category, index.id)
+        }));
+      } else {
+        // Fallback to ensure we always show some price value
+        const fallbackPrice = blockchainIndex?.value ? Number(blockchainIndex.value) : 100;
+        setRealIndexData((prev: any) => ({
+          ...prev,
+          price: fallbackPrice,
+          valueLabel: blockchainIndexId !== null 
+            ? formatIndexValueForDisplay(blockchainIndexId, fallbackPrice)
+            : getFormattedValue(fallbackPrice, symbol, category, index.id)
         }));
       }
 
@@ -884,48 +1128,50 @@ export function IndexDetailClient({ indexData: index }: IndexDetailClientProps) 
 
   // Load historical chart data
   const loadChartData = async () => {
-    // Use blockchain index sourceUrl if available, otherwise fallback to symbol mapping
+    // Always start with smart routing for all indices
     let symbol = getAlphaVantageSymbol(index.id);
     let useRealAlphaVantageData = false;
     let alphaVantageFunction = null;
     let alphaVantageSymbol = null;
     
-    if (blockchainIndex && (blockchainIndex as any).sourceUrl && (blockchainIndex as any).sourceUrl.includes('alphavantage.co')) {
+    // ALWAYS apply smart routing first - this ensures correct API calls for all data types
+    const config = getAlphaVantageConfig(symbol, index.id);
+    console.log(`🧠 Smart routing for ${index.id} - Symbol: ${symbol}, Config:`, config);
+
+    if (config.isEconomic || config.isCrypto || config.isForex || config.isCommodity || config.isIntelligence) {
+      // Use smart routing configuration for all non-stock data types
+      alphaVantageFunction = config.function;
+      alphaVantageSymbol = config.symbol || null;
+      useRealAlphaVantageData = true;
+      
+      console.log(`✅ Smart routing applied: function=${alphaVantageFunction}, symbol=${alphaVantageSymbol}`);
+      
+      // Set symbol for API calls based on data type
+      if (config.isEconomic || config.isCommodity || config.isIntelligence) {
+        // For these types, the function name IS the symbol/identifier
+        symbol = config.function;
+      } else if (config.isCrypto) {
+        symbol = config.symbol;
+      } else if (config.isForex) {
+        symbol = `${config.from_currency}${config.to_currency}`;
+      }
+    } else if (blockchainIndex && (blockchainIndex as any).sourceUrl && (blockchainIndex as any).sourceUrl.includes('alphavantage.co')) {
+      // Only fallback to blockchain sourceUrl for stocks
       try {
         const url = new URL((blockchainIndex as any).sourceUrl);
         const originalFunction = url.searchParams.get('function');
         const originalSymbol = url.searchParams.get('symbol');
         
-        // Use smart routing to override old blockchain mappings
-        const config = getAlphaVantageConfig(symbol, index.id);
-        console.log(`🧠 Smart routing override for blockchain index - Original: ${originalFunction}/${originalSymbol}, New config:`, config);
+        console.log(`📋 Using blockchain sourceUrl for stock: ${originalFunction}/${originalSymbol}`);
         
-        if (config.isEconomic || config.isCrypto || config.isForex || config.isCommodity || config.isIntelligence) {
-          // Use smart routing configuration
-          alphaVantageFunction = config.function;
-          alphaVantageSymbol = config.symbol || null;
-          useRealAlphaVantageData = true;
-          
-          // Set symbol for API calls based on data type
-          if (config.isEconomic || config.isCommodity || config.isIntelligence) {
-            // For these types, the function name IS the symbol/identifier
-            symbol = config.function;
-          } else if (config.isCrypto) {
-            symbol = config.symbol;
-          } else if (config.isForex) {
-            symbol = `${config.from_currency}${config.to_currency}`;
-          }
-        } else {
-          // Fallback to original blockchain sourceUrl for stocks
-          alphaVantageFunction = originalFunction;
-          alphaVantageSymbol = originalSymbol;
-          useRealAlphaVantageData = true;
-          
-          if (originalSymbol) {
-            symbol = originalSymbol;
-          } else if (originalFunction) {
-            symbol = originalFunction;
-          }
+        alphaVantageFunction = originalFunction;
+        alphaVantageSymbol = originalSymbol;
+        useRealAlphaVantageData = true;
+        
+        if (originalSymbol) {
+          symbol = originalSymbol;
+        } else if (originalFunction) {
+          symbol = originalFunction;
         }
         
       } catch (error) {
@@ -1772,13 +2018,15 @@ This matches the backend test-index-order-creator.js values exactly!`);
                 </CardContent>
               </Card>
               
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-sm text-gray-500">Category</div>
-                  <div className="text-2xl font-bold text-blue-600">{realIndexData.category}</div>
-                  <div className="text-sm text-gray-500">{realIndexData.provider}</div>
-                </CardContent>
-              </Card>
+              {realIndexData.category && (
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="text-sm text-gray-500">Category</div>
+                    <div className="text-2xl font-bold text-blue-600">{realIndexData.category}</div>
+                    <div className="text-sm text-gray-500">{realIndexData.provider}</div>
+                  </CardContent>
+                </Card>
+              )}
               
               <Card>
                 <CardContent className="p-4">
