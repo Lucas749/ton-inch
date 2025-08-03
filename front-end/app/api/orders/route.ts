@@ -1107,61 +1107,143 @@ export async function POST(request: NextRequest) {
       }
 
     } else if (action === 'create-and-submit-order') {
-      // Use pre-created order object (no recreation)
+      // EXACT BACKEND APPROACH: Create, sign, and submit in one go
       const { 
-        completeOrder,
+        fromToken, 
+        toToken, 
+        amount, 
+        expectedAmount, 
+        condition, 
+        expirationHours, 
+        walletAddress, 
         oneInchApiKey,
         signature 
       } = body;
 
-      if (!completeOrder || !oneInchApiKey || !signature) {
+      if (!fromToken || !toToken || !amount || !expectedAmount || !condition || !walletAddress || !oneInchApiKey || !signature) {
         return NextResponse.json({ 
-          error: 'Missing required parameters: completeOrder, oneInchApiKey, signature' 
+          error: 'Missing required parameters for create-and-submit-order' 
         }, { status: 400 });
       }
 
       try {
-        console.log('🚀 USING PRE-CREATED ORDER: No recreation, exact same object');
+        console.log('🚀 Creating Index-Based Limit Order (EXACT BACKEND APPROACH)');
+        console.log('==============================================================');
         
-        // Initialize SDK
+        // Initialize SDK (exact same as backend)
         const sdk = new Sdk({
           authKey: oneInchApiKey,
           networkId: CONFIG.CHAIN_ID,
           httpConnector: new FetchProviderConnector()
         });
 
-        // Reconstruct the exact same order object using stored data
-        const order = new LimitOrder({
-          makerAsset: new Address(completeOrder.makerAsset),
-          takerAsset: new Address(completeOrder.takerAsset),
-          makingAmount: BigInt(completeOrder.makingAmount),
-          takingAmount: BigInt(completeOrder.takingAmount),
-          maker: new Address(completeOrder.maker),
-          salt: BigInt(completeOrder.salt),
-          receiver: new Address(completeOrder.receiver),
-          extension: completeOrder.extension
-        }, completeOrder.makerTraits);
+        // Get tokens (exact same as backend)
+        const fromTokenInfo = TOKENS.find(t => t.address.toLowerCase() === fromToken.toLowerCase());
+        const toTokenInfo = TOKENS.find(t => t.address.toLowerCase() === toToken.toLowerCase());
 
-        console.log(`✅ Using pre-created order: ${order.getOrderHash()}`);
-        console.log('📤 Submitting to 1inch with exact same order object...');
+        if (!fromTokenInfo || !toTokenInfo) {
+          throw new Error('Token not found');
+        }
 
-        // Submit order using the exact same order object that was signed
-        const submitResult = await sdk.submitOrder(order, signature);
-        
-        console.log('✅ Order submitted successfully via backend approach!');
-        console.log('📋 Submit result:', submitResult);
+        console.log(`📊 Trading: ${amount} ${fromTokenInfo.symbol} → ${expectedAmount} ${toTokenInfo.symbol}`);
+        console.log(`📋 Condition: ${condition.description}`);
 
-        return NextResponse.json({
-          success: true,
+        // Calculate amounts (exact same as backend)
+        const makingAmount = BigInt(Math.floor(parseFloat(amount) * Math.pow(10, fromTokenInfo.decimals)));
+        const takingAmount = BigInt(Math.floor(parseFloat(expectedAmount) * Math.pow(10, toTokenInfo.decimals)));
+
+        // Create index predicate (exact same as backend)
+        console.log('🔮 Creating index predicate...');
+        const predicate = new Address(INDEX_ORACLE_ADDRESS).call(
+          'b4fed844', // checkCondition selector
+          condition.indexId.toString().padStart(64, '0'),
+          condition.operator.toString().padStart(64, '0'),
+          condition.threshold.toString().padStart(64, '0')
+        );
+
+        // Create extension with predicate (exact same as backend)
+        const extension = new ExtensionBuilder()
+          .withPredicate(predicate)
+          .build();
+        console.log('✅ Extension created with predicate');
+
+        // Setup timing (exact same as backend)
+        const expirationHours_final = expirationHours || 24;
+        const expiration = BigInt(Math.floor(Date.now() / 1000) + (expirationHours_final * 3600));
+        const UINT_40_MAX = (BigInt(1) << BigInt(40)) - BigInt(1);
+
+        // Create MakerTraits (exact same as backend)
+        const makerTraits = MakerTraits.default()
+          .withExpiration(expiration)
+          .withNonce(randBigInt(UINT_40_MAX))
+          .allowPartialFills()
+          .allowMultipleFills()
+          .withExtension();
+
+        console.log('🔧 Creating order...');
+
+        // Create order (exact same as backend - let SDK handle salt)
+        const order = await sdk.createOrder({
+          makerAsset: new Address(fromTokenInfo.address),
+          takerAsset: new Address(toTokenInfo.address),
+          makingAmount: makingAmount,
+          takingAmount: takingAmount,
+          maker: new Address(walletAddress),
+          extension: extension.encode()
+        }, makerTraits);
+
+        console.log(`✅ Order created: ${order.getOrderHash()}`);
+
+        // Submit order (exact same as backend)
+        console.log('📤 Submitting to 1inch...');
+        let submitResult = null;
+        let submitError = null;
+
+        try {
+          submitResult = await sdk.submitOrder(order, signature);
+          console.log('✅ Order submitted successfully!');
+        } catch (error: any) {
+          submitError = error.message;
+          console.log(`⚠️ Submit failed: ${error.message}`);
+        }
+
+        // Return comprehensive result (exact same as backend)
+        const result = {
+          success: submitResult !== null,
           orderHash: order.getOrderHash(),
-          message: 'Order created and submitted successfully using backend approach',
-          submitResult,
+          order: {
+            fromToken: fromTokenInfo.symbol,
+            toToken: toTokenInfo.symbol,
+            amount: amount,
+            expectedAmount: expectedAmount,
+            condition: condition.description,
+            expiration: new Date(Number(expiration) * 1000).toISOString()
+          },
+          condition: {
+            index: INDICES[Object.keys(INDICES).find(key => INDICES[key].id === condition.indexId)],
+            operator: condition.operator,
+            threshold: condition.threshold,
+            currentValue: INDICES[Object.keys(INDICES).find(key => INDICES[key].id === condition.indexId)]?.currentValue
+          },
           submission: {
-            submitted: true,
-            method: 'Backend SDK approach',
-            result: submitResult
+            submitted: submitResult !== null,
+            error: submitError
+          },
+          technical: {
+            orderHash: order.getOrderHash(),
+            salt: order.salt.toString(),
+            signature: signature,
+            predicate: predicate.substring(0, 40) + '...'
           }
-        }, {
+        };
+
+        console.log('\n🎯 ORDER CREATION COMPLETE');
+        console.log('===========================');
+        console.log(`Status: ${result.success ? 'SUCCESS' : 'CREATED (submission failed)'}`);
+        console.log(`Hash: ${result.orderHash}`);
+        console.log(`Condition: ${result.condition.index?.name} ${condition.operator === 'gt' ? '>' : condition.operator === 'lt' ? '<' : condition.operator} ${condition.threshold}`);
+
+        return NextResponse.json(result, {
           headers: {
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
@@ -1170,10 +1252,10 @@ export async function POST(request: NextRequest) {
         });
 
       } catch (error: any) {
-        console.error('❌ Backend approach failed:', error);
+        console.error('❌ Order creation failed:', error);
         return NextResponse.json({
-          error: 'Failed to create and submit order using backend approach',
-          message: error.message || 'Backend approach error',
+          error: 'Failed to create and submit order',
+          message: error.message || 'Order creation error',
           details: error.toString()
         }, { status: 500 });
       }
