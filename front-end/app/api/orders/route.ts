@@ -620,7 +620,7 @@ async function createIndexBasedOrderStandalone(params: any) {
         receiver: userWalletAddress,
         expiration: expiration.toString(),
         nonce: nonce.toString(),
-        condition: params.condition // Store condition parameters to recreate extension properly
+        extension: extension ? extension.encode() : null // Store the EXACT encoded extension used in order creation
       }
     };
     
@@ -945,19 +945,13 @@ export async function POST(request: NextRequest) {
           .allowPartialFills()
           .allowMultipleFills();
 
-        // Recreate extension from condition parameters (for proper salt-extension alignment)
-        let extension = null;
-        if (orderData.condition) {
-          console.log('🔮 Recreating extension from condition parameters...');
-          const predicate = createIndexPredicate(orderData.condition);
-          extension = new ExtensionBuilder()
-            .withPredicate(predicate)
-            .build();
+        // Use the EXACT encoded extension from order creation (no recreation needed)
+        if (orderData.extension) {
           makerTraits.withExtension();
-          console.log('✅ Extension recreated');
+          console.log('✅ Using stored encoded extension');
         }
 
-        // Recreate the EXACT order that was signed (using original salt)
+        // Recreate the EXACT order that was signed (using original salt and extension)
         const orderParams = {
           makerAsset: new Address(orderData.makerAsset),
           takerAsset: new Address(orderData.takerAsset),
@@ -968,12 +962,12 @@ export async function POST(request: NextRequest) {
           receiver: new Address(orderData.receiver || orderData.maker)
         };
 
-        // Add extension if it exists (SDK will handle salt-extension alignment)
-        if (extension) {
-          (orderParams as any).extension = extension;
+        // Add the EXACT encoded extension that was used during order creation
+        if (orderData.extension) {
+          (orderParams as any).extension = orderData.extension; // Use stored encoded extension
         }
 
-        // Create LimitOrder directly with original salt instead of using sdk.createOrder()
+        // Create LimitOrder directly with original salt and extension
         const order = new LimitOrder(orderParams, makerTraits);
 
         console.log('✅ Order object recreated for submission');
