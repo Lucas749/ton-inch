@@ -6,7 +6,7 @@
 [![1inch](https://img.shields.io/badge/1inch-Limit%20Orders-orange)](https://1inch.io)
 [![Chainlink](https://img.shields.io/badge/Chainlink-Functions-red)](https://functions.chain.link)
 
-🌐 **Website**: [https://c1nch.xyz/](https://c1nch.xyz/)
+🌐 **Website**: New domain since domain got blocked:  [https://c1nchapp.vercel.app/](https://c1nchapp.vercel.app/) (Old domain [https://c1nch.xyz/](https://c1nch.xyz/))
 
 ## 🎯 What We Built
 
